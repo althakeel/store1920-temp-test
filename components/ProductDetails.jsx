@@ -3441,6 +3441,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                 onReviewAdded={onReviewAdded}
                 showSuggestedProducts={false}
                 showMainDescription={false}
+                showOverviewSections={false}
               />
             </div>
 

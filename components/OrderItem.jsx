@@ -1,5 +1,5 @@
 'use client'
-import Image from "next/image";
+import Image from "@/components/SafeNextImage";
 import { DotIcon, Download, Printer, RefreshCw, Undo2, ChevronDown, ChevronUp } from "lucide-react";
 import { useSelector } from "react-redux";
 import Rating from "./Rating";

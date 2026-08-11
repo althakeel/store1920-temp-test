@@ -2,7 +2,7 @@
 
 **Base URL:** `https://store1920.com`  
 **API root:** `https://store1920.com/api/...`  
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-23
 
 This folder is the **full API documentation set** — from public storefront / mobile app through seller dashboard, platform admin, payments, webhooks, crons, warehouse, and integrations.
 
@@ -12,20 +12,33 @@ This folder is the **full API documentation set** — from public storefront / m
 
 | # | Document | Who it’s for | Coverage |
 |---|----------|--------------|----------|
-| 0 | **[API_OVERVIEW.md](./API_OVERVIEW.md)** | Everyone | Architecture, auth modes, systems map, how pieces connect |
-| 1 | **[MOBILE_APP_API.md](./MOBILE_APP_API.md)** | Customer mobile / web shopper | Catalog, cart, checkout, COD/Stripe/Tabby/Tamara, wishlist, track order (~90 routes) |
-| 1b | **[MOBILE_HOME_PAGE_APIS.md](./MOBILE_HOME_PAGE_APIS.md)** | Mobile home screen | Same APIs as website homepage + mobile banners API |
-| 1c | **[MOBILE_FEATURES_DOCUMENTATION.md](./MOBILE_FEATURES_DOCUMENTATION.md)** | App home banners | Four banner sections, dashboard, public GETs |
-| 2 | **[STORE_DASHBOARD_API.md](./STORE_DASHBOARD_API.md)** | Seller `/store` dashboard apps | Products, orders, shipping, **Mobile Features**, marketing, team (~160+ routes) |
-| 3 | **[ADMIN_API.md](./ADMIN_API.md)** | Platform admins | Store approval, home merchandising, global coupons (~19 routes) |
-| 4 | **[WEBHOOKS_AND_CRONS.md](./WEBHOOKS_AND_CRONS.md)** | Backend / DevOps | Stripe, Tabby, Tamara, Razorpay, Waslah, crons |
-| 5 | **[ORDER_DETAILS.md](./ORDER_DETAILS.md)** | All builders | Order document fields & statuses |
-| 6 | **[WHATSAPP_INTEGRATION_API.md](./WHATSAPP_INTEGRATION_API.md)** | Messaging integrations | WhatsApp abandoned cart & order messages |
-| 7 | **[STORE1920_API_AND_ZOHO_CRM.md](./STORE1920_API_AND_ZOHO_CRM.md)** | CRM partners | Zoho CRM contact/deal sync |
-| 8 | **[warehouse-order-packing-api.md](./warehouse-order-packing-api.md)** | Warehouse Android app | Order packing APIs |
-| 9 | **[warehouse-inventory-api.md](./warehouse-inventory-api.md)** | Warehouse app | Inventory APIs |
-| 10 | **[warehouse-android-firebase-setup.md](./warehouse-android-firebase-setup.md)** | Warehouse app setup | Firebase config for warehouse |
-| 11 | **[GOOGLE_MERCHANT_CENTER_COMPLIANCE.md](./GOOGLE_MERCHANT_CENTER_COMPLIANCE.md)** | Merchant Center / Ads ops | Misrepresentation checklist + appeal prep |
+| **0** | **[STORE1920_FULL_API.md](./STORE1920_FULL_API.md)** | **Mobile + all teams** | **Master guide: home APIs, full shopper catalog, auth, links to every surface** |
+| 1 | [API_OVERVIEW.md](./API_OVERVIEW.md) | Everyone | Architecture, auth modes, systems map |
+| 2 | [MOBILE_APP_API.md](./MOBILE_APP_API.md) | Customer mobile / web shopper | Catalog, cart, checkout, COD/Stripe/Tabby/Tamara, wishlist, track (~90 routes) |
+| 2b | [MOBILE_HOME_PAGE_APIS.md](./MOBILE_HOME_PAGE_APIS.md) | Mobile home screen | Same APIs as website homepage + mobile banners |
+| 2c | [MOBILE_FEATURES_DOCUMENTATION.md](./MOBILE_FEATURES_DOCUMENTATION.md) | App home banners only | Four banner sections, dashboard, public GETs, Flutter checklist |
+| 3 | [STORE_DASHBOARD_API.md](./STORE_DASHBOARD_API.md) | Seller `/store` dashboard | Products, orders, shipping, Mobile Features, marketing (~160+ routes) |
+| 4 | [ADMIN_API.md](./ADMIN_API.md) | Platform admins | Store approval, home merchandising, coupons |
+| 5 | [WEBHOOKS_AND_CRONS.md](./WEBHOOKS_AND_CRONS.md) | Backend / DevOps | Stripe, Tabby, Tamara, Razorpay, Waslah, crons |
+| 6 | [ORDER_DETAILS.md](./ORDER_DETAILS.md) | All builders | Order document fields & statuses |
+| 7 | [AUTH_SECURITY.md](./AUTH_SECURITY.md) | Auth / security | CAPTCHA, lockout, MFA, sessions |
+| 8 | [PAYMENT_SECURITY.md](./PAYMENT_SECURITY.md) | Payments | PCI / fraud / refunds |
+| 9 | [WHATSAPP_INTEGRATION_API.md](./WHATSAPP_INTEGRATION_API.md) | Messaging | WhatsApp abandoned cart & orders |
+| 10 | [STORE1920_API_AND_ZOHO_CRM.md](./STORE1920_API_AND_ZOHO_CRM.md) | CRM | Zoho sync |
+| 11 | [warehouse-order-packing-api.md](./warehouse-order-packing-api.md) | Warehouse app | Packing |
+| 12 | [warehouse-inventory-api.md](./warehouse-inventory-api.md) | Warehouse app | Inventory |
+| 13 | [warehouse-android-firebase-setup.md](./warehouse-android-firebase-setup.md) | Warehouse setup | Firebase |
+| 14 | [GOOGLE_MERCHANT_CENTER_COMPLIANCE.md](./GOOGLE_MERCHANT_CENTER_COMPLIANCE.md) | Ads / Merchant Center | Compliance |
+
+---
+
+## Recommended reading order (mobile)
+
+1. **[STORE1920_FULL_API.md](./STORE1920_FULL_API.md)** — home call order + full shopper table  
+2. [MOBILE_HOME_PAGE_APIS.md](./MOBILE_HOME_PAGE_APIS.md) — homepage only  
+3. [MOBILE_FEATURES_DOCUMENTATION.md](./MOBILE_FEATURES_DOCUMENTATION.md) — banners only (JSON + APIs)  
+4. [MOBILE_APP_API.md](./MOBILE_APP_API.md) — checkout / cart deep dive  
+5. [ORDER_DETAILS.md](./ORDER_DETAILS.md) when building order UI  
 
 ---
 

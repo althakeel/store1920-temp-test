@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import Image from "next/image";
+import Image from "@/components/SafeNextImage";
 import {
   HeartIcon,
   ShoppingCartIcon,

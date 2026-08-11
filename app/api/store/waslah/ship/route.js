@@ -72,16 +72,21 @@ export async function POST(request) {
     if (mapped.duplicate && orderId) {
       try {
         await dbConnect();
-        orderSnapshot = await Order.findByIdAndUpdate(
-          orderId,
-          {
-            $set: {
-              'waslah.unlinkedInWaslah': true,
-              'waslah.reference': String(error?.reference || displayReference || '').replace(/^#/, '') || null,
+        const existing = await Order.findById(orderId).select('waslah.cancelledAt').lean();
+        if (existing?.waslah?.cancelledAt) {
+          orderSnapshot = existing;
+        } else {
+          orderSnapshot = await Order.findByIdAndUpdate(
+            orderId,
+            {
+              $set: {
+                'waslah.unlinkedInWaslah': true,
+                'waslah.reference': String(error?.reference || displayReference || '').replace(/^#/, '') || null,
+              },
             },
-          },
-          { new: true },
-        ).lean();
+            { new: true },
+          ).lean();
+        }
       } catch (flagError) {
         console.warn('[store/waslah/ship] Could not flag unlinked Waslah shipment:', flagError?.message);
       }

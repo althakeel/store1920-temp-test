@@ -3,12 +3,35 @@ import dbConnect from "@/lib/mongodb";
 import PersonalizedOffer from "@/models/PersonalizedOffer";
 import Product from "@/models/Product";
 
+function extractTokenFromRequest(req, paramsToken) {
+  const fromParams = String(paramsToken || "").trim();
+  if (fromParams) return fromParams;
+
+  try {
+    const { pathname, searchParams } = new URL(req.url);
+    const fromQuery = String(searchParams.get("token") || "").trim();
+    if (fromQuery) return fromQuery;
+
+    // /api/personalized-offers/validate/:token
+    const parts = pathname.split("/").filter(Boolean);
+    const validateIdx = parts.findIndex((p) => p === "validate");
+    if (validateIdx >= 0 && parts[validateIdx + 1]) {
+      return decodeURIComponent(String(parts[validateIdx + 1]).trim());
+    }
+  } catch {
+    // ignore
+  }
+
+  return "";
+}
+
 // GET: Validate and fetch offer details by token
-export async function GET(req, { params }) {
+export async function GET(req, context) {
   try {
     await dbConnect();
-    
-    const { token } = params;
+
+    const resolvedParams = context?.params ? await context.params : {};
+    const token = extractTokenFromRequest(req, resolvedParams?.token);
 
     if (!token) {
       return NextResponse.json(
@@ -34,7 +57,9 @@ export async function GET(req, { params }) {
 
     // Fetch product details
     const product = await Product.findById(offer.productId)
-      .select('_id name slug price mrp AED images description category inStock stockQuantity')
+      .select(
+        "_id name slug price mrp AED images description shortDescription category categories inStock stockQuantity sku hasVariants variants attributes hasBulkPricing bulkPricing fastDelivery allowReturn allowReplacement imageAspectRatio"
+      )
       .lean();
 
     if (!product) {
@@ -46,7 +71,8 @@ export async function GET(req, { params }) {
 
     // Calculate discounted price
     const discountAmount = (product.price * offer.discountPercent) / 100;
-    const discountedPrice = Math.round((product.price - discountAmount) * 100) / 100;
+    const discountedPrice =
+      Math.round((product.price - discountAmount) * 100) / 100;
     const savings = Math.round(discountAmount * 100) / 100;
 
     // Calculate time remaining
@@ -66,8 +92,8 @@ export async function GET(req, { params }) {
         expiresAt: offer.expiresAt,
         isActive: offer.isActive,
         isUsed: offer.isUsed,
-        timeRemaining, // milliseconds
-        notes: offer.notes
+        timeRemaining,
+        notes: offer.notes,
       },
       product: {
         id: product._id,
@@ -94,10 +120,9 @@ export async function GET(req, { params }) {
         fastDelivery: product.fastDelivery,
         allowReturn: product.allowReturn,
         allowReplacement: product.allowReplacement,
-        imageAspectRatio: product.imageAspectRatio || '1:1'
-      }
+        imageAspectRatio: product.imageAspectRatio || "1:1",
+      },
     });
-
   } catch (error) {
     console.error("Error validating offer:", error);
     return NextResponse.json(
@@ -108,11 +133,12 @@ export async function GET(req, { params }) {
 }
 
 // POST: Mark offer as used (when customer completes purchase)
-export async function POST(req, { params }) {
+export async function POST(req, context) {
   try {
     await dbConnect();
-    
-    const { token } = params;
+
+    const resolvedParams = context?.params ? await context.params : {};
+    const token = extractTokenFromRequest(req, resolvedParams?.token);
     const body = await req.json();
     const { orderId } = body;
 
@@ -126,10 +152,7 @@ export async function POST(req, { params }) {
     const offer = await PersonalizedOffer.findOne({ offerToken: token });
 
     if (!offer) {
-      return NextResponse.json(
-        { error: "Offer not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Offer not found" }, { status: 404 });
     }
 
     // Check if already used
@@ -158,9 +181,8 @@ export async function POST(req, { params }) {
 
     return NextResponse.json({
       success: true,
-      message: "Offer marked as used"
+      message: "Offer marked as used",
     });
-
   } catch (error) {
     console.error("Error marking offer as used:", error);
     return NextResponse.json(

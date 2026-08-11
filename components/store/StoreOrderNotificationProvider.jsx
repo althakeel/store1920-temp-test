@@ -82,34 +82,36 @@ function OrderToastShell({ toastInstance, title, children, onDismissAll = false 
     toast.dismiss(toastInstance.id);
   };
 
+  // Keep this as the direct toaster child (no full-width wrapper).
+  // react-hot-toast slots are left:0/right:0; a w-full wrapper blocks the page.
   return (
-    <div className="pointer-events-none flex w-full justify-center px-2">
-      <div
-        className={`${
-          toastInstance.visible ? 'animate-enter' : 'animate-leave'
-        } pointer-events-auto relative z-[9999] w-full max-w-md rounded-xl border border-emerald-200 bg-white p-4 shadow-lg`}
-      >
-        <div className="flex">
-      <div className="flex-1">
-        <p className="text-sm font-semibold text-emerald-700">{title}</p>
-        {children}
-        <StoreNavLink
-          href="/store/orders"
-          onClick={dismiss}
-          className="mt-3 inline-flex text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-        >
-          View orders →
-        </StoreNavLink>
-      </div>
-      <button
-        type="button"
-        onClick={dismiss}
-        className="ml-3 shrink-0 text-lg leading-none text-slate-400 hover:text-slate-600"
-        aria-label={onDismissAll ? 'Dismiss all order alerts' : 'Dismiss notification'}
-      >
-        ×
-      </button>
+    <div
+      className={`${
+        toastInstance.visible ? 'animate-enter' : 'animate-leave'
+      } pointer-events-auto w-[min(100vw-1.5rem,24rem)] rounded-xl border border-emerald-200 bg-white p-4 shadow-lg`}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-emerald-700">{title}</p>
+          {children}
+          <StoreNavLink
+            href="/store/orders"
+            onClick={dismiss}
+            className="mt-3 inline-flex text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+          >
+            View orders →
+          </StoreNavLink>
         </div>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="shrink-0 text-lg leading-none text-slate-400 hover:text-slate-600"
+          aria-label={onDismissAll ? 'Dismiss all order alerts' : 'Dismiss notification'}
+        >
+          ×
+        </button>
       </div>
     </div>
   );
@@ -127,6 +129,7 @@ function showNewOrderToast(order) {
   ), {
     id: STORE_ORDER_TOAST_ID,
     duration: 8000,
+    position: 'top-right',
   });
 }
 
@@ -149,6 +152,7 @@ function showBatchOrderToast(orders) {
   ), {
     id: STORE_ORDER_TOAST_ID,
     duration: 10000,
+    position: 'top-right',
   });
 }
 

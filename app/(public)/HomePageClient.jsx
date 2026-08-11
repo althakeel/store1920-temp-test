@@ -90,7 +90,7 @@ export default function HomePageClient({ initialData }) {
     secondaryBannerSlides.length > 0;
 
   return (
-    <>
+    <div className="pt-5 sm:pt-6">
       <HeroBannerSlider showcaseConfig={shopShowcaseConfig} showcaseReady />
       <div className={`${HOME_SECTION_STACK_CLASS} w-full min-w-0 max-lg:pb-0 lg:pb-8`}>
         <ShopShowcaseSection
@@ -138,6 +138,6 @@ export default function HomePageClient({ initialData }) {
           <RecommendedProducts />
         </DeferredSection>
       </div>
-    </>
+    </div>
   );
 }

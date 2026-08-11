@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import {
@@ -8,16 +9,34 @@ import {
   setStoredSessionId,
   setMfaVerified,
 } from '@/lib/authClient';
+import { isAdminEmail } from '@/lib/adminEmails';
+import { readSellerCache } from '@/lib/storeDashboardCache';
 
 const HEARTBEAT_MS = 60_000;
 
+function isDashboardPath(pathname = '') {
+  return pathname.startsWith('/store') || pathname.startsWith('/admin');
+}
+
+function isStaffAccount(user) {
+  if (!user) return false;
+  if (isAdminEmail(user.email)) return true;
+  try {
+    return Boolean(readSellerCache());
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Idle session timeout + session heartbeat.
- * Signs out when idleMs elapses without user activity, or server session is revoked.
+ * Idle session timeout + session heartbeat (customer storefront only).
+ * Store / admin dashboards keep Firebase persistence and are not force-signed-out.
  */
 export default function AuthSessionGuard() {
+  const pathname = usePathname();
   const idleTimer = useRef(null);
   const idleMsRef = useRef(30 * 60 * 1000);
+  const skipForceSignOutRef = useRef(isDashboardPath(pathname));
 
   const clearSessionLocal = useCallback(() => {
     setStoredSessionId('');
@@ -25,6 +44,8 @@ export default function AuthSessionGuard() {
   }, []);
 
   const forceSignOut = useCallback(async (reason) => {
+    if (skipForceSignOutRef.current) return;
+    if (isStaffAccount(auth.currentUser)) return;
     clearSessionLocal();
     try {
       await signOut(auth);
@@ -45,6 +66,22 @@ export default function AuthSessionGuard() {
   }, [forceSignOut]);
 
   useEffect(() => {
+    skipForceSignOutRef.current = isDashboardPath(pathname);
+    if (skipForceSignOutRef.current && idleTimer.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = null;
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (isDashboardPath(pathname)) {
+      if (idleTimer.current) {
+        clearTimeout(idleTimer.current);
+        idleTimer.current = null;
+      }
+      return undefined;
+    }
+
     let heartbeat;
     let unsub = () => {};
 
@@ -56,6 +93,12 @@ export default function AuthSessionGuard() {
     unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         if (idleTimer.current) clearTimeout(idleTimer.current);
+        return;
+      }
+
+      if (isStaffAccount(user)) {
+        if (idleTimer.current) clearTimeout(idleTimer.current);
+        if (heartbeat) clearInterval(heartbeat);
         return;
       }
 
@@ -110,7 +153,7 @@ export default function AuthSessionGuard() {
       if (idleTimer.current) clearTimeout(idleTimer.current);
       if (heartbeat) clearInterval(heartbeat);
     };
-  }, [forceSignOut, resetIdle]);
+  }, [forceSignOut, pathname, resetIdle]);
 
   return null;
 }

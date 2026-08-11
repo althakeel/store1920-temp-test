@@ -4,7 +4,7 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import Image from "next/image";
+import Image from "@/components/SafeNextImage";
 import { HeartIcon, ShoppingCartIcon, TrashIcon, StarIcon, CheckCircle2 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { addToCart } from "@/lib/features/cart/cartSlice";

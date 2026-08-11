@@ -3,11 +3,12 @@
     "AllowedHeaders": ["*"],
     "AllowedMethods": ["GET", "PUT", "HEAD", "POST"],
     "AllowedOrigins": [
-      "https://your-store-domain.com",
-      "https://www.your-store-domain.com",
-      "http://localhost:3000"
+      "https://store1920.com",
+      "https://www.store1920.com",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000"
     ],
-    "ExposeHeaders": ["ETag"],
+    "ExposeHeaders": ["ETag", "x-amz-request-id"],
     "MaxAgeSeconds": 3000
   }
 ]

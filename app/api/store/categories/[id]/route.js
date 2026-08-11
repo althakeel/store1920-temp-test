@@ -96,8 +96,17 @@ export async function PUT(req, { params }) {
         description: body?.description !== undefined
           ? (cleanDisplayText(body.description || '') || null)
           : (existingCategory.description || null),
+        descriptionAr: body?.descriptionAr !== undefined
+          ? cleanDisplayText(body.descriptionAr || '')
+          : (existingCategory.descriptionAr || ''),
         image: body?.image !== undefined ? (body.image || null) : (existingCategory.image || null),
         parentId: nextParentId,
+        metaTitle: body?.metaTitle !== undefined
+          ? cleanDisplayText(body.metaTitle || '').slice(0, 120)
+          : (existingCategory.metaTitle || ''),
+        metaDescription: body?.metaDescription !== undefined
+          ? cleanDisplayText(body.metaDescription || '').slice(0, 320)
+          : (existingCategory.metaDescription || ''),
       },
       { new: true }
     ).lean();

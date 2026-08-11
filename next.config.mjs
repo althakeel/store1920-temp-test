@@ -4,77 +4,58 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const productRedirects = require('./data/productRedirects.json');
 
-const domains = ['store1920-images.s3.ap-south-1.amazonaws.com', 'ik.imagekit.io'];
-// Allow placehold.co for demo/placeholder images
-if (!domains.includes('placehold.co')) domains.push('placehold.co');
-// Allow Flixcart CDN for category images
-if (!domains.includes('rukminim2.flixcart.com')) domains.push('rukminim2.flixcart.com');
-// Noon CDN (imported catalog product images)
-[
-    'f.nooncdn.com',
-    'k.nooncdn.com',
-    'a.nooncdn.com',
-    'z.nooncdn.com',
-    'n.nooncdn.com',
-].forEach((host) => {
-    if (!domains.includes(host)) domains.push(host);
-});
-// Store1920 media / WordPress uploads (category images, catalog imports)
-if (!domains.includes('db.store1920.com')) domains.push('db.store1920.com');
-// Amazon product image CDNs (imported / scraped catalog images)
-[
-    'm.media-amazon.com',
-    'images-na.ssl-images-amazon.com',
-    'images-eu.ssl-images-amazon.com',
-    'images-fe.ssl-images-amazon.com',
-    'ecx.images-amazon.com',
-    'images.amazon.com',
-].forEach((host) => {
-    if (!domains.includes(host)) domains.push(host);
-});
+// Keep remotePatterns compact (Next hard-caps at 50). Prefer wildcards over
+// listing every CDN host. Unknown hosts still render via SafeNextImage → <img>.
+const imageRemotePatterns = [
+    { protocol: 'https', hostname: '**.amazonaws.com', pathname: '/**' },
+    { protocol: 'https', hostname: 'ik.imagekit.io', pathname: '/**' },
+    { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
+    { protocol: 'https', hostname: '**.flixcart.com', pathname: '/**' },
+    { protocol: 'https', hostname: '**.nooncdn.com', pathname: '/**' },
+    { protocol: 'http', hostname: '**.nooncdn.com', pathname: '/**' },
+    { protocol: 'https', hostname: '**.store1920.com', pathname: '/**' },
+    { protocol: 'https', hostname: 'store1920.com', pathname: '/**' },
+    { protocol: 'https', hostname: '**.media-amazon.com', pathname: '/**' },
+    { protocol: 'https', hostname: '**.ssl-images-amazon.com', pathname: '/**' },
+    { protocol: 'https', hostname: '**.images-amazon.com', pathname: '/**' },
+    { protocol: 'https', hostname: 'images.amazon.com', pathname: '/**' },
+    { protocol: 'https', hostname: 'lh3.googleusercontent.com', pathname: '/**' },
+    // Shopify / VIP Home Gallery imports (often http)
+    { protocol: 'https', hostname: 'cdn.shopify.com', pathname: '/**' },
+    { protocol: 'http', hostname: 'cdn.shopify.com', pathname: '/**' },
+    { protocol: 'https', hostname: '**.myshopify.com', pathname: '/**' },
+    { protocol: 'http', hostname: '**.myshopify.com', pathname: '/**' },
+    { protocol: 'https', hostname: '**.viphomegallery.ae', pathname: '/**' },
+    { protocol: 'http', hostname: '**.viphomegallery.ae', pathname: '/**' },
+    { protocol: 'https', hostname: 'viphomegallery.ae', pathname: '/**' },
+    { protocol: 'http', hostname: 'viphomegallery.ae', pathname: '/**' },
+];
+
 try {
-    if (process.env.AWS_S3_PUBLIC_URL) {
-        const u = new URL(process.env.AWS_S3_PUBLIC_URL);
-        if (!domains.includes(u.hostname)) domains.push(u.hostname);
-    }
-    if (process.env.NEXT_PUBLIC_AWS_S3_PUBLIC_URL) {
-        const u2 = new URL(process.env.NEXT_PUBLIC_AWS_S3_PUBLIC_URL);
-        if (!domains.includes(u2.hostname)) domains.push(u2.hostname);
-    }
-    if (process.env.IMAGEKIT_URL_ENDPOINT) {
-        const ik = new URL(process.env.IMAGEKIT_URL_ENDPOINT);
-        if (!domains.includes(ik.hostname)) domains.push(ik.hostname);
-    }
-    if (process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT) {
-        const ik2 = new URL(process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT);
-        if (!domains.includes(ik2.hostname)) domains.push(ik2.hostname);
+    const envImageHosts = [
+        process.env.AWS_S3_PUBLIC_URL,
+        process.env.NEXT_PUBLIC_AWS_S3_PUBLIC_URL,
+        process.env.IMAGEKIT_URL_ENDPOINT,
+        process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT,
+    ];
+    for (const value of envImageHosts) {
+        if (!value) continue;
+        const { protocol, hostname } = new URL(value);
+        const proto = protocol.replace(':', '');
+        if (proto !== 'http' && proto !== 'https') continue;
+        const exists = imageRemotePatterns.some(
+            (p) => p.protocol === proto && p.hostname === hostname,
+        );
+        if (!exists && imageRemotePatterns.length < 50) {
+            imageRemotePatterns.push({ protocol: proto, hostname, pathname: '/**' });
+        }
     }
 } catch {}
-
-
-
-// Add Googleusercontent domain for images
-if (!domains.includes('lh3.googleusercontent.com')) domains.push('lh3.googleusercontent.com');
 
 const nextConfig = {
     images: {
         unoptimized: false,
-        // `domains` is deprecated but still required for Turbopack dev image allowlist in Next 16.
-        domains,
-        remotePatterns: [
-            ...domains.map((host) => ({ protocol: 'https', hostname: host, pathname: '/**' })),
-            { protocol: 'https', hostname: '*.media-amazon.com', pathname: '/**' },
-            { protocol: 'https', hostname: '*.ssl-images-amazon.com', pathname: '/**' },
-            { protocol: 'https', hostname: 'f.nooncdn.com', pathname: '/**' },
-            { protocol: 'https', hostname: 'k.nooncdn.com', pathname: '/**' },
-            { protocol: 'https', hostname: 'a.nooncdn.com', pathname: '/**' },
-            { protocol: 'https', hostname: 'z.nooncdn.com', pathname: '/**' },
-            { protocol: 'https', hostname: 'n.nooncdn.com', pathname: '/**' },
-            { protocol: 'https', hostname: '*.nooncdn.com', pathname: '/**' },
-            { protocol: 'http', hostname: 'f.nooncdn.com', pathname: '/**' },
-            { protocol: 'https', hostname: '*.store1920.com', pathname: '/**' },
-            { protocol: 'https', hostname: 'ik.imagekit.io', pathname: '/**' },
-        ],
+        remotePatterns: imageRemotePatterns,
         formats: ['image/avif', 'image/webp'],
         deviceSizes: [320, 420, 640, 768, 1024, 1280, 1536, 1920],
         imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],

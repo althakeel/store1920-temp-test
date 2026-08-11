@@ -5,6 +5,7 @@ import Product from "@/models/Product";
 import authSeller from "@/middlewares/authSeller";
 import { getAuth } from "@/lib/firebase-admin";
 import crypto from "crypto";
+import { buildCustomerSitePath } from "@/lib/appUrl";
 
 // Generate unique offer token
 function generateOfferToken() {
@@ -106,11 +107,16 @@ export async function POST(req) {
       customerEmail,
       customerPhone,
       customerName,
-      productId,
+      productId: rawProductId,
       discountPercent,
       expiresAt,
       notes
     } = body;
+
+    const productId =
+      rawProductId && typeof rawProductId === "object"
+        ? String(rawProductId._id || rawProductId.id || "").trim()
+        : String(rawProductId || "").trim();
 
     // Validation
     if (!storeId || !customerEmail || !productId || !discountPercent || !expiresAt) {
@@ -155,7 +161,7 @@ export async function POST(req) {
       customerEmail,
       customerPhone,
       customerName,
-      productId,
+      productId: String(productId),
       discountPercent,
       expiresAt: expiryDate,
       notes,
@@ -165,12 +171,14 @@ export async function POST(req) {
     // Calculate discounted price
     const discountedPrice = offer.calculateDiscountedPrice(product.price);
 
-    // Generate offer URL (slug-based, token hidden for security)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const hasProductSlug = Boolean(product.slug);
-    const offerPath = hasProductSlug ? encodeURIComponent(product.slug) : offerToken;
-    // Only expose slug in URL, never expose token in URL for security
-    const offerUrl = `${baseUrl}/offer/${offerPath}`;
+    // Customer-facing offer URL (maps store1920.store → store1920.com).
+    // Include token so the page can validate the exact offer, then it strips ?token= from the URL.
+    const productSlug = String(product.slug || "").trim();
+    const offerUrl = productSlug
+      ? buildCustomerSitePath(
+          `/offer/${encodeURIComponent(productSlug)}?token=${encodeURIComponent(offerToken)}`
+        )
+      : buildCustomerSitePath(`/offer/${offerToken}`);
 
     return NextResponse.json({
       success: true,

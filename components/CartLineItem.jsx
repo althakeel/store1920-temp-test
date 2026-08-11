@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import Image from '@/components/SafeNextImage';
 import Link from 'next/link';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import Counter from '@/components/Counter';

@@ -3,6 +3,8 @@ import CategoryPageView from '@/components/category/CategoryPageView';
 import {
   resolveCategoryByPathSegments,
   getCategoryProducts,
+  getCategoryHeaderStats,
+  CATEGORY_PRODUCTS_PAGE_SIZE,
 } from '@/lib/categoryPageData';
 import {
   buildBreadcrumbListJsonLd,
@@ -45,12 +47,19 @@ export default async function CategoryPage({ params }) {
   const resolved = await resolveCategoryByPathSegments(slug);
   if (!resolved) notFound();
 
-  const { category, chain, children } = resolved;
-  const { products, total } = await getCategoryProducts(category._id, { fetchAll: true });
+  const { category, chain, children, all = [] } = resolved;
+  const [{ products, total }, headerStats] = await Promise.all([
+    getCategoryProducts(category._id, {
+      page: 1,
+      limit: CATEGORY_PRODUCTS_PAGE_SIZE,
+      allCategories: all,
+    }),
+    getCategoryHeaderStats(category._id, { allCategories: all }),
+  ]);
   const jsonLd = buildBreadcrumbListJsonLd(chain);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -62,6 +71,7 @@ export default async function CategoryPage({ params }) {
         children={children}
         products={products}
         total={total}
+        headerStats={headerStats}
       />
     </div>
   );

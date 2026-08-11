@@ -443,8 +443,7 @@ function RichTextDescriptionEditor({
 
                             try {
                                 const token = await getAuthTokenOrThrow()
-                                const compressed = await compressImageForUpload(file)
-                                const data = await uploadStoreImage(compressed, { token })
+                                const data = await uploadStoreImage(file, { token })
 
                                 editor?.chain().focus().setImage({ src: data.url }).run()
                                 toast.success('Image uploaded!')
@@ -641,7 +640,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
         const [draggingMediaKey, setDraggingMediaKey] = useState(null);
         const [dragOverMediaKey, setDragOverMediaKey] = useState(null);
         const [productInfo, setProductInfo] = useState({
-            name: '', nameAr: '', slug: '', brand: '', brandAr: '', shortDescription: '', shortDescriptionAr: '', shortDescription2: '', shortDescription2Ar: '', specTableEnabled: false, specTableTitle: 'Product information', specTableTitleAr: 'مواصفات المنتج', specTableColumns: ['Property', 'Value'], specTableColumnsAr: ['الخاصية', 'القيمة'], specTableRows: [['', '']], specTableRowsAr: [['', '']], description: '', descriptionAr: '', AED: '', price: '', priceAr: '', AEDAr: '', category: '', sku: '', stockQuantity: 50, soldCount: 0, colors: [], sizes: [], fastDelivery: false, freeShippingEligible: false, useProductsPath: false, allowReturn: true, allowReplacement: true, reviews: [], badges: [], imageAspectRatio: '1:1', cardVideoPreviewEnabled: true, cardVideoPreviewDelaySec: 24, tags: [], seoTitle: '', seoDescription: '', seoKeywords: [], deliveredBy: '', soldBy: '', paymentInfo: ''
+            name: '', nameAr: '', slug: '', brand: '', brandAr: '', shortDescription: '', shortDescriptionAr: '', shortDescription2: '', shortDescription2Ar: '', specTableEnabled: false, specTableTitle: 'Product information', specTableTitleAr: 'مواصفات المنتج', specTableColumns: ['Property', 'Value'], specTableColumnsAr: ['الخاصية', 'القيمة'], specTableRows: [['', '']], specTableRowsAr: [['', '']], description: '', descriptionAr: '', AED: '', price: '', priceAr: '', AEDAr: '', category: '', sku: '', stockQuantity: 50, soldCount: 0, colors: [], sizes: [], fastDelivery: false, freeShippingEligible: false, useProductsPath: false, allowReturn: true, allowReplacement: true, reviews: [], badges: [], imageAspectRatio: '1:1', cardVideoPreviewEnabled: true, cardVideoPreviewDelaySec: 24, tags: [], seoTitle: '', seoDescription: '', seoKeywords: [], deliveredBy: '', soldBy: '', paymentInfo: '', hsCode: '', originCountry: '', shippingWeightKg: ''
         });
         const [tagInput, setTagInput] = useState('');
         const [seoKeywordInput, setSeoKeywordInput] = useState('');
@@ -965,6 +964,9 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 sizes: product.sizes || [],
                 fastDelivery: product.fastDelivery || false,
                 freeShippingEligible: product.freeShippingEligible || false,
+                hsCode: product.hsCode || '',
+                originCountry: product.originCountry || '',
+                shippingWeightKg: product.shippingWeightKg || '',
                 useProductsPath: product.useProductsPath || false,
                 allowReturn: product.allowReturn !== undefined ? product.allowReturn : true,
                 allowReplacement: product.allowReplacement !== undefined ? product.allowReplacement : true,
@@ -2113,6 +2115,9 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 sizes: productInfo.sizes || [],
                 fastDelivery: Boolean(productInfo.fastDelivery),
                 freeShippingEligible: Boolean(productInfo.freeShippingEligible),
+                hsCode: String(productInfo.hsCode || '').trim(),
+                originCountry: String(productInfo.originCountry || '').trim().toUpperCase(),
+                shippingWeightKg: Number(productInfo.shippingWeightKg) || 0,
                 useProductsPath: Boolean(productInfo.useProductsPath),
                 imageAspectRatio: productInfo.imageAspectRatio || '1:1',
                 cardVideoPreviewEnabled: productInfo.cardVideoPreviewEnabled !== false,
@@ -2376,6 +2381,20 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                         <label className="flex items-center gap-2 text-xs cursor-pointer group"><input type="checkbox" checked={productInfo.freeShippingEligible} onChange={(e)=> setProductInfo(p=>({...p, freeShippingEligible: e.target.checked}))} className="accent-teal-500 w-3.5 h-3.5" /><span className="text-gray-600 group-hover:text-teal-700">Free Shipping</span></label>
                         <label className="flex items-center gap-2 text-xs cursor-pointer group"><input type="checkbox" checked={productInfo.allowReturn} onChange={(e)=> setProductInfo(p=>({...p, allowReturn: e.target.checked}))} className="accent-purple-500 w-3.5 h-3.5" /><span className="text-gray-600 group-hover:text-purple-700">Return 7d</span></label>
                         <label className="flex items-center gap-2 text-xs cursor-pointer group"><input type="checkbox" checked={productInfo.allowReplacement} onChange={(e)=> setProductInfo(p=>({...p, allowReplacement: e.target.checked}))} className="accent-pink-500 w-3.5 h-3.5" /><span className="text-gray-600 group-hover:text-pink-700">Replace 7d</span></label>
+                    </div>
+                    <div className="sm:col-span-2 grid grid-cols-1 gap-3 pt-2 sm:grid-cols-3">
+                        <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Waslah HS code</label>
+                            <input name="hsCode" value={productInfo.hsCode || ''} onChange={onChangeHandler} maxLength={12} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" placeholder="620449000000" />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Origin country</label>
+                            <input name="originCountry" value={productInfo.originCountry || ''} onChange={onChangeHandler} maxLength={2} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm uppercase outline-none focus:ring-2 focus:ring-indigo-200" placeholder="CN" />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Ship weight (kg)</label>
+                            <input type="number" name="shippingWeightKg" value={productInfo.shippingWeightKg ?? ''} onChange={onChangeHandler} min="0" step="0.01" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" placeholder="0.25" />
+                        </div>
                     </div>
                   </div>
                 </FormSection>

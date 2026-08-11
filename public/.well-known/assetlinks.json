@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.quickfynd",
+      "sha256_cert_fingerprints": [
+        "85:2F:7F:BB:87:E9:FB:0B:D9:3E:21:96:24:37:88:DE:E7:9C:8B:38:E6:DB:B8:6F:89:B5:3D:7F:B7:76:3A:6D",
+        "24:30:C0:8A:26:28:98:C7:CC:5C:EB:90:CB:03:64:F4:F4:41:2D:D4:B2:98:F5:4B:B8:BC:F7:29:D0:F8:5B:39",
+        "CC:7C:87:66:32:A7:74:60:6E:ED:A9:A9:C8:F8:DC:7F:ED:12:54:2C:7F:25:65:F3:07:3A:E2:FF:13:80:F7:C2"
+      ]
+    }
+  }
+]

@@ -53,7 +53,6 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
 
   return (
     <ReduxProvider>
-      <AuthSessionGuard />
       <Suspense fallback={null}>
         <GtmPageView />
         <MetaPixel />
@@ -63,12 +62,6 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
         <>
           <TopBar initialLanguage={initialStorefrontLanguage} />
           <Navbar />
-          {!isCheckoutPage ? (
-            <div
-              className="h-3 w-full bg-white sm:h-4 lg:h-5"
-              aria-hidden="true"
-            />
-          ) : null}
         </>
       )}
       <Toaster
@@ -77,6 +70,7 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
         containerStyle={{
           top: 88,
           zIndex: 2147483000,
+          pointerEvents: 'none',
         }}
         toastOptions={{
           style: {
@@ -85,6 +79,7 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
             boxShadow: 'none',
             padding: 0,
             maxWidth: '28rem',
+            pointerEvents: 'none',
           },
         }}
       />

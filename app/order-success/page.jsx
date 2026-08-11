@@ -2,7 +2,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import { useEffect, useState, useRef } from 'react';
-import Image from 'next/image';
+import Image from '@/components/SafeNextImage';
 import Link from 'next/link';
 import {
   CheckCircle2,

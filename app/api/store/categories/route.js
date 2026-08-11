@@ -120,7 +120,7 @@ export async function POST(req) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { name, nameAr, description, descriptionAr, image, parentId } = await req.json();
+        const { name, nameAr, description, descriptionAr, image, parentId, metaTitle, metaDescription } = await req.json();
         const cleanedName = sanitizeCategoryFields({ name }).name;
         if (!cleanedName) {
             return NextResponse.json({ error: "Category name is required" }, { status: 400 });
@@ -144,7 +144,9 @@ export async function POST(req) {
             description: cleanDisplayText(description || '') || null,
             descriptionAr: cleanDisplayText(descriptionAr || ''),
             image: image || null,
-            parentId: parentId || null
+            parentId: parentId || null,
+            metaTitle: cleanDisplayText(metaTitle || '').slice(0, 120),
+            metaDescription: cleanDisplayText(metaDescription || '').slice(0, 320),
         });
 
         invalidateCategoryCaches();

@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/useAuth";
 import dynamic from "next/dynamic";
 import Script from "next/script";
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/SafeNextImage";
 import BnplLogo from "@/components/BnplLogo";
 import { useStorefrontI18n } from "@/lib/useStorefrontI18n";
 import { useStorefrontMarket } from "@/lib/useStorefrontMarket";

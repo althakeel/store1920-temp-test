@@ -8,6 +8,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { auth } from '../lib/firebase';
 import { getAuth } from "firebase/auth";
 import Image from 'next/image';
+import SafeNextImage from '@/components/SafeNextImage';
 import axios from "axios";
 import toast from "react-hot-toast";
 import WalletIcon from '@/assets/icons/wallet.png';
@@ -201,15 +202,7 @@ const Navbar = () => {
       ? 'text-white hover:bg-white/12'
       : 'text-gray-800 hover:bg-gray-100';
 
-    const accountIcon = signedIn && firebaseUser?.photoURL ? (
-      <Image
-        src={firebaseUser.photoURL}
-        alt=""
-        width={28}
-        height={28}
-        className="h-7 w-7 rounded-full object-cover"
-      />
-    ) : (
+    const accountIcon = (
       <User size={22} strokeWidth={1.85} aria-hidden="true" />
     );
 
@@ -255,7 +248,7 @@ const Navbar = () => {
       <button
         type="button"
         onClick={onClick}
-        className={`group inline-flex max-w-[128px] items-center gap-2 rounded-md px-1 py-1 text-left transition xl:max-w-[210px] xl:gap-2.5 ${shellClass} ${className}`.trim()}
+        className={`group inline-flex max-w-[148px] items-center gap-2 rounded-md px-1 py-1 text-left transition xl:max-w-[168px] xl:gap-2.5 ${shellClass} ${className}`.trim()}
         aria-label={signedIn ? (storefrontWalletEnabled && walletCoins > 0 ? `Wallet balance ${formatWalletAmount(walletCoins)}` : t('navbar.ordersAndAccount')) : t('navbar.signInRegister')}
         aria-haspopup="true"
       >
@@ -1156,7 +1149,7 @@ const Navbar = () => {
           >
             <div className="relative h-9 w-9 overflow-hidden rounded-lg bg-gray-100">
               {getProductThumbnailUrl(product, { fallback: '' }) ? (
-                <Image
+                <SafeNextImage
                   src={getProductThumbnailUrl(product)}
                   alt={product.name || 'Product'}
                   fill

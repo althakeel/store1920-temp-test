@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Filter, X } from 'lucide-react';
+import { Filter, Loader2, X } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
 import ProductFilterSidebar from '@/components/ProductFilterSidebar';
 import { decodeHtmlEntities } from '@/lib/displayText';
 import { PRODUCT_CARD_GRID_CLASS_5 } from '@/lib/storefrontCarousel';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
+
+const CATEGORY_PRODUCTS_PAGE_SIZE = 100;
 function applyProductFilters(products, activeFilters) {
   return products.filter((product) => {
     if (activeFilters.categories.length > 0) {
@@ -67,6 +69,7 @@ function sortProducts(products, sortBy) {
 }
 
 export default function CategoryProductsPanel({
+  categoryId = '',
   products = [],
   subcategoryLinks = [],
   showSubcategoryLinks = false,
@@ -74,6 +77,12 @@ export default function CategoryProductsPanel({
 }) {
   const { t, language } = useStorefrontI18n();
   const isArabic = language === 'ar';
+  const [pageProducts, setPageProducts] = useState(products);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(Number(totalCount) || products.length);
+  const [loadingPage, setLoadingPage] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const gridTopRef = useRef(null);
   const [activeFilters, setActiveFilters] = useState({
     categories: [],
     priceRange: { min: 0, max: 100000 },
@@ -83,14 +92,61 @@ export default function CategoryProductsPanel({
   });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  useEffect(() => {
+    setPageProducts(products);
+    setPage(1);
+    setTotal(Number(totalCount) || products.length);
+    setLoadError('');
+  }, [categoryId, products, totalCount]);
+
+  const totalPages = Math.max(1, Math.ceil((total || pageProducts.length) / CATEGORY_PRODUCTS_PAGE_SIZE));
+
+  const goToPage = useCallback(async (nextPage, { force = false } = {}) => {
+    const safePage = Math.max(1, Math.min(nextPage, totalPages));
+    if (!categoryId || loadingPage) return;
+    if (!force && safePage === page) return;
+
+    if (safePage === 1 && products.length) {
+      setPageProducts(products);
+      setPage(1);
+      gridTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    setLoadingPage(true);
+    setLoadError('');
+    try {
+      const params = new URLSearchParams({
+        categoryId,
+        page: String(safePage),
+        limit: String(CATEGORY_PRODUCTS_PAGE_SIZE),
+      });
+      const res = await fetch(`/api/public/category-products?${params.toString()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to load products');
+      }
+      setPageProducts(Array.isArray(data.products) ? data.products : []);
+      setPage(Number(data.page) || safePage);
+      if (Number.isFinite(Number(data.total))) {
+        setTotal(Number(data.total));
+      }
+      gridTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+      setLoadError(error?.message || 'Failed to load products');
+    } finally {
+      setLoadingPage(false);
+    }
+  }, [categoryId, loadingPage, page, products, totalPages]);
+
   const handleFilterChange = useCallback((filters) => {
     setActiveFilters(filters);
   }, []);
 
   const filteredAndSortedProducts = useMemo(() => {
-    const filtered = applyProductFilters(products, activeFilters);
+    const filtered = applyProductFilters(pageProducts, activeFilters);
     return sortProducts(filtered, activeFilters.sortBy);
-  }, [products, activeFilters]);
+  }, [pageProducts, activeFilters]);
 
   const hasActiveFilters =
     activeFilters.categories.length > 0 ||
@@ -110,8 +166,11 @@ export default function CategoryProductsPanel({
     });
   };
 
+  const showingFrom = total > 0 ? ((page - 1) * CATEGORY_PRODUCTS_PAGE_SIZE) + 1 : 0;
+  const showingTo = total > 0 ? Math.min(page * CATEGORY_PRODUCTS_PAGE_SIZE, total) : 0;
+
   const sidebarProps = {
-    products,
+    products: pageProducts,
     onFilterChange: handleFilterChange,
     initialFilters: activeFilters,
     subcategoryLinks: showSubcategoryLinks ? subcategoryLinks : [],
@@ -159,8 +218,8 @@ export default function CategoryProductsPanel({
       <div className={`mb-4 flex items-center justify-between lg:hidden ${isArabic ? 'flex-row-reverse' : ''}`}>
         <p className="text-sm text-gray-600">
           {t('category.ofProducts', {
-            shown: filteredAndSortedProducts.length.toLocaleString(isArabic ? 'ar-AE' : 'en'),
-            total: (totalCount || products.length).toLocaleString(isArabic ? 'ar-AE' : 'en'),
+            shown: `${showingFrom.toLocaleString(isArabic ? 'ar-AE' : 'en')}-${showingTo.toLocaleString(isArabic ? 'ar-AE' : 'en')}`,
+            total: (total || pageProducts.length).toLocaleString(isArabic ? 'ar-AE' : 'en'),
           })}
         </p>
         <button
@@ -178,7 +237,52 @@ export default function CategoryProductsPanel({
           <ProductFilterSidebar {...sidebarProps} />
         </div>
 
-        <div className="min-w-0 flex-1">{productsGrid}</div>
+        <div className="min-w-0 flex-1">
+          <div ref={gridTopRef} />
+          {loadingPage ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+              {t('category.loadingMore')}
+            </div>
+          ) : (
+            productsGrid
+          )}
+          {loadError ? (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-red-600">{loadError}</p>
+              <button
+                type="button"
+                onClick={() => void goToPage(page, { force: true })}
+                className="mt-2 text-sm font-medium text-orange-600 hover:text-orange-700"
+              >
+                {t('category.loadingMore')}
+              </button>
+            </div>
+          ) : null}
+          {totalPages > 1 ? (
+            <div className={`mt-8 flex flex-wrap items-center justify-center gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
+              <button
+                type="button"
+                onClick={() => void goToPage(page - 1)}
+                disabled={page <= 1 || loadingPage}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t('shop.previous')}
+              </button>
+              <span className="px-3 text-sm text-gray-600">
+                {t('shop.pageOf', { page, total: totalPages })}
+              </span>
+              <button
+                type="button"
+                onClick={() => void goToPage(page + 1)}
+                disabled={page >= totalPages || loadingPage}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t('shop.next')}
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {mobileFiltersOpen ? (

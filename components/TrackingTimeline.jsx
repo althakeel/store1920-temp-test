@@ -29,12 +29,12 @@ export default function TrackingTimeline({ events, type = 'delhivery' }) {
 
   const getStatusColor = (status) => {
     const statusLower = String(status || '').toLowerCase()
-    if (statusLower.includes('delivered') || statusLower.includes('pod')) return 'green'
-    if (statusLower.includes('out') || statusLower.includes('dispatch')) return 'blue'
-    if (statusLower.includes('warehouse') || statusLower.includes('reached')) return 'indigo'
+    if (statusLower.includes('delivered') || statusLower.includes('pod') || statusLower.includes('settled')) return 'green'
+    if (statusLower.includes('out') || statusLower.includes('dispatch') || statusLower.includes('collection')) return 'blue'
+    if (statusLower.includes('warehouse') || statusLower.includes('reached') || statusLower.includes('sorting') || statusLower.includes('in transit')) return 'indigo'
     if (statusLower.includes('picked') || statusLower.includes('pick')) return 'purple'
-    if (statusLower.includes('confirm') || statusLower.includes('processing')) return 'yellow'
-    if (statusLower.includes('cancel') || statusLower.includes('fail') || statusLower.includes('return')) return 'red'
+    if (statusLower.includes('confirm') || statusLower.includes('processing') || statusLower.includes('label') || statusLower.includes('new shipment') || statusLower.includes('on hold')) return 'yellow'
+    if (statusLower.includes('cancel') || statusLower.includes('fail') || statusLower.includes('return') || statusLower.includes('exception') || statusLower.includes('lost') || statusLower.includes('damaged') || statusLower.includes('rto')) return 'red'
     return 'slate'
   }
 

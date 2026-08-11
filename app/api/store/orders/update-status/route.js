@@ -4,8 +4,6 @@ import Order from '@/models/Order';
 import Wallet from '@/models/Wallet';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
-import { appendOrderCommunicationLog } from '@/lib/orderCommunicationLog';
-
 export async function POST(request) {
     try {
         // Authenticate user
@@ -131,77 +129,17 @@ export async function POST(request) {
         await order.save();
 
         if (!silent) {
-        // Send status update email
-        try {
-            const { sendOrderStatusEmail } = await import('@/lib/email');
-            const emailResult = await sendOrderStatusEmail(order, status);
-            console.log('[store/update-status] Email send result:', emailResult);
-            await appendOrderCommunicationLog(order._id, {
-                channel: 'email',
-                template: `status_${normalizedStatus}`,
-                label: `Status update email (${normalizedStatus})`,
-                status: 'sent',
-                recipient: order.guestEmail || order.shippingAddress?.email || order.userId?.email || '',
-                sentByUid: userId,
-                sentByName: sellerName,
-            });
-        } catch (emailError) {
-            console.error('[store/update-status] Email sending failed:', emailError);
-            await appendOrderCommunicationLog(order._id, {
-                channel: 'email',
-                template: `status_${normalizedStatus}`,
-                label: `Status update email (${normalizedStatus})`,
-                status: 'failed',
-                recipient: order.guestEmail || order.shippingAddress?.email || order.userId?.email || '',
-                sentByUid: userId,
-                sentByName: sellerName,
-                details: emailError?.message || 'Email failed',
-            });
-        }
-
-        if (normalizedStatus === 'SHIPPED') {
             try {
-                const { sendOrderShippedWhatsApp } = await import('@/lib/whatsapp/orderNotifications');
-                const orderPayload = order.toObject ? order.toObject() : order;
-                const whatsappResult = await sendOrderShippedWhatsApp(orderPayload);
-                console.log('[store/update-status] WhatsApp shipped result:', whatsappResult);
-                await appendOrderCommunicationLog(order._id, {
-                    channel: 'whatsapp',
-                    template: 'order_shipped',
-                    label: 'Shipped update (WhatsApp)',
-                    status: whatsappResult?.success ? 'sent' : 'failed',
-                    recipient: order.guestPhone || order.shippingAddress?.phone || '',
-                    sentByUid: userId,
-                    sentByName: sellerName,
-                    details: whatsappResult?.success ? '' : (whatsappResult?.reason || whatsappResult?.error || ''),
+                const { notifyCustomerOfOrderStatusChange } = await import('@/lib/orderStatusCustomerNotify');
+                await notifyCustomerOfOrderStatusChange(order, normalizedStatus, {
+                    previousStatus,
+                    source: 'store_status_picker',
+                    force: true,
+                    actor: { uid: userId, name: sellerName },
                 });
-            } catch (whatsappError) {
-                console.error('[store/update-status] WhatsApp sending failed:', whatsappError);
+            } catch (emailError) {
+                console.error('[store/update-status] Email sending failed:', emailError);
             }
-        }
-
-        if (normalizedStatus === 'DELIVERED') {
-            try {
-                const { sendOrderDeliveredWhatsApp } = await import('@/lib/whatsapp/orderNotifications');
-                const populated = await Order.findById(order._id)
-                    .populate({ path: 'orderItems.productId', model: 'Product' })
-                    .lean();
-                const whatsappResult = await sendOrderDeliveredWhatsApp(populated || order.toObject?.() || order);
-                console.log('[store/update-status] WhatsApp delivered result:', whatsappResult);
-                await appendOrderCommunicationLog(order._id, {
-                    channel: 'whatsapp',
-                    template: 'order_delivered',
-                    label: 'Delivered update (WhatsApp)',
-                    status: whatsappResult?.success ? 'sent' : 'failed',
-                    recipient: order.guestPhone || order.shippingAddress?.phone || '',
-                    sentByUid: userId,
-                    sentByName: sellerName,
-                    details: whatsappResult?.success ? '' : (whatsappResult?.reason || whatsappResult?.error || ''),
-                });
-            } catch (whatsappError) {
-                console.error('[store/update-status] WhatsApp delivered failed:', whatsappError);
-            }
-        }
         }
 
         return NextResponse.json({ 

@@ -2,9 +2,10 @@
 
 **Purpose:** Same APIs the **website homepage** uses, mapped for the **mobile app home screen**.  
 **Base URL:** `https://store1920.com`  
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-23
 
 Related:
+- **Master API guide (home + all shopper):** [STORE1920_FULL_API.md](./STORE1920_FULL_API.md)
 - Full shopper API: [MOBILE_APP_API.md](./MOBILE_APP_API.md)
 - App banners: [MOBILE_FEATURES_DOCUMENTATION.md](./MOBILE_FEATURES_DOCUMENTATION.md)
 - Overview: [API_OVERVIEW.md](./API_OVERVIEW.md)

@@ -602,14 +602,15 @@ body::-webkit-scrollbar-thumb {
 }
 
 .storefront-toaster {
-    pointer-events: none;
+    pointer-events: none !important;
 }
 
-/* Toast slot wrappers are full-width; only the visible card should capture clicks. */
+/* Toast slot wrappers span the full toaster width; never let them steal clicks. */
 .storefront-toaster > div {
-    pointer-events: none;
+    pointer-events: none !important;
 }
 
+/* Only the actual toast card inside each slot should be clickable. */
 .storefront-toaster > div > * {
-    pointer-events: auto;
+    pointer-events: auto !important;
 }

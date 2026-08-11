@@ -7,7 +7,7 @@ import TrackingTimeline from "@/components/TrackingTimeline";
 import AnimatedProgressTracker from "@/components/AnimatedProgressTracker";
 import styles from "./tracking.module.css";
 import { CheckCircle2, Clock3, PackageSearch, RefreshCw, SearchCheck } from "lucide-react";
-import { getDisplayOrderNumber, getDisplayOrderLabel } from "@/lib/orderDisplay";
+import { getDisplayOrderNumber, getDisplayOrderLabel, getPublicTrackingDisplayId, extractTrackingReferenceFromInput } from "@/lib/orderDisplay";
 import { isWaslahCourierTerminal } from "@/lib/waslahTracking";
 
 const LIVE_TRACKING_POLL_MS = 30 * 1000;
@@ -15,7 +15,7 @@ const LIVE_TRACKING_POLL_MS = 30 * 1000;
 function buildTrackingParams(phoneNumber, awbNumber) {
   const params = new URLSearchParams();
   const contact = String(phoneNumber || '').trim();
-  const reference = String(awbNumber || '').trim();
+  const reference = extractTrackingReferenceFromInput(awbNumber);
 
   if (contact.includes('@')) {
     params.append('email', contact);
@@ -54,6 +54,7 @@ function mergePublicLiveTracking(current, incoming) {
     waslah: incoming.waslah
       ? { ...(current.waslah || {}), ...incoming.waslah }
       : current.waslah,
+    warehousePacking: incoming.warehousePacking || current.warehousePacking,
     c3x: incoming.c3x
       ? { ...(current.c3x || {}), ...incoming.c3x }
       : current.c3x,
@@ -186,7 +187,12 @@ function TrackOrderPageInner() {
   ]);
 
   useEffect(() => {
-    const orderNo = searchParams.get('orderNo') || searchParams.get('orderId');
+    const orderNo = searchParams.get('order')
+      || searchParams.get('orderNo')
+      || searchParams.get('orderId')
+      || searchParams.get('awb')
+      || searchParams.get('q')
+      || '';
     const phone = searchParams.get('phone') || '';
 
     if (phone) setPhoneNumber(phone);
@@ -211,11 +217,14 @@ function TrackOrderPageInner() {
 
   const runTrack = async ({ phone = phoneNumber, reference = awbNumber } = {}) => {
     const contact = String(phone || '').trim();
-    const ref = String(reference || '').trim();
+    const ref = extractTrackingReferenceFromInput(reference);
 
     if (!contact && !ref) {
-      toast.error('Please enter mobile number, email, AWB, reference number, or booking number');
+      toast.error('Please enter mobile number, email, AWB, or order number — not the track-order page URL');
       return false;
+    }
+    if (ref && ref !== String(reference || '').trim()) {
+      setAwbNumber(ref);
     }
 
     trackingLookupGeneration.current += 1;
@@ -280,10 +289,15 @@ function TrackOrderPageInner() {
   };
 
   useEffect(() => {
-    const orderNo = searchParams.get('orderNo') || searchParams.get('orderId');
+    const orderNo = searchParams.get('order')
+      || searchParams.get('orderNo')
+      || searchParams.get('orderId')
+      || searchParams.get('awb')
+      || searchParams.get('q')
+      || '';
     const phone = searchParams.get('phone') || '';
 
-    if (searchParams.get('auto') !== '1' || !orderNo || autoTrackStarted.current) return;
+    if (!orderNo || autoTrackStarted.current) return;
     autoTrackStarted.current = true;
 
     runTrack({ phone, reference: orderNo });
@@ -304,7 +318,7 @@ function TrackOrderPageInner() {
       case 'PICKUP_REQUESTED':
         return 'bg-yellow-100 text-yellow-700';
       case 'WAITING_FOR_PICKUP':
-        return 'bg-yellow-50 text-yellow-700';
+        return 'bg-teal-100 text-teal-800';
       case 'CONFIRMED':
         return 'bg-orange-100 text-orange-700';
       case 'PROCESSING':
@@ -324,24 +338,37 @@ function TrackOrderPageInner() {
     }
   }
 
-  const getStatusSteps = (status) => {
+  const getPublicStatusLabel = (status, packed = false) => {
+    const normalized = String(status || 'ORDER_PLACED').toUpperCase();
+    if (packed || normalized === 'WAITING_FOR_PICKUP') return 'Packed — awaiting pickup';
+    if (normalized === 'PICKUP_REQUESTED') return 'Pickup requested';
+    if (normalized === 'PICKED_UP') return 'Picked up';
+    return normalized.replace(/_/g, ' ');
+  };
+
+  const getStatusSteps = (status, packed = false) => {
     const steps = [
-      'ORDER_PLACED',
+      'ORDER PLACED',
       'PROCESSING',
+      'PACKED',
       'SHIPPED',
-      'OUT_FOR_DELIVERY',
-      'DELIVERED'
+      'OUT FOR DELIVERY',
+      'DELIVERED',
     ];
     const normalizedStatus = status?.toUpperCase();
     const progressStatus = ['PICKED_UP', 'WAREHOUSE_RECEIVED'].includes(normalizedStatus)
       ? 'SHIPPED'
-      : ['WAITING_FOR_PICKUP', 'PICKUP_REQUESTED'].includes(normalizedStatus)
-        ? 'PROCESSING'
-        : normalizedStatus;
+      : (packed || ['WAITING_FOR_PICKUP', 'PICKUP_REQUESTED'].includes(normalizedStatus))
+        ? 'PACKED'
+        : normalizedStatus === 'ORDER_PLACED'
+          ? 'ORDER PLACED'
+          : normalizedStatus === 'OUT_FOR_DELIVERY'
+            ? 'OUT FOR DELIVERY'
+            : normalizedStatus;
     const currentIndex = steps.indexOf(progressStatus);
-    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    const safeIndex = currentIndex >= 0 ? currentIndex : (packed ? 2 : 0);
     return steps.map((step, idx) => ({
-      name: step.replace(/_/g, ' '),
+      name: step,
       completed: idx <= safeIndex,
       active: idx === safeIndex
     }));
@@ -472,8 +499,8 @@ function TrackOrderPageInner() {
                       {order._id ? 'Store order status' : 'Shipment status'}
                     </p>
                     <h2 className="mt-1 text-xl font-semibold text-slate-900">
-                      {order.trackingId
-                        ? `Tracking ID: ${order.trackingId}`
+                      {getPublicTrackingDisplayId(order)
+                        ? `Tracking ID: ${getPublicTrackingDisplayId(order)}`
                         : getDisplayOrderLabel(order)}
                     </h2>
                     {order.createdAt && !Number.isNaN(new Date(order.createdAt).getTime()) && (
@@ -481,12 +508,23 @@ function TrackOrderPageInner() {
                     )}
                   </div>
                   <span className={`w-fit rounded-full px-4 py-2 text-sm font-semibold ${getStatusColor(order.status)}`}>
-                    {(order.status || 'ORDER_PLACED').replace(/_/g, ' ')}
+                    {getPublicStatusLabel(order.status, order?.warehousePacking?.packed === true)}
                   </span>
                 </div>
 
+                {order?.warehousePacking?.packed ? (
+                  <div className="mb-5 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+                    <p className="font-semibold">Packed and ready for courier pickup</p>
+                    {order.warehousePacking.packedAt ? (
+                      <p className="mt-1 text-xs text-teal-800">
+                        Packed on {new Date(order.warehousePacking.packedAt).toLocaleString()}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {/* Progress Tracker */}
-                <AnimatedProgressTracker steps={getStatusSteps(order.status)} />
+                <AnimatedProgressTracker steps={getStatusSteps(order.status, order?.warehousePacking?.packed === true)} />
               </div>
 
               {/* Tracking Info */}
@@ -506,12 +544,12 @@ function TrackOrderPageInner() {
                           <p className="mt-1 font-semibold text-slate-900">{order.courier}</p>
                         </div>
                       )}
-                      {order.trackingId && (
+                      {getPublicTrackingDisplayId(order) ? (
                         <div className="rounded-lg bg-white/75 p-3">
                           <p className="text-xs font-medium text-slate-500">Tracking ID</p>
-                          <p className="mt-1 font-mono font-semibold text-slate-900">{order.trackingId}</p>
+                          <p className="mt-1 font-mono font-semibold text-slate-900">{getPublicTrackingDisplayId(order)}</p>
                         </div>
-                      )}
+                      ) : null}
                       {order.trackingUrl && (
                         <div className="rounded-lg bg-white/75 p-3 sm:col-span-2">
                           <p className="text-xs font-medium text-slate-500">Track Shipment</p>

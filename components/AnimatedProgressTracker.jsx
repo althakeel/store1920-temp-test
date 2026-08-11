@@ -20,6 +20,7 @@ export default function AnimatedProgressTracker({ steps }) {
     const name = String(stepName || '').toLowerCase()
     if (name.includes('delivered')) return 'from-green-400 to-green-600'
     if (name.includes('out') || name.includes('dispatch')) return 'from-blue-400 to-blue-600'
+    if (name.includes('packed') || name.includes('pickup')) return 'from-teal-400 to-teal-600'
     if (name.includes('warehouse') || name.includes('processing')) return 'from-purple-400 to-purple-600'
     if (name.includes('picked') || name.includes('confirmed')) return 'from-indigo-400 to-indigo-600'
     if (name.includes('placed') || name.includes('ordered')) return 'from-slate-400 to-slate-600'

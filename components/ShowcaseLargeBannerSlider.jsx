@@ -25,7 +25,7 @@ export default function ShowcaseLargeBannerSlider({
   showTruckIcon = false,
 }) {
   const bannerRowClassName = [
-    'group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-900 shadow-sm shop-showcase-banner-row',
+    'group relative overflow-hidden rounded-xl border-0 bg-transparent shadow-none shop-showcase-banner-row',
     bannerVariant === 'main' ? 'shop-showcase-banner-row--main' : '',
     bannerVariant === 'secondary' ? 'shop-showcase-banner-row--secondary' : '',
   ].filter(Boolean).join(' ');
@@ -136,10 +136,11 @@ export default function ShowcaseLargeBannerSlider({
   return (
     <Link
       href={href}
-      className={`${bannerRowClassName} ${cursorClass}`.trim()}
+      className={`${bannerRowClassName} ${cursorClass} select-none`.trim()}
       style={{ gridRow }}
       dir="ltr"
       onClick={handleLinkClick}
+      onDragStart={(event) => event.preventDefault()}
     >
       <div className="absolute inset-0 overflow-hidden touch-pan-y" dir="ltr" {...viewportHandlers}>
         <div
@@ -162,7 +163,7 @@ export default function ShowcaseLargeBannerSlider({
                 decoding="async"
                 draggable={false}
                 onError={() => handleImageError(slide.image)}
-                className="pointer-events-none block h-full min-h-full w-full object-cover object-center"
+                className="pointer-events-none absolute inset-0 block h-full w-full scale-[1.01] object-cover object-center"
               />
             </div>
           ))}

@@ -3,8 +3,8 @@
 import Image from 'next/image';
 
 /**
- * Hosts we optimize through next/image. Marketplace CDNs (Noon, Amazon, Flipkart)
- * always use unoptimized so a stale/missing next.config host never crashes pages.
+ * Hosts we optimize through next/image. Marketplace CDNs (Noon, Amazon, Flipkart,
+ * Shopify imports, etc.) use a plain <img> so a missing next.config host never crashes.
  */
 const OPTIMIZED_HOSTS = [
   'store1920-images.s3.ap-south-1.amazonaws.com',
@@ -29,8 +29,7 @@ export function shouldBypassNextImageOptimizer(src) {
     const allowed = OPTIMIZED_HOSTS.some(
       (host) => hostname === host || hostname.endsWith(`.${host}`),
     );
-    // Unknown marketplace / CDN hosts: skip optimizer so pages never throw
-    // "hostname is not configured under images".
+    // Unknown marketplace / CDN hosts: skip next/image entirely.
     return !allowed;
   } catch {
     return true;
@@ -38,13 +37,74 @@ export function shouldBypassNextImageOptimizer(src) {
 }
 
 /**
- * Drop-in next/image wrapper. External/unknown CDNs render with unoptimized
- * so a missing next.config host never blanks the product page.
+ * Drop-in next/image wrapper. Unknown external CDNs render as <img> so Next never
+ * throws "hostname is not configured under images".
  */
-export default function SafeNextImage({ src, unoptimized, alt = '', ...props }) {
+export default function SafeNextImage({
+  src,
+  unoptimized,
+  alt = '',
+  fill = false,
+  sizes,
+  width,
+  height,
+  className,
+  style,
+  priority,
+  quality,
+  placeholder,
+  blurDataURL,
+  loader,
+  ...rest
+}) {
   const bypass = typeof unoptimized === 'boolean'
     ? unoptimized
     : shouldBypassNextImageOptimizer(src);
 
-  return <Image src={src} alt={alt} unoptimized={bypass} {...props} />;
+  if (bypass) {
+    const imgStyle = fill
+      ? {
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          ...style,
+        }
+      : style;
+
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={String(src || '')}
+        alt={alt}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
+        className={className}
+        style={imgStyle}
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
+        {...rest}
+      />
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill={fill}
+      sizes={sizes}
+      width={width}
+      height={height}
+      className={className}
+      style={style}
+      priority={priority}
+      quality={quality}
+      placeholder={placeholder}
+      blurDataURL={blurDataURL}
+      loader={loader}
+      {...rest}
+    />
+  );
 }

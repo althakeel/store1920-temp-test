@@ -4,6 +4,7 @@ import Loading from "@/components/Loading";
 import OrdersAreaChart from "@/components/OrdersAreaChart";
 import { useEffect, useState } from "react";
 import { auth } from '@/lib/firebase';
+import { isAdminEmail } from '@/lib/adminEmails';
 import axios from "axios";
 import { CircleDollarSignIcon, ShoppingBasketIcon, StoreIcon, TagsIcon, UsersIcon } from "lucide-react";
 import ContactMessagesAdmin from "./ContactMessagesAdmin.jsx";
@@ -29,13 +30,7 @@ export default function AdminDashboard() {
         const unsubscribe = auth.onAuthStateChanged((user) => {
             setFirebaseUser(user);
             // Check admin email (client-side env var)
-            const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || '')
-                .replace(/['\"]/g, '')
-                .split(',')
-                .map((value) => value.trim().toLowerCase())
-                .filter(Boolean);
-            const currentEmail = String(user?.email || '').trim().toLowerCase();
-            setIsAdmin(Boolean(currentEmail) && adminEmails.includes(currentEmail));
+            setIsAdmin(Boolean(user && isAdminEmail(user.email)));
             setChecked(true);
         });
         return () => unsubscribe();

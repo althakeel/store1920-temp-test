@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import axios from 'axios';
-import Image from 'next/image';
+import Image from '@/components/SafeNextImage';
 import { useDispatch } from 'react-redux';
 import { clearCart, setCartEntry } from '@/lib/features/cart/cartSlice';
 import { formatVariantOptionsLabel } from '@/lib/productVariantOptions';

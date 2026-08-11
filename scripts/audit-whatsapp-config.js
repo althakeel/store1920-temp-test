@@ -76,7 +76,7 @@ console.log('Track order:', `${base}/track-order`);
 
 console.log('\n=== WhatsApp flows (code audit) ===\n');
 const flows = [
-  ['COD order placed', 'order_confirmation_final — after checkout (COD); not store1920_order_confirmed'],
+  ['COD order placed', 'store1920_order_confirmed — after checkout; no Confirm Order button'],
   ['Paid order placed', 'confirmation_paid_order template — Card/Wallet at checkout'],
   ['Paid after Tamara/Tabby/Stripe', 'sendOrderPaidWhatsApp — payment webhooks'],
   ['Order shipped', 'sendOrderShippedWhatsApp — store status SHIPPED'],

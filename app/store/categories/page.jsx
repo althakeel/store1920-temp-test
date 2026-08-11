@@ -231,12 +231,17 @@ export default function StoreCategoryMenu() {
     image: '',
     url: '',
     parentId: '',
+    metaTitle: '',
+    metaDescription: '',
+    description: '',
+    descriptionAr: '',
   });
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [generatingImageKey, setGeneratingImageKey] = useState(null);
   const [backfillingArabic, setBackfillingArabic] = useState(false);
+  const [translatingDescription, setTranslatingDescription] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [categoryProductCounts, setCategoryProductCounts] = useState({});
@@ -490,6 +495,10 @@ export default function StoreCategoryMenu() {
         }) || '',
         image: imageUrl || null,
         parentId: selectedParentId || null,
+        metaTitle: formData.metaTitle?.trim() || '',
+        metaDescription: formData.metaDescription?.trim() || '',
+        description: formData.description?.trim() || '',
+        descriptionAr: formData.descriptionAr?.trim() || '',
       };
 
       try {
@@ -522,6 +531,42 @@ export default function StoreCategoryMenu() {
       console.error(error);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleTranslateDescription = async () => {
+    const english = formData.description?.trim();
+    if (!english) {
+      toast.error('Enter the English description first');
+      return;
+    }
+
+    try {
+      setTranslatingDescription(true);
+      const token = await getToken();
+      if (!token) {
+        toast.error('Please wait a moment and try again');
+        return;
+      }
+
+      const { data } = await axios.post('/api/store/categories/translate-arabic', {
+        text: english,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const translated = String(data?.descriptionAr || '').trim();
+      if (!translated) {
+        toast.error('Could not translate description');
+        return;
+      }
+
+      setFormData((prev) => ({ ...prev, descriptionAr: translated }));
+      toast.success('Arabic description filled');
+    } catch (error) {
+      toast.error(error?.response?.data?.error || 'Failed to translate description');
+    } finally {
+      setTranslatingDescription(false);
     }
   };
 
@@ -563,6 +608,10 @@ export default function StoreCategoryMenu() {
       image: category.image || '',
       url: buildSystemCategoryMenuUrl(category),
       parentId: category.parentId || '',
+      metaTitle: category.metaTitle || '',
+      metaDescription: category.metaDescription || '',
+      description: category.description || '',
+      descriptionAr: category.descriptionAr || '',
     });
     setImagePreview(category.image || '');
     setEditingCategoryId(String(category._id));
@@ -572,7 +621,7 @@ export default function StoreCategoryMenu() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingCategoryId(null);
-    setFormData({ name: '', nameAr: '', image: '', url: '', parentId: '' });
+    setFormData({ name: '', nameAr: '', image: '', url: '', parentId: '', metaTitle: '', metaDescription: '', description: '', descriptionAr: '' });
     setImageFile(null);
     setImagePreview('');
   };
@@ -847,6 +896,11 @@ export default function StoreCategoryMenu() {
                   )}
                   {category.description && (
                     <p className="mt-1 text-xs text-slate-600 sm:text-sm">{category.description}</p>
+                  )}
+                  {(category.metaTitle || category.metaDescription) && (
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      SEO: {category.metaTitle || 'custom description set'}
+                    </p>
                   )}
                   <p className="mt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:text-xs">
                     {hasChildren
@@ -1159,6 +1213,102 @@ export default function StoreCategoryMenu() {
                       <p className="mt-1.5 text-xs text-slate-500">
                         Choose a parent to make this a subcategory or grandchild category.
                       </p>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-4 sm:pt-5">
+                      <label className="mb-3 block text-xs font-bold uppercase tracking-wide text-slate-700 sm:text-sm">
+                        Description
+                      </label>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold text-slate-600 sm:text-sm">
+                            Category Description
+                          </label>
+                          <textarea
+                            value={formData.description}
+                            maxLength={2000}
+                            rows={4}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                            placeholder="Shown on the category page under the name and reviews"
+                            className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 sm:px-4 sm:py-2.5"
+                          />
+                          <p className="mt-1.5 text-xs text-slate-500">
+                            {(formData.description || '').length}/2000 · This is the public page text, not the SEO meta description.
+                          </p>
+                        </div>
+                        <div>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <label className="block text-xs font-semibold text-slate-600 sm:text-sm">
+                              Arabic Description
+                            </label>
+                            <button
+                              type="button"
+                              onClick={handleTranslateDescription}
+                              disabled={translatingDescription || !formData.description?.trim()}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <MdAutoAwesome className="text-sm" />
+                              {translatingDescription ? 'Translating...' : 'Translate'}
+                            </button>
+                          </div>
+                          <textarea
+                            value={formData.descriptionAr}
+                            maxLength={2000}
+                            rows={3}
+                            dir="rtl"
+                            onChange={(e) => setFormData((prev) => ({ ...prev, descriptionAr: e.target.value }))}
+                            placeholder="وصف الفئة في الواجهة العربية"
+                            className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 sm:px-4 sm:py-2.5"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-4 sm:pt-5">
+                      <label className="mb-3 block text-xs font-bold uppercase tracking-wide text-slate-700 sm:text-sm">
+                        SEO
+                      </label>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <label className="block text-xs font-semibold text-slate-600 sm:text-sm">
+                              Meta Title
+                            </label>
+                            <span className="text-[11px] text-slate-400">
+                              {(formData.metaTitle || '').length}/120
+                            </span>
+                          </div>
+                          <input
+                            type="text"
+                            value={formData.metaTitle}
+                            maxLength={120}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, metaTitle: e.target.value }))}
+                            placeholder="e.g., Women's Fashion | Store1920"
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 sm:px-4 sm:py-2.5"
+                          />
+                        </div>
+                        <div>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <label className="block text-xs font-semibold text-slate-600 sm:text-sm">
+                              Meta Description
+                            </label>
+                            <span className="text-[11px] text-slate-400">
+                              {(formData.metaDescription || '').length}/320
+                            </span>
+                          </div>
+                          <textarea
+                            value={formData.metaDescription}
+                            maxLength={320}
+                            rows={3}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, metaDescription: e.target.value }))}
+                            placeholder="Short description for search engines and social previews"
+                            className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 sm:px-4 sm:py-2.5"
+                          />
+                          <p className="mt-1.5 text-xs text-slate-500">
+                            Used on the category page. Leave blank to use the default title and description.
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Image Upload */}

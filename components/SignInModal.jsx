@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Eye, EyeOff } from 'lucide-react';
-import { auth } from '../lib/firebase';
+import { auth, ensureLocalAuthPersistence } from '../lib/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { pushGtmEvent } from '@/lib/pushGtmEcommerceEvent';
 import { GTM_EVENTS, gtmDedupeKey } from '@/lib/gtmEvents';
-import { signInWithGooglePopup } from '@/lib/firebaseAuthActions';
+import { signInWithGooglePopup, signInWithFacebookPopup, getAuthErrorMessage as getSharedAuthErrorMessage } from '@/lib/firebaseAuthActions';
 import Image from 'next/image';
 import Link from 'next/link';
 import GoogleIcon from '../assets/google.png';
@@ -63,25 +63,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
   });
 
   const getAuthErrorMessage = (err, fallback = 'Something went wrong. Please try again.') => {
-    const code = err?.code || '';
-    const msg = String(err?.message || '').toLowerCase();
-
-    if (code === 'auth/email-already-in-use') return 'This email is already registered. Please sign in.';
-    if (code === 'auth/weak-password') return 'Password is too weak. Use 8+ characters with upper, lower, number, and special character.';
-    if (code === 'auth/invalid-email') return 'Please enter a valid email address.';
-    if (code === 'auth/user-not-found') return 'No account found with this email. Please sign up first.';
-    if (code === 'auth/wrong-password') return 'Incorrect password. Please try again.';
-    if (code === 'auth/invalid-credential') return 'Invalid email or password. Please try again.';
-    if (code === 'auth/too-many-requests') return 'Too many attempts. Please try again later.';
-    if (code === 'auth/network-request-failed') return 'Network error. Please check your connection and try again.';
-    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return 'Sign-in cancelled. Please try again.';
-    if (code === 'auth/popup-blocked') return 'Pop-up blocked. Please allow pop-ups and try again.';
-
-    if (msg.includes('invalid-credential') || msg.includes('auth/invalid-credential')) {
-      return 'Invalid email or password. Please try again.';
-    }
-
-    return fallback;
+    return getSharedAuthErrorMessage(err, fallback);
   };
 
   React.useEffect(() => {
@@ -270,6 +252,29 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }
   };
 
+  const handleFacebookSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const result = await signInWithFacebookPopup();
+      const isNewUser = result.user.metadata.creationTime === result.user.metadata.lastSignInTime;
+
+      const bonusClaimed = localStorage.getItem('welcomeBonusClaimed');
+      if (bonusClaimed === 'true') {
+        localStorage.setItem('freeShippingEligible', 'true');
+        localStorage.removeItem('welcomeBonusClaimed');
+      }
+
+      await finishAuthSuccess(result.user, { isNewUser });
+    } catch (err) {
+      console.error('Facebook sign-in error:', err);
+      const errorMessage = getAuthErrorMessage(err, 'Facebook sign-in failed. Please try again.');
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -418,6 +423,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
 
     setLoading(true);
     try {
+      await ensureLocalAuthPersistence();
       await runPreLogin({
         email,
         captchaChallengeId: captcha.challengeId,
@@ -973,20 +979,34 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
           {/* Divider */}
           <div className="flex items-center gap-2 sm:gap-3 my-3 sm:my-4">
             <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-gray-400 text-xs">OR</span>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Or continue with</span>
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
-          {/* Google Sign In */}
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-2 sm:gap-3 border border-gray-300 rounded-lg py-2 sm:py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-medium bg-white hover:bg-gray-50 transition mb-3 sm:mb-5"
-            disabled={loading}
-          >
-            <Image src={GoogleIcon} alt="Google" width={16} height={16} style={{objectFit:'contain'}} />
-            <span className="text-gray-700">Continue with Google</span>
-          </button>
+          {/* Social Sign In */}
+          <div className="mb-3 grid grid-cols-1 gap-2.5 sm:mb-5 sm:grid-cols-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="group flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:shadow disabled:opacity-50"
+            >
+              <Image src={GoogleIcon} alt="" width={18} height={18} style={{ objectFit: 'contain' }} />
+              <span>Google</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleFacebookSignIn}
+              disabled={loading}
+              className="group flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-[#1877F2]/20 bg-[#1877F2] px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#166fe5] hover:shadow disabled:opacity-50"
+            >
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22c4.78-.76 8.44-4.92 8.44-9.94z" />
+              </svg>
+              <span>Facebook</span>
+            </button>
+          </div>
 
           {/* Terms & Privacy */}
           <p className="text-xs text-gray-500 text-center">

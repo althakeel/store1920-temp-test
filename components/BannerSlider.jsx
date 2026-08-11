@@ -149,7 +149,7 @@ const BannerSlider = ({ className = '', variant = 'primary', fullWidth = false, 
         : 'max-w-[1400px] mx-auto px-4 sm:px-6'
   } ${className}`.trim();
 
-  const viewportClassName = `banner-slider__viewport relative w-full overflow-hidden isolate touch-pan-y ${cursorClass}`.trim();
+  const viewportClassName = `banner-slider__viewport relative w-full overflow-hidden border-0 outline-none isolate touch-pan-y ${cursorClass}`.trim();
 
   const heightStyle = {
     ['--banner-slider-mobile-height']: `${mobileHeight}px`,
@@ -217,7 +217,7 @@ const BannerSlider = ({ className = '', variant = 'primary', fullWidth = false, 
                 fill
                 sizes="(max-width: 1400px) 100vw, 1400px"
                 draggable={false}
-                className={`pointer-events-none object-cover object-center ${banner.mobileImage ? 'hidden sm:block' : ''}`}
+                className={`pointer-events-none scale-[1.01] object-cover object-center ${banner.mobileImage ? 'hidden sm:block' : ''}`}
                 priority={i <= 1}
               />
             </div>

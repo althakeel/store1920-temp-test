@@ -173,12 +173,24 @@ export async function POST(request) {
         ? 'SHIPPED'
         : currentStatus
 
-      await Order.findByIdAndUpdate(orderId, {
+      const updated = await Order.findByIdAndUpdate(orderId, {
         trackingId: awbNumber,
         courier: 'C3Xpress',
         trackingUrl: `https://c3xpress.com/tracking?awb=${encodeURIComponent(awbNumber)}`,
         ...(nextStatus ? { status: nextStatus } : {}),
-      })
+      }, { new: true }).lean()
+
+      if (nextStatus && nextStatus !== currentStatus) {
+        try {
+          const { notifyCustomerOfOrderStatusChange } = await import('@/lib/orderStatusCustomerNotify')
+          await notifyCustomerOfOrderStatusChange(updated || order, nextStatus, {
+            previousStatus: currentStatus,
+            source: 'c3xpress_ship',
+          })
+        } catch (emailError) {
+          console.error('[c3xpress] status email failed', emailError?.message || emailError)
+        }
+      }
     }
 
     return NextResponse.json({

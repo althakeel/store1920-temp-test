@@ -3,7 +3,10 @@ import { timingSafeEqual } from 'node:crypto';
 import dbConnect from '@/lib/mongodb';
 import Order from '@/models/Order';
 import {
+  buildWaslahTrackingEvent,
+  getWaslahCheckpointDisplay,
   mapWaslahTrackingToOrderStatus,
+  mergeWaslahTrackingEvents,
   parseWaslahTrackingTimestamp,
   resolveWaslahOrderStatusTransition,
   shouldPropagateWaslahStatusToOrder,
@@ -289,12 +292,30 @@ export async function POST(request) {
       && !nextStatus
       && courierStatus !== currentStatus
     );
+    const displayStatus = getWaslahCheckpointDisplay({
+      subtag,
+      subtagMessage,
+      message,
+    });
+    const incomingEvent = buildWaslahTrackingEvent({
+      subtag,
+      subtagMessage,
+      message,
+      time: eventTime ? eventTime.toISOString() : '',
+    });
+    const events = mergeWaslahTrackingEvents(order.waslah?.events, [incomingEvent]);
 
     const update = {
       'waslah.lastSubtag': subtag || order.waslah?.lastSubtag,
-      'waslah.lastSubtagMessage': message || order.waslah?.lastSubtagMessage,
+      'waslah.currentSubtag': subtag || order.waslah?.currentSubtag,
+      'waslah.lastSubtagMessage': displayStatus || order.waslah?.lastSubtagMessage,
+      'waslah.currentStatus': displayStatus || order.waslah?.currentStatus,
+      'waslah.events': events,
     };
-    if (courierStatus) update['waslah.carrierStatus'] = courierStatus;
+    if (courierStatus) {
+      update['waslah.carrierStatus'] = courierStatus;
+      update['waslah.appStatus'] = courierStatus;
+    }
     if (eventTime) update['waslah.lastEventAt'] = eventTime;
     if (eventId) update['waslah.lastEventId'] = eventId;
     if (trackingNumber) {
@@ -325,6 +346,22 @@ export async function POST(request) {
         orderId: String(order._id),
         status: order.status,
       });
+    }
+
+    if (nextStatus && String(nextStatus).toUpperCase() !== String(order.status || '').toUpperCase()) {
+      try {
+        const { notifyCustomerOfOrderStatusChange } = await import('@/lib/orderStatusCustomerNotify');
+        await notifyCustomerOfOrderStatusChange(updatedOrder, nextStatus, {
+          previousStatus: order.status,
+          source: 'waslah_webhook',
+        });
+      } catch (emailError) {
+        console.error('[webhooks/waslah] customer status email failed', {
+          orderId: String(order._id),
+          status: nextStatus,
+          error: emailError?.message || emailError,
+        });
+      }
     }
 
     return NextResponse.json({

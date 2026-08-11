@@ -5,6 +5,7 @@ import { getAuth } from '@/lib/firebase-admin';
 import { findOrderByTrackingIdentifier } from '@/lib/orderTrackingLookup';
 import { batchPopulateOrderUsers } from '@/lib/storeOrderUsers';
 import { formatWarehousePacking } from '@/lib/warehouseOrderPacking';
+import { syncWaslahStatusForOrder } from '@/lib/waslahOrderStatusSync';
 import { getOrderLineProduct } from '@/lib/orderDisplay';
 import { getProductThumbnailUrl } from '@/lib/productMedia';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
@@ -73,7 +74,24 @@ export async function GET(request) {
 
     await batchPopulateOrderUsers([order], { getAuth });
 
-    const enriched = withLineItemImages(order);
+    let liveOrder = order;
+    const includeWaslah = searchParams.get('withWaslah') === 'true';
+    if (includeWaslah) {
+      try {
+        const timeoutMs = Number(process.env.WASLAH_TRACKING_TIMEOUT_MS || 8000);
+        const synced = await Promise.race([
+          syncWaslahStatusForOrder(order, { persist: true, force: true }),
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Waslah tracking timeout')), timeoutMs);
+          }),
+        ]);
+        if (synced?.order) liveOrder = synced.order;
+      } catch (error) {
+        console.warn('[ORDER LOOKUP] Waslah live tracking skipped:', error?.message || error);
+      }
+    }
+
+    const enriched = withLineItemImages(liveOrder);
 
     return NextResponse.json({
       order: {

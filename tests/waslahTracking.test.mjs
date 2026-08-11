@@ -1,14 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  WASLAH_OFFICIAL_SUBTAG_CATALOG,
+  buildWaslahTrackingEvent,
+  getWaslahCheckpointDisplay,
   getWaslahCourierStatus,
+  getWaslahSubtagLabel,
+  mergeWaslahTrackingEvents,
   isWaslahTrackingEventOlder,
+  isStaleWaslahCancellation,
   isWaslahCourierTerminal,
   mapWaslahSubtagToOrderStatus,
   mapWaslahTrackingToOrderStatus,
   normalizeWaslahTrackingHistory,
   parseWaslahTrackingTimestamp,
   resolveLatestWaslahAppStatus,
+  resolveStoreStatusAfterWaslahCancel,
   resolveWaslahOrderStatusTransition,
   shouldPropagateWaslahStatusToOrder,
 } from '../lib/waslahTracking.js';
@@ -113,6 +120,26 @@ test('keeps the exact Waslah cancellation subtag mapping', () => {
   assert.equal(mapWaslahTrackingToOrderStatus({ subtag: 'Cancelled_001' }), 'CANCELLED');
 });
 
+test('does not treat a new AWB as cancelled after a previous Waslah cancel', () => {
+  assert.equal(isStaleWaslahCancellation({
+    trackingId: '62007200719168',
+    waslah: {
+      trackingNumber: '62007200719168',
+      cancelledTrackingNumber: '62007200719163',
+      lastSubtag: 'Cancelled_001',
+    },
+  }), true);
+});
+
+test('rolls a shipped store order back after the Waslah AWB is cancelled', () => {
+  assert.equal(resolveStoreStatusAfterWaslahCancel({ status: 'SHIPPED' }), 'PROCESSING');
+  assert.equal(resolveStoreStatusAfterWaslahCancel({
+    status: 'OUT_FOR_DELIVERY',
+    warehousePacking: { packed: true },
+  }), 'WAITING_FOR_PICKUP');
+  assert.equal(resolveStoreStatusAfterWaslahCancel({ status: 'DELIVERED' }), 'DELIVERED');
+});
+
 test('keeps EMX cancellation as courier status without cancelling the store order', () => {
   assert.equal(shouldPropagateWaslahStatusToOrder('CANCELLED'), false);
   assert.equal(shouldPropagateWaslahStatusToOrder('SHIPPED'), true);
@@ -138,6 +165,51 @@ test('keeps EMX cancellation as courier status without cancelling the store orde
   assert.equal(isWaslahCourierTerminal(cancelledStoreOrderWithMovingAwb), false);
 });
 
+test('builds official Waslah checkpoint labels for dashboard tracking', () => {
+  assert.equal(
+    getWaslahCheckpointDisplay({
+      subtag: 'InTransit_007',
+      subtagMessage: 'In Transit',
+      message: 'Departed Origin Country - In Flight to Destination',
+    }),
+    'Departed Origin Country - In Flight to Destination',
+  );
+  assert.equal(
+    getWaslahCheckpointDisplay({ subtag: 'OnHold_001' }),
+    'Shipment put On Hold',
+  );
+
+  const merged = mergeWaslahTrackingEvents(
+    [buildWaslahTrackingEvent({ subtag: 'PickedUp_002', time: '2026-08-11T06:00:00.000Z' })],
+    [buildWaslahTrackingEvent({ subtag: 'OutForDelivery_001', time: '2026-08-11T08:00:00.000Z' })],
+  );
+  assert.equal(merged[0].subtag, 'OutForDelivery_001');
+  assert.equal(merged[0].status, 'Out for Delivery');
+  assert.equal(merged[1].subtag, 'PickedUp_002');
+});
+
+test('maps every official Waslah production subtag', () => {
+  assert.equal(WASLAH_OFFICIAL_SUBTAG_CATALOG.length, 58);
+
+  for (const entry of WASLAH_OFFICIAL_SUBTAG_CATALOG) {
+    assert.equal(
+      mapWaslahSubtagToOrderStatus(entry.subtag),
+      entry.status,
+      entry.subtag,
+    );
+    assert.equal(
+      mapWaslahTrackingToOrderStatus({
+        subtag: entry.subtag,
+        subtagMessage: entry.label,
+        message: entry.message,
+      }),
+      entry.status,
+      `${entry.subtag} with official message`,
+    );
+    assert.equal(getWaslahSubtagLabel(entry.subtag), entry.label, entry.subtag);
+  }
+});
+
 test('maps the complete EMX delivery lifecycle and numeric subtag variants', () => {
   const cases = [
     ['InfoReceived_001', 'PROCESSING'],
@@ -150,7 +222,9 @@ test('maps the complete EMX delivery lifecycle and numeric subtag variants', () 
     ['OUT_FOR_DELIVERY', 'OUT_FOR_DELIVERY'],
     ['Delivered_005', 'DELIVERED'],
     ['ToBeReturned_001', 'RTO'],
-    ['Return_Received_001', 'RETURN'],
+    ['Return_Received_001', 'RTO'],
+    ['ReadyForCollection_001', 'OUT_FOR_DELIVERY'],
+    ['OnHold_001', 'SHIPPED'],
     ['Exception_012', 'CANCELLED'],
   ];
 

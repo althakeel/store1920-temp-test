@@ -102,7 +102,9 @@ import { isPaymentFailedStoreOrder, hasPaymentFailedFollowUpDiscount, hasPayment
 import { getDefaultWaslahPickupInfo } from '@/lib/waslahOrderMapper';
 import WaslahShipNotice, { buildWaslahShipNotice } from '@/components/store/WaslahShipNotice';
 import {
+    getWaslahCheckpointDisplay,
     getWaslahCourierStatus,
+    isStaleWaslahCancellation,
     isWaslahCourierTerminal,
     mapWaslahSubtagToOrderStatus,
     resolveLatestWaslahAppStatus,
@@ -310,6 +312,7 @@ function isWaslahShipmentProcessed(order) {
 
 /** Waslah already has this shipment but Store1920 is not linked yet. */
 function isWaslahUnlinkedDuplicate(order) {
+    if (order?.waslah?.cancelledAt && !order?.waslah?.orderId) return false;
     return Boolean(
         order?.waslah?.unlinkedInWaslah
         && !isWaslahShipmentProcessed(order),
@@ -356,9 +359,15 @@ function getWaslahLiveStatusColor(order) {
 }
 
 function getWaslahLiveStatusLabel(order) {
+    if (isStaleWaslahCancellation(order)) {
+        return getStoreOrderStatusMeta(String(order?.status || '').toUpperCase()).label || 'AWB created';
+    }
     return String(
-        order?.waslah?.currentStatus
-        || order?.waslah?.lastSubtagMessage
+        getWaslahCheckpointDisplay({
+            subtag: order?.waslah?.currentSubtag || order?.waslah?.lastSubtag,
+            subtagMessage: order?.waslah?.currentStatus,
+            message: order?.waslah?.lastSubtagMessage,
+        })
         || getStoreOrderStatusMeta(String(order?.status || '').toUpperCase()).label
         || 'AWB created',
     ).trim();
@@ -447,6 +456,7 @@ export default function StoreOrders() {
     const [loadingWaslahSenders, setLoadingWaslahSenders] = useState(false);
     const [loadingWaslahServices, setLoadingWaslahServices] = useState(false);
     const [shippingWithWaslah, setShippingWithWaslah] = useState(false);
+    const [cancellingWaslah, setCancellingWaslah] = useState(false);
     const [refreshingWaslahStatus, setRefreshingWaslahStatus] = useState(false);
     const [waslahStatusRefreshedAt, setWaslahStatusRefreshedAt] = useState(null);
     const [waslahPickupInfo, setWaslahPickupInfo] = useState(() => getDefaultWaslahPickupInfo());
@@ -2239,6 +2249,56 @@ export default function StoreOrders() {
         setWaslahSuccessNotice(buildWaslahShipNotice(data));
     };
 
+    const canCancelWaslahShipment = (order) => Boolean(String(order?.waslah?.orderId || '').trim());
+
+    const cancelWaslahShipment = async () => {
+        if (!selectedOrder?._id || !canCancelWaslahShipment(selectedOrder)) return;
+        const awb = getOrderAwb(selectedOrder) || selectedOrder.waslah?.orderId;
+        const confirmed = window.confirm(
+            `Cancel the Waslah / EMX shipment${awb ? ` (${awb})` : ''}?\n\nThis cancels the courier AWB only. The store order stays open so you can ship again.`,
+        );
+        if (!confirmed) return;
+
+        setCancellingWaslah(true);
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('Authentication failed. Please sign in again.');
+            const { data } = await axios.post('/api/store/waslah/cancel', {
+                orderId: selectedOrder._id,
+            }, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!data?.success || !data?.order) {
+                throw new Error(data?.error || 'Waslah did not cancel the shipment');
+            }
+            const mergeCancelled = (current) => {
+                if (!current || String(current._id) !== String(data.order._id)) return current;
+                return {
+                    ...current,
+                    status: data.order.status || current.status,
+                    trackingId: data.order.trackingId ?? null,
+                    trackingUrl: data.order.trackingUrl ?? null,
+                    courier: data.order.courier ?? current.courier,
+                    updatedAt: data.order.updatedAt ?? current.updatedAt,
+                    waslah: {
+                        ...(current.waslah || {}),
+                        ...(data.order.waslah || {}),
+                    },
+                };
+            };
+            setSelectedOrder((current) => mergeCancelled(current));
+            setOrders((current) => current.map((row) => mergeCancelled(row)));
+            setTrackingData((prev) => ({ ...prev, trackingId: '', trackingUrl: '' }));
+            setWaslahSuccessNotice(null);
+            clearPageCache('store-orders');
+            toast.success(data.message || 'Waslah shipment cancelled');
+        } catch (error) {
+            toast.error(error?.response?.data?.error || error?.message || 'Failed to cancel Waslah shipment');
+        } finally {
+            setCancellingWaslah(false);
+        }
+    };
+
     const refreshWaslahStatus = async ({ orderId, manual = false, signal } = {}) => {
         const targetOrderId = String(orderId || selectedOrder?._id || '').trim();
         if (!targetOrderId) return null;
@@ -2516,6 +2576,15 @@ export default function StoreOrders() {
         }
 
         setShippingWithWaslah(true);
+        setSelectedOrder((current) => (
+            current ? {
+                ...current,
+                waslah: {
+                    ...(current.waslah || {}),
+                    unlinkedInWaslah: false,
+                },
+            } : current
+        ));
         try {
             const data = await callWaslahShip();
             if (!data?.success) {
@@ -3687,8 +3756,8 @@ export default function StoreOrders() {
                                                     {getWaslahLiveStatusLabel(selectedOrder)}
                                                 </span>
                                             ) : isWaslahUnlinkedDuplicate(selectedOrder) ? (
-                                                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                                                    In Waslah — link AWB
+                                                <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-semibold text-violet-800">
+                                                    Ready to ship
                                                 </span>
                                             ) : (
                                                 <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-semibold text-violet-800">
@@ -3712,7 +3781,7 @@ export default function StoreOrders() {
                                             }}
                                         />
 
-                                        {!isWaslahShipmentProcessed(selectedOrder) && !isWaslahUnlinkedDuplicate(selectedOrder) ? (
+                                        {!isWaslahShipmentProcessed(selectedOrder) ? (
                                             <ol className="list-decimal space-y-1 pl-4 text-[11px] text-violet-900">
                                                 <li>Click <strong>Ship with EMX</strong> — creates shipment &amp; schedules pickup</li>
                                                 <li>AWB + label download appear automatically here</li>
@@ -3832,6 +3901,16 @@ export default function StoreOrders() {
                                                     >
                                                         Track on EMX
                                                     </a>
+                                                    {canCancelWaslahShipment(selectedOrder) ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={cancelWaslahShipment}
+                                                            disabled={cancellingWaslah || shippingWithWaslah}
+                                                            className="inline-flex items-center rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                                                        >
+                                                            {cancellingWaslah ? 'Cancelling…' : 'Cancel Waslah shipment'}
+                                                        </button>
+                                                    ) : null}
                                                 </div>
                                                 {(Array.isArray(selectedOrder?.waslah?.events) && selectedOrder.waslah.events.length > 0) ? (
                                                     <div className="mt-3 rounded-lg border border-violet-100 bg-violet-50/50 p-3">
@@ -3850,8 +3929,8 @@ export default function StoreOrders() {
 
                                         {isWaslahUnlinkedDuplicate(selectedOrder) ? (
                                             <p className="text-xs text-amber-900">
-                                                Pickup may already be scheduled in Waslah for reference {getWaslahOrderReference(selectedOrder) || '—'}.
-                                                Store1920 only needs a one-time sync to pull the AWB/label — paste the Waslah Order ID below (do not ship again).
+                                                Waslah may still have an older shipment for {getWaslahOrderReference(selectedOrder) || 'this order'}.
+                                                Use <strong>Ship with EMX</strong> to create a new AWB, or optionally sync the old one below.
                                             </p>
                                         ) : null}
 
@@ -3893,7 +3972,7 @@ export default function StoreOrders() {
                                             </button>
                                         ) : null}
 
-                                        {!isWaslahShipmentProcessed(selectedOrder) && !isWaslahUnlinkedDuplicate(selectedOrder) ? (
+                                        {!isWaslahShipmentProcessed(selectedOrder) ? (
                                             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                                                 <div>
                                                     <label className="text-xs font-medium text-violet-800 block mb-1">Pickup date</label>
@@ -3941,13 +4020,23 @@ export default function StoreOrders() {
                                             </p>
                                         ) : null}
 
-                                        {!isWaslahUnlinkedDuplicate(selectedOrder) ? (
+                                        {selectedOrder?.waslah?.cancelledAt && !canCancelWaslahShipment(selectedOrder) ? (
+                                            <p className="text-[11px] text-red-800">
+                                                Last Waslah shipment cancelled
+                                                {selectedOrder.waslah.cancelledTrackingNumber
+                                                    ? ` (AWB ${selectedOrder.waslah.cancelledTrackingNumber})`
+                                                    : ''}.
+                                                Use Ship with EMX to create a new AWB.
+                                            </p>
+                                        ) : null}
+
+                                        <div className="space-y-2">
                                         <button
                                             type="button"
                                             onClick={isWaslahShipmentProcessed(selectedOrder)
                                                 ? () => refreshWaslahStatus({ manual: true })
                                                 : shipOrderWithWaslah}
-                                            disabled={shippingWithWaslah || refreshingWaslahStatus}
+                                            disabled={shippingWithWaslah || refreshingWaslahStatus || cancellingWaslah}
                                             className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white font-medium py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
                                         >
                                             {shippingWithWaslah || refreshingWaslahStatus ? (
@@ -3964,7 +4053,17 @@ export default function StoreOrders() {
                                                 </>
                                             )}
                                         </button>
+                                        {canCancelWaslahShipment(selectedOrder) && !getOrderAwb(selectedOrder) ? (
+                                            <button
+                                                type="button"
+                                                onClick={cancelWaslahShipment}
+                                                disabled={cancellingWaslah || shippingWithWaslah}
+                                                className="w-full rounded-lg border border-red-300 bg-red-50 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+                                            >
+                                                {cancellingWaslah ? 'Cancelling…' : 'Cancel Waslah shipment'}
+                                            </button>
                                         ) : null}
+                                        </div>
                                     </div>
                                 ) : null}
 

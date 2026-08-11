@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -37,8 +37,14 @@ export default function SpecialOfferBySlugPage() {
   const [expired, setExpired] = useState(false);
   const [showTopBanner, setShowTopBanner] = useState(true);
   const [resolvedToken, setResolvedToken] = useState(token || null);
+  const prevSlugRef = useRef(slug);
 
   useEffect(() => {
+    const slugChanged = prevSlugRef.current !== slug;
+    if (slugChanged) {
+      prevSlugRef.current = slug;
+    }
+
     if (token) {
       setResolvedToken(token);
       if (typeof window !== 'undefined') {
@@ -47,10 +53,12 @@ export default function SpecialOfferBySlugPage() {
       setOfferTokenCookie(token);
       return;
     }
-    // No valid token in URL, always resolve by slug to avoid stale token cross-over
-    // (important after login redirects or when multiple offer links are opened)
-    setResolvedToken(null);
-  }, [token]);
+
+    // New offer slug without token → resolve by slug (don't clear on ?token= URL cleanup)
+    if (slugChanged) {
+      setResolvedToken(null);
+    }
+  }, [token, slug]);
 
   // Clean URL: Remove token from visible URL after it's been stored safely
   // Do this AFTER token is stored, to avoid race conditions
@@ -62,7 +70,7 @@ export default function SpecialOfferBySlugPage() {
     if (resolvedToken === token) {
       // Defer the URL replacement to avoid interfering with data fetch
       const timer = setTimeout(() => {
-        router.replace(`/offer/${slug}`, { shallow: false });
+        router.replace(`/offer/${encodeURIComponent(String(slug))}`);
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -113,9 +121,11 @@ export default function SpecialOfferBySlugPage() {
     }
 
     if (data.product.slug && slug) {
-      const needsCleanUrl = data.product.slug !== slug || Boolean(queryToken) || Boolean(pathToken);
-      if (needsCleanUrl) {
-        router.replace(`/offer/${data.product.slug}`);
+      const cleanSlug = String(data.product.slug).trim();
+      const needsCleanUrl =
+        cleanSlug !== slug || Boolean(queryToken) || Boolean(pathToken);
+      if (needsCleanUrl && cleanSlug) {
+        router.replace(`/offer/${encodeURIComponent(cleanSlug)}`);
       }
     }
   };
@@ -124,7 +134,8 @@ export default function SpecialOfferBySlugPage() {
     try {
       console.log('[fetchOfferDetails] Validating token:', activeToken.substring(0, 8) + '...');
       setLoading(true);
-      const { data } = await axios.get(`/api/personalized-offers/validate/${activeToken}`);
+      setError(null);
+      const { data } = await axios.get(`/api/personalized-offers/validate/${encodeURIComponent(activeToken)}`);
 
       if (data.success && data.product) {
         console.log('[fetchOfferDetails] Token validated successfully');
@@ -140,7 +151,6 @@ export default function SpecialOfferBySlugPage() {
       // If token validation fails with 404, try to use slug-based resolution
       if (error.response?.status === 404 && slug && !pathToken) {
         console.log("[fetchOfferDetails] Token not found (404), falling back to slug-based resolution...");
-        setLoading(false);
         await fetchOfferDetailsBySlug(slug);
         return;
       }
@@ -148,11 +158,12 @@ export default function SpecialOfferBySlugPage() {
       const errorMsg = error.response?.data?.error || "Failed to load offer";
       setError(errorMsg);
       toast.error(errorMsg);
-      setLoading(false);
 
       setTimeout(() => {
         router.push('/');
       }, 3000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -160,7 +171,11 @@ export default function SpecialOfferBySlugPage() {
     try {
       console.log('[fetchOfferDetailsBySlug] Resolving offer for slug:', productSlug);
       setLoading(true);
-      const { data } = await axios.get(`/api/personalized-offers/resolve/${productSlug}`);
+      setError(null);
+      const encoded = encodeURIComponent(productSlug);
+      const { data } = await axios.get(
+        `/api/personalized-offers/resolve/${encoded}?slug=${encoded}`
+      );
 
       if (data.success && data.product && data.offer?.offerToken) {
         console.log('[fetchOfferDetailsBySlug] Offer resolved successfully');

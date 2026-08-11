@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { auth } from '@/lib/firebase';
+import { isAdminEmail } from '@/lib/adminEmails';
 import toast from 'react-hot-toast';
 import { FiTrash2, FiEdit2, FiPlus } from 'react-icons/fi';
 import Loading from '@/components/Loading';
@@ -38,8 +39,7 @@ export default function CategoriesManager() {
         setLoading(false);
         return;
       }
-      const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').replace(/['\"]/g, '').split(',');
-      setIsAdmin(adminEmails.includes(user.email));
+      setIsAdmin(isAdminEmail(user.email));
       setFirebaseUser(user);
       setLoading(false);
     });

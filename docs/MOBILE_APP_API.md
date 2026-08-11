@@ -6,9 +6,11 @@
 **API root:** `https://store1920.com/api/...`  
 **Currency:** AED  
 **Auth:** Firebase Authentication (ID token)  
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-23
 
 This document covers **customer (shopper) APIs** used by the public website and intended for the mobile app. Seller dashboard (`/api/store/*`), platform admin (`/api/admin/*`), crons, and payment webhooks are out of scope for the shopper app (see [Appendix B](#appendix-b--non-shopper-api-surface)).
+
+**Master guide (home + full catalog in one file):** [`docs/STORE1920_FULL_API.md`](./STORE1920_FULL_API.md)
 
 **Full docs set (all audiences):** start at [`docs/README.md`](./README.md) and [`docs/API_OVERVIEW.md`](./API_OVERVIEW.md).
 

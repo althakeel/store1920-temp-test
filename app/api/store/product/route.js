@@ -203,6 +203,9 @@ export async function POST(request) {
         // Fast delivery toggle
         const fastDelivery = String(formData.get("fastDelivery") || "false").toLowerCase() === "true";
         const freeShippingEligible = String(formData.get("freeShippingEligible") || "false").toLowerCase() === "true";
+        const hsCode = String(formData.get("hsCode") || '').trim();
+        const originCountry = String(formData.get("originCountry") || '').trim().toUpperCase();
+        const shippingWeightKg = Math.max(0, Number(formData.get("shippingWeightKg") || 0) || 0);
         const useProductsPath = String(formData.get("useProductsPath") || "false").toLowerCase() === "true";
         const imageAspectRatio = formData.get("imageAspectRatio") || "1:1";
         const cardVideoPreviewEnabled = String(formData.get("cardVideoPreviewEnabled") || "true").toLowerCase() === "true";
@@ -365,6 +368,9 @@ export async function POST(request) {
             inStock,
             fastDelivery,
             freeShippingEligible,
+            hsCode,
+            originCountry,
+            shippingWeightKg,
             useProductsPath,
             imageAspectRatio,
             cardVideoPreviewEnabled,
@@ -690,6 +696,12 @@ export async function PUT(request) {
         const price = formData.get("price") ? Number(formData.get("price")) : undefined;
         const fastDelivery = String(formData.get("fastDelivery") || "").toLowerCase() === "true";
         const freeShippingEligible = String(formData.get("freeShippingEligible") || "").toLowerCase() === "true";
+        const hsCode = formData.get("hsCode") != null ? String(formData.get("hsCode") || '').trim() : undefined;
+        const originCountry = formData.get("originCountry") != null ? String(formData.get("originCountry") || '').trim().toUpperCase() : undefined;
+        const shippingWeightKgRaw = formData.get("shippingWeightKg");
+        const shippingWeightKg = shippingWeightKgRaw != null && shippingWeightKgRaw !== ''
+            ? Math.max(0, Number(shippingWeightKgRaw) || 0)
+            : undefined;
         const useProductsPath = String(formData.get("useProductsPath") || "").toLowerCase() === "true";
         const imageAspectRatioRaw = formData.get("imageAspectRatio");
         const cardVideoPreviewEnabledRaw = formData.get("cardVideoPreviewEnabled");
@@ -864,6 +876,9 @@ export async function PUT(request) {
             inStock,
             fastDelivery,
             freeShippingEligible,
+            ...(hsCode !== undefined ? { hsCode } : {}),
+            ...(originCountry !== undefined ? { originCountry } : {}),
+            ...(shippingWeightKg !== undefined ? { shippingWeightKg } : {}),
             useProductsPath,
             imageAspectRatio,
             cardVideoPreviewEnabled,

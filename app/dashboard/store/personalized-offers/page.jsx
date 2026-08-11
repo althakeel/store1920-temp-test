@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { Trash2, Copy, RefreshCw, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "@/lib/useAuth";
+import { buildCustomerSitePath } from "@/lib/appUrl";
 
 export default function PersonalizedOffersAdmin() {
   const { user, getToken } = useAuth();
@@ -120,18 +121,30 @@ export default function PersonalizedOffersAdmin() {
     }
 
     setSelectedCart(cart);
-    
-    // Auto-fill customer details
+
     const firstItem = cart.items?.[0];
-    const productId = firstItem?.productId || firstItem?.id || '';
+    const rawProductId = firstItem?.productId ?? firstItem?.id ?? '';
+    const productId =
+      rawProductId && typeof rawProductId === 'object'
+        ? String(rawProductId._id || rawProductId.id || '').trim()
+        : String(rawProductId || '').trim();
+
+    const matchedProduct = products.find(
+      (p) => String(p._id || p.id) === productId
+    );
 
     setNewOffer({
       ...newOffer,
       customerEmail: cart.email || '',
       customerPhone: cart.phone || '',
       customerName: cart.name || '',
-      productId: productId,
+      productId: matchedProduct ? String(matchedProduct._id || matchedProduct.id) : productId,
     });
+
+    if (productId && !matchedProduct) {
+      toast.error('Cart product not found in your catalog — please select a product manually');
+      return;
+    }
 
     toast.success(`Auto-filled details for ${cart.name || cart.email}`);
   };
@@ -204,13 +217,13 @@ export default function PersonalizedOffersAdmin() {
     }
   };
 
-  // Copy offer URL (hide token from URL for security)
+  // Copy customer-facing offer URL (token lets the page resolve the exact offer)
   const copyOfferUrl = async (token, productSlug) => {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
-    const offerPath = productSlug || token;
-    // Only include slug in URL, token will be passed as redirect param internally
-    const offerUrl = `${baseUrl}/offer/${encodeURIComponent(offerPath)}`;
-    
+    const slug = String(productSlug || '').trim();
+    const offerUrl = slug
+      ? buildCustomerSitePath(`/offer/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}`)
+      : buildCustomerSitePath(`/offer/${token}`);
+
     try {
       await navigator.clipboard.writeText(offerUrl);
       toast.success("Offer URL copied to clipboard!");
@@ -534,8 +547,12 @@ export default function PersonalizedOffersAdmin() {
                   </button>
                   <button
                     onClick={() => {
-                      const offerPath = offer.product?.slug || offer.offerToken;
-                      window.open(`/offer/${encodeURIComponent(offerPath)}`, '_blank');
+                      const slug = String(offer.product?.slug || '').trim();
+                      const token = offer.offerToken;
+                      const path = slug
+                        ? `/offer/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}`
+                        : `/offer/${token}`;
+                      window.open(path, '_blank');
                     }}
                     className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
                     title="Preview offer"

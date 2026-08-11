@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from "react"
-import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ArrowRightIcon, Lock } from "lucide-react"
 import SellerNavbar from "./StoreNavbar"
+import StoreSidebar from "./StoreSidebar"
 import StoreOrderNotificationProvider from "./StoreOrderNotificationProvider"
+
+const SellerSidebar = StoreSidebar
 import StoreShellSkeleton from "./StoreShellSkeleton"
 
 import axios from "axios"
@@ -18,11 +20,6 @@ import {
     getPermissionLabel,
 } from "@/lib/storeDashboardPermissions";
 import { readSellerCache, writeSellerCache } from "@/lib/storeDashboardCache";
-
-const SellerSidebar = dynamic(() => import("./StoreSidebar"), {
-    ssr: false,
-    loading: () => <aside className="hidden w-56 shrink-0 border-r border-slate-200 bg-slate-50 lg:block xl:w-64" />,
-});
 
 const ACCESS_REFRESH_MS = 5 * 60 * 1000;
 
@@ -61,9 +58,13 @@ const StoreLayout = ({ children }) => {
             let token = await getToken(false);
             if (!token) token = await getToken(true);
             if (!token) {
+                if (retryCount < 2) {
+                    await new Promise((resolve) => setTimeout(resolve, 400 * (retryCount + 1)));
+                    return fetchIsSeller(retryCount + 1, { silent });
+                }
                 setAccessIssue({
                     type: 'missing-token',
-                    message: 'Your login session is not ready yet. Please sign in again.',
+                    message: 'Your login session is not ready yet. Please wait a moment and retry — you do not need to sign out.',
                 });
                 setSellerLoading(false);
                 return;
@@ -259,7 +260,7 @@ const StoreLayout = ({ children }) => {
             <p className="text-slate-500 mt-4 mb-6 max-w-xl">
                 {accessIssue?.message || 'Your account does not have seller access'}
             </p>
-            {accessIssue?.type === 'database-unavailable' || accessIssue?.type === 'request-failed' || accessIssue?.type === 'server-error' || accessIssue?.type === 'server-offline' ? (
+            {accessIssue?.type === 'database-unavailable' || accessIssue?.type === 'request-failed' || accessIssue?.type === 'server-error' || accessIssue?.type === 'server-offline' || accessIssue?.type === 'missing-token' ? (
                 <button
                     type="button"
                     onClick={() => fetchIsSeller()}

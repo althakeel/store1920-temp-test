@@ -6,6 +6,7 @@ import { getLocalizedCategoryName } from '@/lib/categoryLocalization';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 import { resolveCategoryHref } from '@/lib/categoryTreeUtils';
 import CategoryProductsPanel from '@/components/category/CategoryProductsPanel';
+import CategoryHeroCard from '@/components/category/CategoryHeroCard';
 
 function localizeCategoryRecord(category, language) {
   if (!category) return '';
@@ -18,6 +19,7 @@ export default function CategoryPageView({
   children = [],
   products = [],
   total = 0,
+  headerStats = null,
 }) {
   const { t, language } = useStorefrontI18n();
   const isArabic = language === 'ar';
@@ -60,21 +62,23 @@ export default function CategoryPageView({
         ))}
       </nav>
 
-      <div className="mb-6 text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{categoryName}</h1>
-        {category.description ? (
-          <p className="text-gray-600 max-w-3xl mx-auto">
-            {decodeHtmlEntities(
-              isArabic && String(category.descriptionAr || '').trim()
-                ? category.descriptionAr
-                : category.description,
-            )}
-          </p>
-        ) : null}
-        <p className="mt-2 text-sm text-gray-500">
-          {t('category.productCount', { count: total.toLocaleString(isArabic ? 'ar-AE' : 'en') })}
-        </p>
-      </div>
+      <CategoryHeroCard
+        name={categoryName}
+        image={category.image}
+        description={decodeHtmlEntities(
+          isArabic && String(category.descriptionAr || '').trim()
+            ? category.descriptionAr
+            : (category.description || ''),
+        )}
+        stats={{
+          productCount: Number(total) || Number(headerStats?.productCount) || 0,
+          fastDeliveryPercent: Number(headerStats?.fastDeliveryPercent) || 0,
+          averageRating: Number(headerStats?.averageRating) || 0,
+          reviewCount: Number(headerStats?.reviewCount) || 0,
+        }}
+        t={t}
+        isArabic={isArabic}
+      />
 
       {showSubcategories && !isL2WithL3Children ? (
         <section className="mb-8" aria-label={t('category.browseSubcategories')}>
@@ -99,8 +103,9 @@ export default function CategoryPageView({
         </section>
       ) : null}
 
-      {products.length > 0 ? (
+      {products.length > 0 || Number(total) > 0 ? (
         <CategoryProductsPanel
+          categoryId={String(category?._id || '')}
           products={products}
           subcategoryLinks={subcategoryLinks}
           showSubcategoryLinks={isL2WithL3Children}
@@ -111,12 +116,6 @@ export default function CategoryPageView({
           <p className="text-gray-500 text-lg">{t('category.noProducts')}</p>
         </div>
       )}
-
-      {total > products.length ? (
-        <p className={`mt-6 text-center text-sm text-gray-500 ${isArabic ? 'text-right sm:text-center' : ''}`}>
-          {t('category.showingFirst', { count: products.length.toLocaleString(isArabic ? 'ar-AE' : 'en') })}
-        </p>
-      ) : null}
     </div>
   );
 }
