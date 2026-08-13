@@ -1,18 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle, Clock, AlertCircle, TrendingUp } from 'lucide-react'
+import { CheckCircle, Clock, TrendingUp } from 'lucide-react'
+import { formatStoreOrderDateTime } from '@/lib/orderDisplay'
 
-const StatusIcon = ({ status, isCompleted, isActive }) => {
-  const iconProps = { size: 20, className: 'w-full h-full' }
-  
-  if (isCompleted) {
-    return <CheckCircle {...iconProps} className="text-green-500" />
-  }
-  if (isActive) {
-    return <Clock {...iconProps} className="text-blue-500 animate-spin" />
-  }
-  return <div className="w-full h-full rounded-full border-2 border-slate-300" />
+function formatTrackingEventTime(value) {
+  if (!value) return ''
+  const formatted = formatStoreOrderDateTime(value, {
+    timeZone: 'Asia/Dubai',
+    relativeDay: true,
+  })
+  return formatted === '—' ? '' : formatted
 }
 
 export default function TrackingTimeline({ events, type = 'delhivery' }) {
@@ -65,16 +63,14 @@ export default function TrackingTimeline({ events, type = 'delhivery' }) {
         {events.map((event, idx) => {
           const isAnimated = animatedEvents.includes(idx)
           const color = getStatusColor(event.status)
-          const timestamp = (type === 'c3xpress' || type === 'waslah')
-            ? (event.time || '')
-            : (event.time || event.createdAt ? new Date(event.time || event.createdAt).toLocaleString() : '')
+          const timestamp = formatTrackingEventTime(event.time || event.createdAt)
           const location = event.location || event.locationName || ''
           const remarks = event.remarks || event.description || ''
           const deliveredTo = event.deliveredTo || ''
 
           return (
             <div
-              key={idx}
+              key={`${type}-${idx}-${event.time || ''}-${event.status || ''}`}
               className={`relative pl-11 transition-all duration-500 ${
                 isAnimated ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'
               }`}

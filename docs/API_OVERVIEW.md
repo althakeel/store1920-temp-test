@@ -160,6 +160,8 @@ Field-level detail: [ORDER_DETAILS.md](./ORDER_DETAILS.md).
 | Doc | Purpose |
 |-----|---------|
 | [warehouse-order-packing-api.md](./warehouse-order-packing-api.md) | Packing flows |
+| [warehouse-app-emx-tracking-pickup.md](./warehouse-app-emx-tracking-pickup.md) | EMX tracking, pickup, labels |
+| [warehouse-tracking-api.md](./warehouse-tracking-api.md) | Tracking API short reference |
 | [warehouse-inventory-api.md](./warehouse-inventory-api.md) | Stock |
 | [warehouse-android-firebase-setup.md](./warehouse-android-firebase-setup.md) | App Firebase setup |
 

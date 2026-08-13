@@ -3,12 +3,13 @@
 import { useAuth } from '@/lib/useAuth';
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import Loading from "@/components/Loading";
 import PageSkeleton from "@/components/PageSkeleton";
 import { readPageCache, writePageCache, clearPageCache } from "@/lib/storePageCache";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { Package, Truck, X, Download, Printer, RefreshCw, MapPin, Trash2, CalendarClock, AlertTriangle, Search, Plus, ArrowUp, ArrowDown, ArrowUpDown, History, Pencil, Filter, Phone } from "lucide-react";
+import { Package, Truck, X, Download, Printer, RefreshCw, MapPin, Trash2, CalendarClock, AlertTriangle, Search, Plus, ArrowUp, ArrowDown, ArrowUpDown, History, Pencil, Filter, Phone, Undo2, CheckCircle2 } from "lucide-react";
 import StoreCreateOrderModal from '@/components/store/StoreCreateOrderModal';
 import PaymentFailedCallCustomerModal from '@/components/store/PaymentFailedCallCustomerModal';
 import StoreEditOrderPanel from '@/components/store/StoreEditOrderPanel';
@@ -83,7 +84,7 @@ import {
     summarizeDeliveryBuckets,
     isDashboardConvertedOrder,
 } from '@/lib/storeOrderInsights';
-import { getDisplayOrderNumber, getOrderCustomerDisplayName, formatStoreOrderDateTime, formatStoreOrderDateParts } from '@/lib/orderDisplay';
+import { getDisplayOrderNumber, getOrderCustomerDisplayName, formatStoreOrderDateTime, formatStoreOrderDateParts, buildTrackOrderPageUrl } from '@/lib/orderDisplay';
 import { getOrderTrafficSourceDisplay, getOrderTrafficSourceKey, TRAFFIC_SOURCE_FILTER_OPTIONS } from '@/lib/orderAttributionDisplay';
 import {
     getManualStoreOrderCreator,
@@ -99,10 +100,11 @@ import {
 } from '@/lib/storeOrderWooExport';
 import { isAwaitingPaymentOrder, isVisibleStoreOrder } from '@/lib/deferredOrderStatus';
 import { isPaymentFailedStoreOrder, hasPaymentFailedFollowUpDiscount, hasPaymentFailedFollowUp } from '@/lib/paymentFailedFollowUp';
-import { getDefaultWaslahPickupInfo } from '@/lib/waslahOrderMapper';
+import { getDefaultWaslahPickupInfo, getWaslahPickupDateOptions } from '@/lib/waslahOrderMapper';
 import WaslahShipNotice, { buildWaslahShipNotice } from '@/components/store/WaslahShipNotice';
 import {
     getWaslahCheckpointDisplay,
+    getWaslahCourierReason,
     getWaslahCourierStatus,
     isStaleWaslahCancellation,
     isWaslahCourierTerminal,
@@ -111,7 +113,7 @@ import {
     resolveWaslahOrderStatusTransition,
     buildEmxTrackingUrl,
 } from '@/lib/waslahTracking';
-import { isWaslahLabelReadyOrder, isWaslahLabelNotPrinted } from '@/lib/waslahReceipts';
+import { isWaslahLabelReadyOrder, isWaslahLabelNotPrinted, isWaslahLabelPrinted, getLabelDownloadCount } from '@/lib/waslahReceipts';
 import TrackingTimeline from '@/components/TrackingTimeline';
 
 function formatPaymentRecheckReason(reason = '', paymentMethod = '') {
@@ -306,6 +308,79 @@ const updateTrackingDetails = async (orderId, trackingId, trackingUrl, courier, 
     }
 };
 
+const CENTER_POPUP_EASE = [0.22, 1, 0.36, 1];
+
+function StoreCenterPopupShell({
+    open = false,
+    zIndex = 120,
+    maxWidthClass = 'max-w-md',
+    dismissible = true,
+    onBackdropClick,
+    labelledBy,
+    role = 'dialog',
+    children,
+}) {
+    const contentRef = useRef(null);
+    if (open && children) {
+        contentRef.current = children;
+    }
+
+    return (
+        <AnimatePresence
+            onExitComplete={() => {
+                if (!open) contentRef.current = null;
+            }}
+        >
+            {open ? (
+                <motion.div
+                    key="store-center-popup"
+                    className="fixed inset-0 flex items-center justify-center p-4"
+                    style={{ zIndex }}
+                    role={role}
+                    aria-modal={role === 'dialog' ? true : undefined}
+                    aria-labelledby={labelledBy}
+                    aria-live={role === 'status' ? 'polite' : undefined}
+                    aria-busy={role === 'status' ? true : undefined}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22 }}
+                >
+                    {dismissible ? (
+                        <motion.button
+                            type="button"
+                            aria-label="Close popup"
+                            className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm"
+                            onClick={onBackdropClick}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                        />
+                    ) : (
+                        <motion.div
+                            className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                        />
+                    )}
+                    <motion.div
+                        className={`relative w-full ${maxWidthClass} overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl`}
+                        initial={{ opacity: 0, scale: 0.88, y: 28 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.94, y: 12 }}
+                        transition={{ duration: 0.34, ease: CENTER_POPUP_EASE }}
+                    >
+                        {children || contentRef.current}
+                    </motion.div>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>
+    );
+}
+
 function isWaslahShipmentProcessed(order) {
     return Boolean(getOrderAwb(order));
 }
@@ -320,17 +395,19 @@ function isWaslahUnlinkedDuplicate(order) {
 }
 
 function getOrderAwb(order) {
-    const waslahTrackingNumber = String(order?.waslah?.trackingNumber || '').trim();
-    if (waslahTrackingNumber) return waslahTrackingNumber;
-
-    const courier = String(order?.courier || '').toLowerCase();
-    const hasWaslahAssociation = Boolean(
-        order?.waslah?.orderId
-        || order?.waslah?.processed
-        || courier.includes('emx')
-        || courier.includes('waslah'),
-    );
-    return hasWaslahAssociation ? String(order?.trackingId || '').trim() : '';
+    const emxCandidates = [
+        order?.waslah?.emxTrackingNumber,
+        order?.waslah?.trackingNumber,
+        order?.trackingId,
+    ];
+    for (const candidate of emxCandidates) {
+        const value = String(candidate || '').trim();
+        if (/^1000\d{9,12}$/.test(value)) return value;
+        if (/^\d{10,16}$/.test(value) && !/^62\d+$/.test(value) && !/^[a-fA-F0-9]{24}$/.test(value) && !/^S1920-/i.test(value)) {
+            return value;
+        }
+    }
+    return '';
 }
 
 /** Any courier AWB for list/filters (EMX Waslah number or manual trackingId). */
@@ -371,6 +448,83 @@ function getWaslahLiveStatusLabel(order) {
         || getStoreOrderStatusMeta(String(order?.status || '').toUpperCase()).label
         || 'AWB created',
     ).trim();
+}
+
+/** Latest EMX/Waslah courier reason for the orders table (why undelivered / failed). */
+function getOrderCourierNoteDisplay(order) {
+    const resolved = getWaslahCourierReason(order);
+    if (!resolved?.reason) {
+        // Fallback: show live checkpoint text when no structured reason yet.
+        const waslah = order?.waslah || {};
+        if (!waslah.orderId && !waslah.trackingNumber && !getOrderAwb(order) && !(waslah.events || []).length) {
+            return null;
+        }
+        const fallback = getWaslahLiveStatusLabel(order);
+        if (!fallback) return null;
+        return {
+            reason: fallback,
+            label: '',
+            location: String(waslah.lastLocation || '').trim(),
+            tone: 'slate',
+            title: fallback,
+        };
+    }
+
+    const haystack = `${resolved.reason} ${resolved.label} ${resolved.courierStatus} ${resolved.subtag}`.toLowerCase();
+    let tone = 'slate';
+    if (resolved.courierStatus === 'DELIVERED' || haystack.includes('delivered')) {
+        tone = 'emerald';
+    } else if (
+        resolved.isFailure
+        || resolved.courierStatus === 'RTO'
+        || resolved.courierStatus === 'RETURN'
+        || resolved.courierStatus === 'CANCELLED'
+        || haystack.includes('undeliver')
+        || haystack.includes('failed attempt')
+        || haystack.includes('exception')
+        || haystack.includes('rto')
+        || haystack.includes('return to')
+    ) {
+        tone = 'amber';
+    } else if (
+        resolved.courierStatus === 'OUT_FOR_DELIVERY'
+        || haystack.includes('out for delivery')
+    ) {
+        tone = 'blue';
+    }
+
+    return {
+        reason: resolved.reason,
+        label: resolved.label || '',
+        location: resolved.location || '',
+        tone,
+        title: [resolved.label, resolved.reason, resolved.location].filter(Boolean).join(' · '),
+    };
+}
+
+function getCourierNoteToneClasses(tone = 'slate') {
+    if (tone === 'emerald') {
+        return {
+            badge: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+            text: 'text-emerald-700',
+        };
+    }
+    if (tone === 'amber') {
+        return {
+            badge: 'bg-amber-50 text-amber-900 ring-amber-200',
+            text: 'text-amber-800',
+        };
+    }
+    if (tone === 'blue') {
+        return {
+            badge: 'bg-sky-50 text-sky-800 ring-sky-200',
+            text: 'text-sky-700',
+        };
+    }
+    return {
+        badge: 'bg-slate-50 text-slate-700 ring-slate-200',
+        text: 'text-slate-600',
+    };
 }
 
 function mergeWaslahLiveStatusPatch(current, incoming) {
@@ -457,16 +611,25 @@ export default function StoreOrders() {
     const [loadingWaslahServices, setLoadingWaslahServices] = useState(false);
     const [shippingWithWaslah, setShippingWithWaslah] = useState(false);
     const [cancellingWaslah, setCancellingWaslah] = useState(false);
+    const [requestingWaslahPickup, setRequestingWaslahPickup] = useState(false);
     const [refreshingWaslahStatus, setRefreshingWaslahStatus] = useState(false);
     const [waslahStatusRefreshedAt, setWaslahStatusRefreshedAt] = useState(null);
     const [waslahPickupInfo, setWaslahPickupInfo] = useState(() => getDefaultWaslahPickupInfo());
+    const [showBulkPickupPanel, setShowBulkPickupPanel] = useState(false);
     const [waslahManualOrderId, setWaslahManualOrderId] = useState('');
     const [waslahLinkHelpOpen, setWaslahLinkHelpOpen] = useState(false);
     const [waslahSuccessNotice, setWaslahSuccessNotice] = useState(null);
     const [downloadingWaslahReceipts, setDownloadingWaslahReceipts] = useState(false);
+    const [centerConfirm, setCenterConfirm] = useState(null);
+    const centerConfirmResolverRef = useRef(null);
+    const [centerNotice, setCenterNotice] = useState(null);
+    const [centerProgress, setCenterProgress] = useState(null);
     const [refreshInterval, setRefreshInterval] = useState(30); // seconds
     const [liveOrderAlert, setLiveOrderAlert] = useState('');
     const [showRejectModal, setShowRejectModal] = useState(false);
+    const [returnActionType, setReturnActionType] = useState(null);
+    const [returnActionReason, setReturnActionReason] = useState('');
+    const [submittingReturnAction, setSubmittingReturnAction] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
     const [rejectingReturnIndex, setRejectingReturnIndex] = useState(null);
     const [ltlPickupData, setLtlPickupData] = useState({
@@ -871,13 +1034,34 @@ export default function StoreOrders() {
     const allVisibleSelected = paginatedOrders.length > 0 && selectedVisibleOrderIds.length === paginatedOrders.length;
     const hasSelectedOrders = selectedOrderIds.length > 0;
 
-    const applyLabelPrintedToOrders = (orderIds, printedAt = new Date().toISOString()) => {
+    const applyLabelPrintedToOrders = (orderIds, printedAt = new Date().toISOString(), statusById = {}, countById = {}) => {
         const idSet = new Set(orderIds.map(String));
-        const updater = (order) => (
-            idSet.has(String(order._id))
-                ? { ...order, waslah: { ...(order.waslah || {}), labelPrintedAt: printedAt } }
-                : order
-        );
+        const updater = (order) => {
+            if (!idSet.has(String(order._id))) return order;
+            const nextStatus = statusById[String(order._id)] || 'WAITING_FOR_PICKUP';
+            const current = String(order.status || '').toUpperCase();
+            const shouldUpdateStatus = [
+                'ORDER_PLACED',
+                'CONFIRMED',
+                'PROCESSING',
+                'SHIPPED',
+                'IN_TRANSIT',
+                'WAITING_FOR_PICKUP',
+            ].includes(current) || !current;
+            const knownCount = Number(countById[String(order._id)]);
+            const nextCount = Number.isFinite(knownCount) && knownCount > 0
+                ? knownCount
+                : getLabelDownloadCount(order) + 1;
+            return {
+                ...order,
+                ...(shouldUpdateStatus ? { status: nextStatus } : {}),
+                waslah: {
+                    ...(order.waslah || {}),
+                    labelPrintedAt: printedAt,
+                    labelDownloadCount: nextCount,
+                },
+            };
+        };
         setOrders((prev) => prev.map(updater));
         setSelectedOrder((prev) => (prev && idSet.has(String(prev._id)) ? updater(prev) : prev));
     };
@@ -896,7 +1080,17 @@ export default function StoreOrders() {
                 { headers: { Authorization: `Bearer ${token}` } },
             );
             if (data?.success) {
-                applyLabelPrintedToOrders(data.orderIds || ids, data.labelPrintedAt);
+                const statusById = {};
+                const countById = {};
+                (data.orders || []).forEach((entry) => {
+                    if (entry?._id && entry?.status) {
+                        statusById[String(entry._id)] = entry.status;
+                    }
+                    if (entry?._id && entry?.waslah?.labelDownloadCount != null) {
+                        countById[String(entry._id)] = Number(entry.waslah.labelDownloadCount) || 0;
+                    }
+                });
+                applyLabelPrintedToOrders(data.orderIds || ids, data.labelPrintedAt, statusById, countById);
                 return true;
             }
         } catch (error) {
@@ -906,16 +1100,65 @@ export default function StoreOrders() {
         return false;
     };
 
+    const downloadEmxCarrierLabel = async (order = selectedOrder) => {
+        const orderId = String(order?._id || '').trim();
+        if (!orderId) return;
+        if (!order?.waslah?.orderId && !order?.waslah?.labelUrl) {
+            toast.error('No EMX carrier label yet — send/pickup first');
+            return;
+        }
+
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('Authentication failed. Please sign in again.');
+            const response = await axios.get(
+                `/api/store/waslah/carrier-label?orderId=${encodeURIComponent(orderId)}`,
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                    responseType: 'blob',
+                },
+            );
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const tracking = getOrderAwb(order) || orderId;
+            link.href = url;
+            link.download = `emx-carrier-label-${tracking}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            applyLabelPrintedToOrders([orderId], new Date().toISOString());
+            clearPageCache('store-orders');
+            toast.success('Downloaded EMX carrier label · status set to Waiting for Pickup');
+        } catch (error) {
+            console.error('EMX carrier label download failed:', error);
+            let message = 'Failed to download EMX carrier label';
+            if (error?.response?.data instanceof Blob) {
+                try {
+                    const text = await error.response.data.text();
+                    const parsed = JSON.parse(text);
+                    if (parsed?.error) message = parsed.error;
+                } catch {
+                    // keep default
+                }
+            } else if (error?.response?.data?.error || error?.message) {
+                message = error.response?.data?.error || error.message;
+            }
+            toast.error(message);
+        }
+    };
+
     const getLabelReadyOrdersForReceiptDownload = () => {
-        // Default queue: not yet downloaded. Selected rows can re-download.
-        let pool = hasSelectedOrders
-            ? filteredOrders.filter(isWaslahLabelReadyOrder)
-            : filteredOrders.filter(isWaslahLabelNotPrinted);
+        // Selected rows: any shipped-to-EMX order (Waslah order id is enough to print).
+        // Default queue: not yet downloaded in the current filtered list.
         if (hasSelectedOrders) {
             const selectedSet = new Set(selectedOrderIds.map(String));
-            pool = pool.filter((order) => selectedSet.has(String(order._id)));
+            return orders.filter((order) => (
+                selectedSet.has(String(order._id)) && isWaslahLabelReadyOrder(order)
+            ));
         }
-        return pool;
+        return filteredOrders.filter(isWaslahLabelNotPrinted);
     };
 
     const downloadBulkWaslahReceipts = async () => {
@@ -927,16 +1170,21 @@ export default function StoreOrders() {
         const labelReadyOrders = getLabelReadyOrdersForReceiptDownload();
         if (!labelReadyOrders.length) {
             toast.error(hasSelectedOrders
-                ? 'None of the selected orders have an AWB and Waslah label ready'
+                ? 'None of the selected orders have been sent to EMX yet'
                 : 'No undownloaded label-ready orders in the current list');
             return;
         }
 
         setDownloadingWaslahReceipts(true);
+        setCenterProgress({
+            title: 'Downloading EMX labels…',
+            message: `Preparing ${labelReadyOrders.length} EMX carrier label(s). Waslah receipt pages are removed.`,
+        });
         try {
             const token = await getToken();
+            // Same endpoint family as single-order "Download Carrier Label".
             const response = await axios.post(
-                '/api/store/waslah/print-receipts',
+                '/api/store/waslah/carrier-label',
                 { orderIds: labelReadyOrders.map((order) => order._id) },
                 {
                     headers: { Authorization: `Bearer ${token}` },
@@ -948,22 +1196,28 @@ export default function StoreOrders() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `order-receipts-${labelReadyOrders.length}-${new Date().toISOString().slice(0, 10)}.pdf`;
+            link.download = `emx-carrier-labels-${labelReadyOrders.length}-${new Date().toISOString().slice(0, 10)}.pdf`;
             document.body.appendChild(link);
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
 
-            // print-receipts already sets waslah.labelPrintedAt — update UI + cache immediately
             const printedAt = new Date().toISOString();
             const downloadedIds = labelReadyOrders.map((order) => order._id);
             applyLabelPrintedToOrders(downloadedIds, printedAt);
             clearPageCache('store-orders');
-            await markOrdersLabelPrinted(downloadedIds);
-            toast.success(`Downloaded ${labelReadyOrders.length} order receipt(s) as one PDF`);
+            setCenterProgress(null);
+            showCenterNotice({
+                title: 'EMX labels downloaded',
+                message: `Downloaded ${labelReadyOrders.length} EMX carrier label(s). Status updated to Packed / Awaiting Pickup.`,
+                tone: 'success',
+                icon: 'check',
+                primaryLabel: 'OK',
+            });
         } catch (error) {
-            console.error('Bulk Waslah receipt download failed:', error);
-            let message = 'Failed to download order receipts';
+            console.error('Bulk EMX carrier label download failed:', error);
+            setCenterProgress(null);
+            let message = 'Failed to download EMX carrier labels';
             if (error?.response?.data instanceof Blob) {
                 try {
                     const text = await error.response.data.text();
@@ -975,9 +1229,16 @@ export default function StoreOrders() {
             } else if (error?.response?.data?.error) {
                 message = error.response.data.error;
             }
-            toast.error(message);
+            showCenterNotice({
+                title: 'Download failed',
+                message,
+                tone: 'error',
+                icon: 'alert',
+                primaryLabel: 'OK',
+            });
         } finally {
             setDownloadingWaslahReceipts(false);
+            setCenterProgress(null);
         }
     };
 
@@ -2028,13 +2289,83 @@ export default function StoreOrders() {
         }
     };
 
+    const closeCenterConfirm = (confirmed = false) => {
+        const resolve = centerConfirmResolverRef.current;
+        centerConfirmResolverRef.current = null;
+        setCenterConfirm(null);
+        if (typeof resolve === 'function') resolve(Boolean(confirmed));
+    };
+
+    const askCenterConfirm = ({
+        title = 'Confirm',
+        message = '',
+        confirmLabel = 'OK',
+        cancelLabel = 'Cancel',
+        tone = 'violet',
+        icon = 'truck',
+    } = {}) => new Promise((resolve) => {
+        if (centerConfirmResolverRef.current) {
+            centerConfirmResolverRef.current(false);
+        }
+        centerConfirmResolverRef.current = resolve;
+        setCenterConfirm({
+            title,
+            message,
+            confirmLabel,
+            cancelLabel,
+            tone,
+            icon,
+        });
+    });
+
+    const showCenterNotice = ({
+        title = 'Done',
+        message = '',
+        tone = 'success',
+        icon = 'check',
+        primaryLabel = 'OK',
+        secondaryLabel = '',
+        onPrimary = null,
+        onSecondary = null,
+    } = {}) => {
+        setCenterNotice({
+            title,
+            message,
+            tone,
+            icon,
+            primaryLabel,
+            secondaryLabel,
+            onPrimary,
+            onSecondary,
+        });
+    };
+
+    const closeCenterNotice = (action = 'primary') => {
+        const notice = centerNotice;
+        setCenterNotice(null);
+        if (action === 'primary' && typeof notice?.onPrimary === 'function') {
+            notice.onPrimary();
+            return;
+        }
+        if (action === 'secondary' && typeof notice?.onSecondary === 'function') {
+            notice.onSecondary();
+        }
+    };
+
     const deleteSelectedOrders = async () => {
         if (!selectedOrderIds.length) {
             toast.error('Select orders to delete first');
             return;
         }
 
-        const confirmed = window.confirm(`Move ${selectedOrderIds.length} selected order(s) to trash? You can restore them from Trash.`);
+        const confirmed = await askCenterConfirm({
+            title: 'Move orders to trash?',
+            message: `${selectedOrderIds.length} selected order(s) will move to Trash. You can restore them later.`,
+            confirmLabel: 'Move to Trash',
+            cancelLabel: 'Keep Orders',
+            tone: 'red',
+            icon: 'trash',
+        });
         if (!confirmed) {
             return;
         }
@@ -2223,6 +2554,9 @@ export default function StoreOrders() {
             serviceId: waslahServices[0]?.id || undefined,
             waslahOrderId: waslahOrderId || waslahManualOrderId || undefined,
             syncOnly,
+            // Manual "Send to EMX" creates the shipment only. Pickup is a second step
+            // so the seller can choose EMX date / time / vehicle (or dropoff).
+            skipPickup: !syncOnly,
             dryRun,
             testCreateOnly,
         }, {
@@ -2249,14 +2583,302 @@ export default function StoreOrders() {
         setWaslahSuccessNotice(buildWaslahShipNotice(data));
     };
 
+    const isDeliveredStoreOrder = (order) => {
+        const status = String(order?.status || '').toUpperCase();
+        const waslahStatus = String(order?.waslah?.appStatus || order?.waslah?.carrierStatus || '').toUpperCase();
+        return status === 'DELIVERED' || waslahStatus === 'DELIVERED';
+    };
+
+    const hasOpenStoreReturn = (order, type) => (
+        Array.isArray(order?.returns)
+        && order.returns.some((entry) => (
+            String(entry?.type || '').toUpperCase() === type
+            && ['REQUESTED', 'APPROVED'].includes(String(entry?.status || '').toUpperCase())
+        ))
+    );
+
+    const startStoreReturnAction = async () => {
+        if (!selectedOrder?._id || !returnActionType) return;
+        setSubmittingReturnAction(true);
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('Authentication failed. Please sign in again.');
+            const { data } = await axios.post('/api/store/orders/start-return', {
+                orderId: selectedOrder._id,
+                type: returnActionType,
+                reason: returnActionReason.trim(),
+            }, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!data?.success) {
+                throw new Error(data?.error || 'Could not start this request');
+            }
+            if (data.order) {
+                setSelectedOrder((current) => (
+                    current && String(current._id) === String(data.order._id)
+                        ? { ...current, ...data.order }
+                        : current
+                ));
+                setOrders((current) => current.map((row) => (
+                    String(row._id) === String(data.order._id) ? { ...row, ...data.order } : row
+                )));
+            }
+            clearPageCache('store-orders');
+            toast.success(data.message || (returnActionType === 'REPLACEMENT' ? 'Replacement started' : 'Return started'));
+            setReturnActionType(null);
+            setReturnActionReason('');
+        } catch (error) {
+            toast.error(error?.response?.data?.error || error?.message || 'Failed to start return or replacement');
+        } finally {
+            setSubmittingReturnAction(false);
+        }
+    };
+
     const canCancelWaslahShipment = (order) => Boolean(String(order?.waslah?.orderId || '').trim());
+
+    const canRequestWaslahPickup = (order) => (
+        Boolean(String(order?.waslah?.orderId || '').trim())
+        && !isWaslahLiveTerminalOrder(order)
+    );
+
+    const canSendOrderToEmx = (order) => {
+        if (!order) return false;
+        if (String(order?.waslah?.orderId || '').trim()) return false;
+        if (isWaslahLiveTerminalOrder(order)) return false;
+        const status = String(order?.status || '').toUpperCase();
+        if (['CANCELLED', 'REFUNDED', 'TRASH', 'DELETED'].includes(status)) return false;
+        return Boolean(order?.shippingAddress?.street || order?.shippingAddress?.city);
+    };
+
+    const getSelectedOrders = () => {
+        const selectedSet = new Set(selectedOrderIds.map(String));
+        return orders.filter((order) => selectedSet.has(String(order._id)));
+    };
+
+    const getSelectedPickupEligibleOrders = () => (
+        getSelectedOrders().filter(canRequestWaslahPickup)
+    );
+
+    const getSelectedShipEligibleOrders = () => (
+        getSelectedOrders().filter(canSendOrderToEmx)
+    );
+
+    const getSelectedLabelReadyOrders = () => (
+        getSelectedOrders().filter(isWaslahLabelReadyOrder)
+    );
+
+    const requestWaslahPickup = async () => {
+        if (!selectedOrder?._id || !canRequestWaslahPickup(selectedOrder)) return;
+
+        setRequestingWaslahPickup(true);
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('Authentication failed. Please sign in again.');
+            const pickupDefaults = getDefaultWaslahPickupInfo();
+            const pickupInfo = {
+                type: waslahPickupInfo.type || pickupDefaults.type || 'pickup',
+                pickup_date: waslahPickupInfo.pickup_date || pickupDefaults.pickup_date,
+                pickup_time: waslahPickupInfo.pickup_time || pickupDefaults.pickup_time,
+                pickup_vehicle: waslahPickupInfo.pickup_vehicle || pickupDefaults.pickup_vehicle,
+            };
+            const { data } = await axios.post('/api/store/waslah/pickup', {
+                orderId: selectedOrder._id,
+                pickupInfo,
+                serviceId: waslahServices[0]?.id || undefined,
+            }, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!data?.success) {
+                throw new Error(data?.error || 'Waslah did not accept the pickup request');
+            }
+            if (data.order) {
+                setSelectedOrder((current) => (
+                    current && String(current._id) === String(data.order._id)
+                        ? { ...current, ...data.order }
+                        : current
+                ));
+                setOrders((current) => current.map((row) => (
+                    String(row._id) === String(data.order._id) ? { ...row, ...data.order } : row
+                )));
+            }
+            clearPageCache('store-orders');
+            const awb = String(data.trackingNumber || data.order?.waslah?.trackingNumber || data.order?.trackingId || '').trim();
+            toast.success(
+                awb
+                    ? (data.message || `Pickup scheduled. EMX tracking ${awb}`)
+                    : (data.message || 'Pickup requested — EMX AWB will appear when the label is ready'),
+            );
+            if (!awb) {
+                try {
+                    await refreshWaslahStatus({ manual: true });
+                } catch {
+                    // ignore — pickup already succeeded
+                }
+            }
+        } catch (error) {
+            toast.error(formatWaslahError(error, 'Failed to request EMX pickup'));
+        } finally {
+            setRequestingWaslahPickup(false);
+        }
+    };
+
+    const requestBulkWaslahPickup = async () => {
+        const eligible = getSelectedPickupEligibleOrders();
+        if (!eligible.length) {
+            toast.error('Select orders that already have an EMX shipment (Send to EMX first)');
+            return;
+        }
+        if (eligible.length > 25) {
+            toast.error('Select at most 25 orders for bulk pickup');
+            return;
+        }
+
+        const pickupDefaults = getDefaultWaslahPickupInfo();
+        const pickupInfo = {
+            type: waslahPickupInfo.type || pickupDefaults.type || 'pickup',
+            pickup_date: waslahPickupInfo.pickup_date || pickupDefaults.pickup_date,
+            pickup_time: waslahPickupInfo.pickup_time || pickupDefaults.pickup_time,
+            pickup_vehicle: waslahPickupInfo.pickup_vehicle || pickupDefaults.pickup_vehicle,
+        };
+
+        const confirmed = await askCenterConfirm({
+            title: 'Schedule EMX pickup?',
+            message: [
+                `${eligible.length} selected order(s) will use this pickup window.`,
+                `Type: ${pickupInfo.type}`,
+                `Date: ${pickupInfo.pickup_date || '—'}`,
+                `Time: ${pickupInfo.pickup_time || '—'}`,
+                `Vehicle: ${pickupInfo.pickup_vehicle || '—'}`,
+            ].join('\n'),
+            confirmLabel: 'Schedule Pickup',
+            cancelLabel: 'Cancel',
+            tone: 'violet',
+            icon: 'calendar',
+        });
+        if (!confirmed) return;
+
+        setRequestingWaslahPickup(true);
+        setCenterProgress({
+            title: 'Scheduling pickup…',
+            message: `Requesting EMX pickup for ${eligible.length} order(s). Please wait.`,
+        });
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('Authentication failed. Please sign in again.');
+
+            const { data } = await axios.post('/api/store/waslah/pickup', {
+                orderIds: eligible.map((order) => order._id),
+                pickupInfo,
+                serviceId: waslahServices[0]?.id || undefined,
+            }, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (Array.isArray(data?.orders) && data.orders.length) {
+                const byId = new Map(data.orders.map((order) => [String(order._id), order]));
+                setOrders((current) => current.map((row) => {
+                    const updated = byId.get(String(row._id));
+                    return updated ? { ...row, ...updated } : row;
+                }));
+                setSelectedOrder((current) => {
+                    if (!current) return current;
+                    const updated = byId.get(String(current._id));
+                    return updated ? { ...current, ...updated } : current;
+                });
+            }
+
+            clearPageCache('store-orders');
+            setShowBulkPickupPanel(false);
+            setCenterProgress(null);
+
+            const firstError = (data.results || []).find((entry) => !entry.success)?.error;
+            if (data?.succeeded > 0 && !data?.failed) {
+                showCenterNotice({
+                    title: 'Pickup scheduled',
+                    message: data.message || `Pickup scheduled for ${data.succeeded} order(s). You can download EMX carrier labels next.`,
+                    tone: 'success',
+                    icon: 'check',
+                    primaryLabel: 'Download Labels',
+                    secondaryLabel: 'Close',
+                    onPrimary: () => {
+                        downloadSelectedEmxCarrierLabels();
+                    },
+                });
+            } else if (data?.succeeded > 0 && data?.failed > 0) {
+                showCenterNotice({
+                    title: 'Pickup partly completed',
+                    message: [
+                        data.message || `Pickup scheduled for ${data.succeeded} of ${data.total} order(s).`,
+                        firstError ? `First error: ${firstError}` : '',
+                    ].filter(Boolean).join('\n\n'),
+                    tone: 'warning',
+                    icon: 'alert',
+                    primaryLabel: 'OK',
+                });
+            } else if (data?.failed > 0) {
+                showCenterNotice({
+                    title: 'Pickup failed',
+                    message: firstError || `${data.failed} order(s) failed to schedule pickup`,
+                    tone: 'error',
+                    icon: 'alert',
+                    primaryLabel: 'OK',
+                });
+            } else if (!data?.succeeded && !data?.failed) {
+                throw new Error(data?.error || 'Waslah did not accept the bulk pickup request');
+            }
+        } catch (error) {
+            setCenterProgress(null);
+            showCenterNotice({
+                title: 'Pickup failed',
+                message: formatWaslahError(error, 'Failed to schedule bulk EMX pickup'),
+                tone: 'error',
+                icon: 'alert',
+                primaryLabel: 'OK',
+            });
+        } finally {
+            setRequestingWaslahPickup(false);
+            setCenterProgress(null);
+        }
+    };
+
+    const downloadSelectedEmxCarrierLabels = async () => {
+        let labelReady = getSelectedLabelReadyOrders();
+        if (!labelReady.length) {
+            // Orders may still be syncing after bulk send/pickup — refresh then retry once.
+            try {
+                await fetchOrders();
+            } catch {
+                // keep going with current state
+            }
+            labelReady = getSelectedLabelReadyOrders();
+        }
+        if (!labelReady.length) {
+            showCenterNotice({
+                title: 'Labels not ready',
+                message: 'None of the selected orders have been sent to EMX yet. Use Send to EMX first, then download carrier labels.',
+                tone: 'warning',
+                icon: 'alert',
+                primaryLabel: 'OK',
+            });
+            return;
+        }
+        await downloadBulkWaslahReceipts();
+    };
 
     const cancelWaslahShipment = async () => {
         if (!selectedOrder?._id || !canCancelWaslahShipment(selectedOrder)) return;
         const awb = getOrderAwb(selectedOrder) || selectedOrder.waslah?.orderId;
-        const confirmed = window.confirm(
-            `Cancel the Waslah / EMX shipment${awb ? ` (${awb})` : ''}?\n\nThis cancels the courier AWB only. The store order stays open so you can ship again.`,
-        );
+        const confirmed = await askCenterConfirm({
+            title: 'Cancel EMX shipment?',
+            message: [
+                awb ? `Cancel courier shipment ${awb}?` : 'Cancel this Waslah / EMX shipment?',
+                'This cancels the courier AWB only. The store order stays open so you can ship again.',
+            ].join('\n\n'),
+            confirmLabel: 'Cancel Shipment',
+            cancelLabel: 'Keep Shipment',
+            tone: 'red',
+            icon: 'alert',
+        });
         if (!confirmed) return;
 
         setCancellingWaslah(true);
@@ -2347,10 +2969,17 @@ export default function StoreOrders() {
             clearPageCache('store-orders');
 
             if (manual && selectedOrderIdRef.current === targetOrderId) {
+                const liveAwb = getOrderAwb(liveOrder);
                 const liveLabel = getWaslahLiveStatusLabel(liveOrder);
-                toast.success(data.changed
-                    ? `EMX status updated: ${liveLabel}`
-                    : `EMX status is up to date: ${liveLabel}`);
+                if (liveAwb) {
+                    toast.success(data.changed
+                        ? `EMX tracking ${liveAwb} · ${liveLabel}`
+                        : `Tracking number ${liveAwb} · ${liveLabel}`);
+                } else {
+                    toast.success(data.changed
+                        ? `EMX status updated: ${liveLabel}`
+                        : `EMX status is up to date: ${liveLabel}`);
+                }
             }
 
             return data;
@@ -2429,7 +3058,7 @@ export default function StoreOrders() {
             !isModalOpen
             || !waslahConfig.configured
             || !orderId
-            || !trackingId
+            || (!trackingId && !selectedOrder?.waslah?.orderId)
             || !isWaslahOrder
             || isWaslahLiveTerminalOrder(selectedOrder)
         ) {
@@ -2595,6 +3224,7 @@ export default function StoreOrders() {
             applyWaslahShipResult(data);
             setWaslahLinkHelpOpen(false);
             showWaslahSuccessNotice(data);
+            toast.success(data?.message || 'Sent to EMX. Schedule pickup next.');
             await fetchOrders();
         } catch (error) {
             console.error('Ship with Waslah error:', error);
@@ -2608,6 +3238,138 @@ export default function StoreOrders() {
             toast.error(formatWaslahError(error, 'Failed to ship with Waslah'));
         } finally {
             setShippingWithWaslah(false);
+        }
+    };
+
+    const shipSelectedOrdersWithWaslah = async () => {
+        if (!waslahConfig.configured) {
+            toast.error('Waslah is not configured. Add WASLAH_API_TOKEN to server .env');
+            return;
+        }
+
+        const eligible = getSelectedShipEligibleOrders();
+        if (!eligible.length) {
+            toast.error('Select orders with a shipping address that are not already sent to EMX');
+            return;
+        }
+        if (eligible.length > 25) {
+            toast.error('Select at most 25 orders to send to EMX at once');
+            return;
+        }
+
+        const skipped = selectedOrderIds.length - eligible.length;
+        const confirmed = await askCenterConfirm({
+            title: 'Send selected orders to EMX?',
+            message: [
+                `${eligible.length} order(s) will be sent to EMX.`,
+                'This creates the shipments only. You can schedule pickup for them next.',
+                skipped > 0
+                    ? `${skipped} selected order(s) will be skipped (already shipped, missing address, or not eligible).`
+                    : '',
+            ].filter(Boolean).join('\n\n'),
+            confirmLabel: 'Send to EMX',
+            cancelLabel: 'Cancel',
+            tone: 'violet',
+            icon: 'truck',
+        });
+        if (!confirmed) return;
+
+        setShippingWithWaslah(true);
+        setCenterProgress({
+            title: 'Sending to EMX…',
+            message: `Creating EMX shipments for ${eligible.length} order(s). Please wait.`,
+        });
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('Authentication failed. Please sign in again.');
+            const pickupDefaults = getDefaultWaslahPickupInfo();
+
+            const { data } = await axios.post('/api/store/waslah/ship', {
+                orderIds: eligible.map((order) => order._id),
+                pickupInfo: {
+                    pickup_date: waslahPickupInfo.pickup_date || pickupDefaults.pickup_date,
+                    pickup_time: waslahPickupInfo.pickup_time || pickupDefaults.pickup_time,
+                    pickup_vehicle: waslahPickupInfo.pickup_vehicle || pickupDefaults.pickup_vehicle,
+                },
+                serviceId: waslahServices[0]?.id || undefined,
+                skipPickup: true,
+            }, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (Array.isArray(data?.orders) && data.orders.length) {
+                const byId = new Map(data.orders.map((order) => [String(order._id), order]));
+                setOrders((current) => current.map((row) => {
+                    const updated = byId.get(String(row._id));
+                    return updated ? { ...row, ...updated } : row;
+                }));
+                setSelectedOrder((current) => {
+                    if (!current) return current;
+                    const updated = byId.get(String(current._id));
+                    return updated ? { ...current, ...updated } : current;
+                });
+            }
+
+            clearPageCache('store-orders');
+            setCenterProgress(null);
+
+            const firstError = (data.results || []).find((entry) => !entry.success)?.error;
+            if (data?.succeeded > 0 && !data?.failed) {
+                setWaslahPickupInfo(getDefaultWaslahPickupInfo());
+                showCenterNotice({
+                    title: 'Sent to EMX',
+                    message: data.message || `${data.succeeded} order(s) sent to EMX. Schedule pickup next to get carrier labels.`,
+                    tone: 'success',
+                    icon: 'check',
+                    primaryLabel: 'Schedule Pickup',
+                    secondaryLabel: 'Close',
+                    onPrimary: () => {
+                        setShowBulkPickupPanel(true);
+                    },
+                });
+            } else if (data?.succeeded > 0 && data?.failed > 0) {
+                setWaslahPickupInfo(getDefaultWaslahPickupInfo());
+                showCenterNotice({
+                    title: 'Partly sent to EMX',
+                    message: [
+                        data.message || `Sent ${data.succeeded} of ${data.total} order(s) to EMX.`,
+                        firstError ? `First error: ${firstError}` : '',
+                        'You can still schedule pickup for the orders that succeeded.',
+                    ].filter(Boolean).join('\n\n'),
+                    tone: 'warning',
+                    icon: 'alert',
+                    primaryLabel: 'Schedule Pickup',
+                    secondaryLabel: 'Close',
+                    onPrimary: () => {
+                        setShowBulkPickupPanel(true);
+                    },
+                });
+            } else if (data?.failed > 0) {
+                showCenterNotice({
+                    title: 'Send to EMX failed',
+                    message: firstError || `${data.failed} order(s) failed to send to EMX`,
+                    tone: 'error',
+                    icon: 'alert',
+                    primaryLabel: 'OK',
+                });
+            } else if (!data?.succeeded && !data?.failed) {
+                throw new Error(data?.error || 'Waslah did not accept the bulk ship request');
+            }
+
+            await fetchOrders();
+        } catch (error) {
+            console.error('Bulk Send to EMX error:', error);
+            setCenterProgress(null);
+            showCenterNotice({
+                title: 'Send to EMX failed',
+                message: formatWaslahError(error, 'Failed to send selected orders to EMX'),
+                tone: 'error',
+                icon: 'alert',
+                primaryLabel: 'OK',
+            });
+        } finally {
+            setShippingWithWaslah(false);
+            setCenterProgress(null);
         }
     };
 
@@ -2810,7 +3572,7 @@ export default function StoreOrders() {
                     <div>
                         <p className="text-sm font-semibold text-violet-900">EMX labels ready</p>
                         <p className="mt-0.5 text-xs text-violet-700">
-                            {stats.LABEL_READY} order(s) with AWB ready — not downloaded yet
+                            {stats.LABEL_READY} order(s) sent to EMX — labels not downloaded yet
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2843,7 +3605,7 @@ export default function StoreOrders() {
                                         ? 'Download all receipts (PDF)'
                                         : hasSelectedOrders
                                             ? 'Download selected receipts (PDF)'
-                                            : 'Download label-ready receipts (PDF)'}
+                                            : 'Download EMX carrier labels (PDF)'}
                             </button>
                         ) : null}
                     </div>
@@ -2852,7 +3614,7 @@ export default function StoreOrders() {
 
             {filterStatus === 'LABEL_READY' ? (
                 <div className="mb-4 rounded-lg border border-violet-200 bg-white px-4 py-3 text-sm text-violet-900">
-                    Showing {filteredOrders.length} order(s) with AWB ready that have not been downloaded yet.
+                    Showing {filteredOrders.length} order(s) sent to EMX that have not been downloaded yet.
                     {filteredOrders.length > 0 ? (
                         <span className="text-violet-700">
                             {' '}Use <strong>Download all receipts (PDF)</strong> to get every label in one file.
@@ -3316,47 +4078,257 @@ export default function StoreOrders() {
             </div>
 
             {hasSelectedOrders && (
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-                    <div className="text-sm font-medium text-blue-900">
-                        {selectedOrderIds.length} order(s) selected
-                        <span className="mt-0.5 block text-xs font-normal text-blue-700">
-                            Export includes only the selected orders.
-                        </span>
+                <div className="mb-4 space-y-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm font-medium text-blue-900">
+                            {selectedOrderIds.length} order(s) selected
+                            <span className="mt-0.5 block text-xs font-normal text-blue-700">
+                                Use checkboxes to choose orders, then send to EMX, schedule pickup, or download labels.
+                                {waslahConfig.configured ? (
+                                    <>
+                                        {' '}
+                                        {getSelectedShipEligibleOrders().length} ready to send ·{' '}
+                                        {getSelectedPickupEligibleOrders().length} ready for pickup ·{' '}
+                                        {getSelectedLabelReadyOrders().length} with label ready
+                                    </>
+                                ) : null}
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {waslahConfig.configured ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={shipSelectedOrdersWithWaslah}
+                                        disabled={shippingWithWaslah || requestingWaslahPickup}
+                                        className="inline-flex items-center gap-2 rounded-lg bg-violet-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-800 disabled:opacity-60"
+                                    >
+                                        {shippingWithWaslah ? (
+                                            <RefreshCw size={14} className="animate-spin" />
+                                        ) : (
+                                            <Truck size={14} />
+                                        )}
+                                        {shippingWithWaslah
+                                            ? 'Sending to EMX…'
+                                            : `Send to EMX (${getSelectedShipEligibleOrders().length})`}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!getSelectedPickupEligibleOrders().length) {
+                                                toast.error('Select orders that were already sent to EMX');
+                                                return;
+                                            }
+                                            setWaslahPickupInfo(getDefaultWaslahPickupInfo());
+                                            setShowBulkPickupPanel((open) => !open);
+                                        }}
+                                        disabled={requestingWaslahPickup || shippingWithWaslah}
+                                        className="inline-flex items-center gap-2 rounded-lg border border-violet-400 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-900 transition hover:bg-violet-100 disabled:opacity-60"
+                                    >
+                                        <CalendarClock size={14} />
+                                        {showBulkPickupPanel ? 'Hide Pickup Options' : 'Schedule Pickup (Selected)'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={downloadSelectedEmxCarrierLabels}
+                                        disabled={downloadingWaslahReceipts || shippingWithWaslah}
+                                        className="inline-flex items-center gap-2 rounded-lg border border-violet-300 bg-white px-3 py-2 text-xs font-semibold text-violet-900 transition hover:bg-violet-100 disabled:opacity-60"
+                                    >
+                                        <Download size={14} className={downloadingWaslahReceipts ? 'animate-pulse' : ''} />
+                                        {downloadingWaslahReceipts
+                                            ? 'Preparing PDF…'
+                                            : `Download Labels (${getSelectedLabelReadyOrders().length})`}
+                                    </button>
+                                </>
+                            ) : null}
+                            <button
+                                type="button"
+                                onClick={exportOrdersToCsv}
+                                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                            >
+                                <Download size={14} />
+                                Export Selected CSV
+                            </button>
+                            <button
+                                type="button"
+                                onClick={exportOrdersToExcel}
+                                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-700"
+                            >
+                                <Download size={14} />
+                                Export Selected Excel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedOrderIds([]);
+                                    setShowBulkPickupPanel(false);
+                                }}
+                                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                                Clear Selection
+                            </button>
+                            <button
+                                type="button"
+                                onClick={deleteSelectedOrders}
+                                disabled={deletingBulkOrders}
+                                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <Trash2 size={14} />
+                                {deletingBulkOrders ? 'Moving...' : 'Move to Trash'}
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={exportOrdersToCsv}
-                            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
-                        >
-                            <Download size={14} />
-                            Export Selected CSV
-                        </button>
-                        <button
-                            type="button"
-                            onClick={exportOrdersToExcel}
-                            className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-700"
-                        >
-                            <Download size={14} />
-                            Export Selected Excel
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setSelectedOrderIds([])}
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        >
-                            Clear Selection
-                        </button>
-                        <button
-                            type="button"
-                            onClick={deleteSelectedOrders}
-                            disabled={deletingBulkOrders}
-                            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            <Trash2 size={14} />
-                            {deletingBulkOrders ? 'Moving...' : 'Move to Trash'}
-                        </button>
-                    </div>
+
+                    {showBulkPickupPanel && waslahConfig.configured ? (
+                        <div className="rounded-xl border border-violet-200 bg-white p-4 shadow-sm">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <h4 className="text-sm font-bold text-slate-900">Bulk Schedule Pickup</h4>
+                                    <p className="text-xs text-slate-600">
+                                        Same pickup window for {getSelectedPickupEligibleOrders().length} selected EMX order(s).
+                                    </p>
+                                </div>
+                                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800">
+                                    Max 25 orders
+                                </span>
+                            </div>
+
+                            <div className="mb-3">
+                                <p className="mb-2 text-xs font-medium text-slate-700">What type of service do you need?</p>
+                                <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+                                    <button
+                                        type="button"
+                                        onClick={() => setWaslahPickupInfo((prev) => ({ ...prev, type: 'pickup' }))}
+                                        className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
+                                            (waslahPickupInfo.type || 'pickup') === 'pickup'
+                                                ? 'border-blue-700 bg-blue-700 text-white'
+                                                : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        Pickup by Courier
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setWaslahPickupInfo((prev) => ({ ...prev, type: 'dropoff' }))}
+                                        className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
+                                            waslahPickupInfo.type === 'dropoff'
+                                                ? 'border-blue-700 bg-blue-700 text-white'
+                                                : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        Dropoff
+                                    </button>
+                                </div>
+                            </div>
+
+                            {(waslahPickupInfo.type || 'pickup') === 'pickup' ? (
+                                <div className="mb-3 space-y-3">
+                                    <div>
+                                        <p className="mb-2 text-xs font-medium text-slate-700">
+                                            <span className="text-red-500">*</span> Pickup date
+                                        </p>
+                                        <div className="flex gap-2 overflow-x-auto pb-1">
+                                            {getWaslahPickupDateOptions().map((day) => {
+                                                const selected = waslahPickupInfo.pickup_date === day.value;
+                                                return (
+                                                    <button
+                                                        key={day.value}
+                                                        type="button"
+                                                        disabled={day.disabled}
+                                                        onClick={() => setWaslahPickupInfo((prev) => ({ ...prev, pickup_date: day.value }))}
+                                                        className={`min-w-[7.5rem] shrink-0 rounded-xl border px-3 py-2.5 text-left transition ${
+                                                            day.disabled
+                                                                ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                                                                : selected
+                                                                    ? 'border-blue-700 bg-blue-700 text-white'
+                                                                    : 'border-blue-200 bg-white text-slate-800 hover:border-blue-400'
+                                                        }`}
+                                                    >
+                                                        <div className="text-xs font-semibold">{day.label}</div>
+                                                        <div className={`text-[10px] ${selected && !day.disabled ? 'text-blue-100' : 'text-slate-500'}`}>
+                                                            ({day.hint})
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label className="mb-1 block text-xs font-medium text-slate-700">Time range</label>
+                                            <select
+                                                value={waslahPickupInfo.pickup_time || '09:00-21:00'}
+                                                onChange={(e) => setWaslahPickupInfo((prev) => ({ ...prev, pickup_time: e.target.value }))}
+                                                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                                            >
+                                                <option value="09:00-21:00">Working Hours (09:00 – 21:00)</option>
+                                                <option value="09:00-14:00">Morning (09:00 – 14:00)</option>
+                                                <option value="14:00-21:00">Afternoon / Evening (14:00 – 21:00)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <p className="mb-1 text-xs font-medium text-slate-700">
+                                                <span className="text-red-500">*</span> Vehicle
+                                            </p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[
+                                                    { value: 'motorcycle', label: 'Motorcycle' },
+                                                    { value: 'car', label: 'Car' },
+                                                    { value: 'van', label: 'Truck' },
+                                                ].map((vehicle) => {
+                                                    const selected = (waslahPickupInfo.pickup_vehicle || 'motorcycle') === vehicle.value;
+                                                    return (
+                                                        <button
+                                                            key={vehicle.value}
+                                                            type="button"
+                                                            onClick={() => setWaslahPickupInfo((prev) => ({ ...prev, pickup_vehicle: vehicle.value }))}
+                                                            className={`rounded-xl border px-2 py-2.5 text-xs font-semibold transition ${
+                                                                selected
+                                                                    ? 'border-blue-700 bg-blue-700 text-white'
+                                                                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            {vehicle.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={requestBulkWaslahPickup}
+                                    disabled={requestingWaslahPickup || !getSelectedPickupEligibleOrders().length}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:opacity-60"
+                                >
+                                    {requestingWaslahPickup ? (
+                                        <>
+                                            <RefreshCw size={16} className="animate-spin" />
+                                            Scheduling pickup…
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Truck size={16} />
+                                            Confirm Pickup for {getSelectedPickupEligibleOrders().length} Order(s)
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowBulkPickupPanel(false)}
+                                    disabled={requestingWaslahPickup}
+                                    className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
             )}
 
@@ -3414,6 +4386,7 @@ export default function StoreOrders() {
                                 <th className="px-4 py-3">Traffic Source</th>
                                 <th className="px-4 py-3">Status</th>
                                 <th className="px-4 py-3">Tracking</th>
+                                <th className="px-4 py-3">Reason</th>
                                 <SortableOrderTableHeader
                                     label={STORE_ORDER_SORT_COLUMNS.date}
                                     column="date"
@@ -3602,10 +4575,21 @@ export default function StoreOrders() {
                                     <td className="px-4 py-3">
                                         {getDisplayAwb(order) ? (
                                             <div className="flex flex-col items-start gap-1">
-                                                <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-medium">
+                                                <a
+                                                    href={buildTrackOrderPageUrl(order)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(event) => event.stopPropagation()}
+                                                    className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-medium hover:bg-blue-200"
+                                                    title={`Open track order for ${getDisplayAwb(order)}`}
+                                                >
                                                     {getDisplayAwb(order).substring(0, 8)}...
-                                                </span>
-                                                {isWaslahLabelNotPrinted(order) ? (
+                                                </a>
+                                                {isWaslahLabelPrinted(order) ? (
+                                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-200">
+                                                        Downloaded ×{getLabelDownloadCount(order)}
+                                                    </span>
+                                                ) : isWaslahLabelNotPrinted(order) ? (
                                                     <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 ring-1 ring-red-200">
                                                         Not printed
                                                     </span>
@@ -3614,6 +4598,34 @@ export default function StoreOrders() {
                                         ) : (
                                             <span className="text-slate-400 text-xs">Not shipped</span>
                                         )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {(() => {
+                                            const courierNote = getOrderCourierNoteDisplay(order);
+                                            if (!courierNote) {
+                                                return <span className="text-xs text-slate-300">—</span>;
+                                            }
+                                            const tone = getCourierNoteToneClasses(courierNote.tone);
+                                            return (
+                                                <div className="max-w-[240px]" title={courierNote.title}>
+                                                    <p className={`line-clamp-3 text-[12px] font-semibold leading-snug ${tone.text}`}>
+                                                        {courierNote.reason}
+                                                    </p>
+                                                    {courierNote.label ? (
+                                                        <span
+                                                            className={`mt-1 inline-flex max-w-full rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${tone.badge}`}
+                                                        >
+                                                            <span className="truncate">{courierNote.label}</span>
+                                                        </span>
+                                                    ) : null}
+                                                    {courierNote.location ? (
+                                                        <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                                                            {courierNote.location}
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-4 py-3 text-xs whitespace-nowrap">
                                         {(() => {
@@ -3641,14 +4653,17 @@ export default function StoreOrders() {
                 const isManualOrder = isManualStoreDashboardOrder(selectedOrder);
 
                 return (
-                <div onClick={closeModal} className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm text-slate-700 text-sm z-50 p-4" >
-                    <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                        {/* Header */}
-                        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h2 className="text-2xl font-bold mb-1">Order Details</h2>
-                                    <p className="text-blue-100 text-xs">Order No: <span className='font-mono text-white'>{getDisplayOrderNumber(selectedOrder) || 'Pending'}</span></p>
+                <div onClick={closeModal} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm text-slate-700 text-sm">
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                    >
+                        {/* Header — fixed in the modal shell (not sticky over scrolling content) */}
+                        <div className="relative z-20 shrink-0 rounded-t-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-5 text-white sm:p-6">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0 flex-1 pe-2">
+                                    <h2 className="mb-1 text-xl font-bold sm:text-2xl">Order Details</h2>
+                                    <p className="text-xs text-blue-100">Order No: <span className='font-mono text-white'>{getDisplayOrderNumber(selectedOrder) || 'Pending'}</span></p>
                                     {selectedOrder?.warehousePacking?.packed ? (
                                         <p className="mt-2 inline-flex items-center rounded-full bg-teal-400/20 px-2.5 py-1 text-[11px] font-semibold text-teal-50 ring-1 ring-teal-200/40">
                                             Packed
@@ -3660,7 +4675,7 @@ export default function StoreOrders() {
                                         <button
                                             type="button"
                                             onClick={() => markOrderPacked(selectedOrder)}
-                                            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-teal-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-400 transition-colors"
+                                            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-teal-500/90 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-400"
                                         >
                                             <Package size={14} />
                                             Mark packed
@@ -3679,11 +4694,11 @@ export default function StoreOrders() {
                                         </div>
                                     ) : null}
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex shrink-0 flex-wrap items-center gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setShowOrderEditPanel((value) => !value)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm"
+                                        className="flex items-center gap-2 rounded-lg bg-white/20 px-3 py-2 backdrop-blur-sm transition-colors hover:bg-white/30 sm:px-4"
                                         title="Edit order"
                                     >
                                         <Pencil size={18} />
@@ -3691,7 +4706,7 @@ export default function StoreOrders() {
                                     </button>
                                     <button
                                         onClick={() => downloadInvoice(selectedOrder)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm"
+                                        className="flex items-center gap-2 rounded-lg bg-white/20 px-3 py-2 backdrop-blur-sm transition-colors hover:bg-white/30 sm:px-4"
                                         title="Download Invoice"
                                     >
                                         <Download size={18} />
@@ -3699,20 +4714,25 @@ export default function StoreOrders() {
                                     </button>
                                     <button
                                         onClick={() => printInvoice(selectedOrder)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm"
+                                        className="flex items-center gap-2 rounded-lg bg-white/20 px-3 py-2 backdrop-blur-sm transition-colors hover:bg-white/30 sm:px-4"
                                         title="Print Invoice"
                                     >
                                         <Printer size={18} />
                                         <span className="text-sm">Print</span>
                                     </button>
-                                    <button onClick={closeModal} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                                    <button
+                                        type="button"
+                                        onClick={closeModal}
+                                        className="rounded-full p-2 transition-colors hover:bg-white/20"
+                                        aria-label="Close order details"
+                                    >
                                         <X size={24} />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-6 space-y-6">
+                        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-6">
                             {showOrderEditPanel ? (
                                 <StoreEditOrderPanel
                                     order={selectedOrder}
@@ -3764,7 +4784,11 @@ export default function StoreOrders() {
                                                     Ready to ship
                                                 </span>
                                             )}
-                                            {isWaslahLabelNotPrinted(selectedOrder) ? (
+                                            {isWaslahLabelPrinted(selectedOrder) ? (
+                                                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200">
+                                                    Downloaded ×{getLabelDownloadCount(selectedOrder)}
+                                                </span>
+                                            ) : isWaslahLabelNotPrinted(selectedOrder) ? (
                                                 <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-bold text-red-700 ring-1 ring-red-200">
                                                     Not printed
                                                 </span>
@@ -3775,18 +4799,22 @@ export default function StoreOrders() {
                                             notice={waslahSuccessNotice}
                                             onDismiss={() => setWaslahSuccessNotice(null)}
                                             onLabelDownload={() => {
-                                                if (selectedOrder?._id) {
-                                                    markOrdersLabelPrinted([selectedOrder._id]);
-                                                }
+                                                downloadEmxCarrierLabel(selectedOrder);
                                             }}
                                         />
 
-                                        {!isWaslahShipmentProcessed(selectedOrder) ? (
+                                        {!isWaslahShipmentProcessed(selectedOrder) && !selectedOrder?.waslah?.orderId ? (
                                             <ol className="list-decimal space-y-1 pl-4 text-[11px] text-violet-900">
-                                                <li>Click <strong>Ship with EMX</strong> — creates shipment &amp; schedules pickup</li>
-                                                <li>AWB + label download appear automatically here</li>
-                                                <li>Print label, attach to parcel — EMX collects on pickup date</li>
+                                                <li>Click <strong>Send to EMX</strong> — creates the shipment</li>
+                                                <li>Then use <strong>Schedule Pickup</strong> (EMX options: date, time, vehicle)</li>
+                                                <li>After pickup, the EMX tracking / AWB appears — download the carrier label</li>
                                             </ol>
+                                        ) : null}
+
+                                        {selectedOrder?.waslah?.orderId && !selectedOrder?.waslah?.pickupRequestedAt && canRequestWaslahPickup(selectedOrder) ? (
+                                            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-900">
+                                                Shipment sent to EMX. Schedule pickup below — then you will get the EMX AWB / carrier label.
+                                            </p>
                                         ) : null}
 
                                         {waslahConfig.configured && !waslahConfig.senderConfigured ? (
@@ -3846,12 +4874,24 @@ export default function StoreOrders() {
                                             </div>
                                         ) : null}
 
-                                        {getOrderAwb(selectedOrder) ? (
+                                        {getOrderAwb(selectedOrder) || selectedOrder?.waslah?.orderId ? (
                                             <div className="rounded-lg border border-violet-200 bg-white p-3">
                                                 <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
                                                     <div>
-                                                        <p className="text-xs text-slate-500">AWB</p>
-                                                        <p className="font-semibold text-slate-900">{getOrderAwb(selectedOrder)}</p>
+                                                        <p className="text-xs text-slate-500">Tracking number</p>
+                                                        <p className="font-semibold text-slate-900 font-mono">
+                                                            {getOrderAwb(selectedOrder) || 'Pending — click Refresh EMX status'}
+                                                        </p>
+                                                        {getOrderAwb(selectedOrder) ? (
+                                                            <a
+                                                                href={buildTrackOrderPageUrl(selectedOrder)}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="mt-1 inline-flex text-xs font-semibold text-violet-700 underline underline-offset-2 hover:text-violet-900"
+                                                            >
+                                                                Open on Track Order page
+                                                            </a>
+                                                        ) : null}
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-slate-500">Courier</p>
@@ -3869,18 +4909,20 @@ export default function StoreOrders() {
                                                     </div>
                                                 </div>
                                                 <div className="mt-3 flex flex-wrap gap-2">
-                                                    {selectedOrder?.waslah?.labelUrl ? (
-                                                        <a
-                                                            href={selectedOrder.waslah.labelUrl}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            onClick={() => markOrdersLabelPrinted([selectedOrder._id])}
+                                                    {(selectedOrder?.waslah?.labelUrl || selectedOrder?.waslah?.orderId) ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => downloadEmxCarrierLabel(selectedOrder)}
                                                             className="inline-flex items-center rounded-lg border border-violet-300 bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-900 hover:bg-violet-200"
                                                         >
-                                                            Download label
-                                                        </a>
+                                                            Download Carrier Label
+                                                        </button>
                                                     ) : null}
-                                                    {isWaslahLabelNotPrinted(selectedOrder) ? (
+                                                    {isWaslahLabelPrinted(selectedOrder) ? (
+                                                        <span className="inline-flex items-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+                                                            Downloaded ×{getLabelDownloadCount(selectedOrder)}
+                                                        </span>
+                                                    ) : isWaslahLabelNotPrinted(selectedOrder) ? (
                                                         <button
                                                             type="button"
                                                             onClick={() => markOrdersLabelPrinted([selectedOrder._id])}
@@ -3891,21 +4933,32 @@ export default function StoreOrders() {
                                                     ) : null}
                                                     <a
                                                         href={
-                                                            selectedOrder.trackingUrl
+                                                            buildTrackOrderPageUrl(selectedOrder)
                                                             || buildEmxTrackingUrl(getOrderAwb(selectedOrder))
-                                                            || 'https://tracking.waslah.ae/'
+                                                            || selectedOrder.trackingUrl
+                                                            || 'https://www.emx.ae/all-services/track-a-package'
                                                         }
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                                                     >
-                                                        Track on EMX
+                                                        Track Order
                                                     </a>
+                                                    {buildEmxTrackingUrl(getOrderAwb(selectedOrder)) ? (
+                                                        <a
+                                                            href={buildEmxTrackingUrl(getOrderAwb(selectedOrder))}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center rounded-lg border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-900 hover:bg-violet-100"
+                                                        >
+                                                            Track on EMX
+                                                        </a>
+                                                    ) : null}
                                                     {canCancelWaslahShipment(selectedOrder) ? (
                                                         <button
                                                             type="button"
                                                             onClick={cancelWaslahShipment}
-                                                            disabled={cancellingWaslah || shippingWithWaslah}
+                                                            disabled={cancellingWaslah || shippingWithWaslah || requestingWaslahPickup}
                                                             className="inline-flex items-center rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
                                                         >
                                                             {cancellingWaslah ? 'Cancelling…' : 'Cancel Waslah shipment'}
@@ -3972,39 +5025,142 @@ export default function StoreOrders() {
                                             </button>
                                         ) : null}
 
-                                        {!isWaslahShipmentProcessed(selectedOrder) ? (
-                                            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                                                <div>
-                                                    <label className="text-xs font-medium text-violet-800 block mb-1">Pickup date</label>
-                                                    <input
-                                                        type="date"
-                                                        value={waslahPickupInfo.pickup_date}
-                                                        onChange={(e) => setWaslahPickupInfo((prev) => ({ ...prev, pickup_date: e.target.value }))}
-                                                        className="w-full px-3 py-2 border border-violet-300 rounded-lg text-sm bg-white"
-                                                    />
+                                        {canRequestWaslahPickup(selectedOrder) ? (
+                                            <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <h4 className="text-sm font-bold text-slate-900">Schedule Pickup</h4>
+                                                    {selectedOrder?.waslah?.pickupRequestedAt ? (
+                                                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                                                            Pickup requested
+                                                        </span>
+                                                    ) : (
+                                                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
+                                                            EMX options
+                                                        </span>
+                                                    )}
                                                 </div>
+
                                                 <div>
-                                                    <label className="text-xs font-medium text-violet-800 block mb-1">Pickup time</label>
-                                                    <input
-                                                        type="text"
-                                                        value={waslahPickupInfo.pickup_time}
-                                                        onChange={(e) => setWaslahPickupInfo((prev) => ({ ...prev, pickup_time: e.target.value }))}
-                                                        placeholder="09:00-21:00"
-                                                        className="w-full px-3 py-2 border border-violet-300 rounded-lg text-sm bg-white"
-                                                    />
+                                                    <p className="mb-2 text-xs font-medium text-slate-700">What type of service do you need?</p>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setWaslahPickupInfo((prev) => ({ ...prev, type: 'pickup' }))}
+                                                            className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                                                                (waslahPickupInfo.type || 'pickup') === 'pickup'
+                                                                    ? 'border-blue-700 bg-blue-700 text-white'
+                                                                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            Pickup by Courier
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setWaslahPickupInfo((prev) => ({ ...prev, type: 'dropoff' }))}
+                                                            className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                                                                waslahPickupInfo.type === 'dropoff'
+                                                                    ? 'border-blue-700 bg-blue-700 text-white'
+                                                                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            Dropoff
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="text-xs font-medium text-violet-800 block mb-1">Vehicle</label>
-                                                    <select
-                                                        value={waslahPickupInfo.pickup_vehicle}
-                                                        onChange={(e) => setWaslahPickupInfo((prev) => ({ ...prev, pickup_vehicle: e.target.value }))}
-                                                        className="w-full px-3 py-2 border border-violet-300 rounded-lg text-sm bg-white"
-                                                    >
-                                                        <option value="motorcycle">Motorcycle</option>
-                                                        <option value="car">Car</option>
-                                                        <option value="van">Van</option>
-                                                    </select>
-                                                </div>
+
+                                                {(waslahPickupInfo.type || 'pickup') === 'pickup' ? (
+                                                    <>
+                                                        <div>
+                                                            <p className="mb-2 text-xs font-medium text-slate-700">
+                                                                <span className="text-red-500">*</span> Pickup date
+                                                            </p>
+                                                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                                                {getWaslahPickupDateOptions().map((day) => {
+                                                                    const selected = waslahPickupInfo.pickup_date === day.value;
+                                                                    return (
+                                                                        <button
+                                                                            key={day.value}
+                                                                            type="button"
+                                                                            disabled={day.disabled}
+                                                                            onClick={() => setWaslahPickupInfo((prev) => ({ ...prev, pickup_date: day.value }))}
+                                                                            className={`min-w-[7.5rem] shrink-0 rounded-xl border px-3 py-2.5 text-left transition ${
+                                                                                day.disabled
+                                                                                    ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                                                                                    : selected
+                                                                                        ? 'border-blue-700 bg-blue-700 text-white'
+                                                                                        : 'border-blue-200 bg-white text-slate-800 hover:border-blue-400'
+                                                                            }`}
+                                                                        >
+                                                                            <div className="text-xs font-semibold">{day.label}</div>
+                                                                            <div className={`text-[10px] ${selected && !day.disabled ? 'text-blue-100' : 'text-slate-500'}`}>
+                                                                                ({day.hint})
+                                                                            </div>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="mb-1 block text-xs font-medium text-slate-700">Select a time range</label>
+                                                            <select
+                                                                value={waslahPickupInfo.pickup_time || '09:00-21:00'}
+                                                                onChange={(e) => setWaslahPickupInfo((prev) => ({ ...prev, pickup_time: e.target.value }))}
+                                                                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                                                            >
+                                                                <option value="09:00-21:00">Working Hours (09:00 – 21:00)</option>
+                                                                <option value="09:00-14:00">Morning (09:00 – 14:00)</option>
+                                                                <option value="14:00-21:00">Afternoon / Evening (14:00 – 21:00)</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div>
+                                                            <p className="mb-2 text-xs font-medium text-slate-700">
+                                                                <span className="text-red-500">*</span> Preferred pickup vehicle
+                                                            </p>
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                {[
+                                                                    { value: 'motorcycle', label: 'Motorcycle' },
+                                                                    { value: 'car', label: 'Car' },
+                                                                    { value: 'van', label: 'Truck' },
+                                                                ].map((vehicle) => {
+                                                                    const selected = (waslahPickupInfo.pickup_vehicle || 'motorcycle') === vehicle.value;
+                                                                    return (
+                                                                        <button
+                                                                            key={vehicle.value}
+                                                                            type="button"
+                                                                            onClick={() => setWaslahPickupInfo((prev) => ({ ...prev, pickup_vehicle: vehicle.value }))}
+                                                                            className={`rounded-xl border px-2 py-3 text-sm font-semibold transition ${
+                                                                                selected
+                                                                                    ? 'border-blue-700 bg-blue-700 text-white'
+                                                                                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                                                            }`}
+                                                                        >
+                                                                            {vehicle.label}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                                                        Dropoff selected — you will take the parcel to an EMX / Waslah dropoff point. Continue to confirm.
+                                                    </p>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={requestWaslahPickup}
+                                                    disabled={requestingWaslahPickup || shippingWithWaslah || cancellingWaslah}
+                                                    className="w-full rounded-xl bg-blue-700 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:bg-slate-300"
+                                                >
+                                                    {requestingWaslahPickup
+                                                        ? 'Scheduling…'
+                                                        : (selectedOrder?.waslah?.pickupRequestedAt
+                                                            ? 'Update pickup'
+                                                            : 'Continue')}
+                                                </button>
                                             </div>
                                         ) : null}
 
@@ -4031,33 +5187,64 @@ export default function StoreOrders() {
                                         ) : null}
 
                                         <div className="space-y-2">
+                                        {(isWaslahShipmentProcessed(selectedOrder) || selectedOrder?.waslah?.orderId) ? (
+                                            <div className="rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2.5">
+                                                <p className="text-[11px] font-medium uppercase tracking-wide text-violet-700">
+                                                    Tracking number
+                                                </p>
+                                                <p className="mt-0.5 font-mono text-sm font-semibold text-slate-900">
+                                                    {getOrderAwb(selectedOrder) || 'Not loaded yet — click Refresh EMX status'}
+                                                </p>
+                                            </div>
+                                        ) : null}
                                         <button
                                             type="button"
-                                            onClick={isWaslahShipmentProcessed(selectedOrder)
-                                                ? () => refreshWaslahStatus({ manual: true })
-                                                : shipOrderWithWaslah}
-                                            disabled={shippingWithWaslah || refreshingWaslahStatus || cancellingWaslah}
+                                            onClick={
+                                                (isWaslahShipmentProcessed(selectedOrder) || selectedOrder?.waslah?.orderId)
+                                                    ? () => refreshWaslahStatus({ manual: true })
+                                                    : shipOrderWithWaslah
+                                            }
+                                            disabled={shippingWithWaslah || refreshingWaslahStatus || cancellingWaslah || requestingWaslahPickup}
                                             className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white font-medium py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
                                         >
                                             {shippingWithWaslah || refreshingWaslahStatus ? (
                                                 <>
                                                     <RefreshCw size={16} className="animate-spin" />
-                                                    {refreshingWaslahStatus ? 'Refreshing EMX status…' : 'Shipping…'}
+                                                    {refreshingWaslahStatus ? 'Refreshing EMX status…' : 'Sending to EMX…'}
                                                 </>
                                             ) : (
                                                 <>
-                                                    {isWaslahShipmentProcessed(selectedOrder)
+                                                    {(isWaslahShipmentProcessed(selectedOrder) || selectedOrder?.waslah?.orderId)
                                                         ? <RefreshCw size={16} />
                                                         : <Truck size={16} />}
-                                                    {isWaslahShipmentProcessed(selectedOrder) ? 'Refresh EMX status' : 'Ship with EMX'}
+                                                    {(isWaslahShipmentProcessed(selectedOrder) || selectedOrder?.waslah?.orderId)
+                                                        ? 'Refresh EMX status'
+                                                        : 'Send to EMX'}
                                                 </>
                                             )}
                                         </button>
+                                        {(selectedOrder?.waslah?.labelUrl || selectedOrder?.waslah?.orderId) ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => downloadEmxCarrierLabel(selectedOrder)}
+                                                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-50 py-2.5 text-sm font-semibold text-slate-800 hover:bg-white"
+                                            >
+                                                Download Carrier Label
+                                            </button>
+                                        ) : null}
+                                        {canRequestWaslahPickup(selectedOrder) && selectedOrder?.waslah?.pickupDate ? (
+                                            <p className="text-[11px] text-emerald-800">
+                                                Last pickup request: {selectedOrder.waslah.pickupDate}
+                                                {selectedOrder.waslah.pickupTime ? ` · ${selectedOrder.waslah.pickupTime}` : ''}
+                                                {selectedOrder.waslah.pickupVehicle ? ` · ${selectedOrder.waslah.pickupVehicle}` : ''}
+                                                {selectedOrder.waslah.pickupType ? ` · ${selectedOrder.waslah.pickupType}` : ''}
+                                            </p>
+                                        ) : null}
                                         {canCancelWaslahShipment(selectedOrder) && !getOrderAwb(selectedOrder) ? (
                                             <button
                                                 type="button"
                                                 onClick={cancelWaslahShipment}
-                                                disabled={cancellingWaslah || shippingWithWaslah}
+                                                disabled={cancellingWaslah || shippingWithWaslah || requestingWaslahPickup}
                                                 className="w-full rounded-lg border border-red-300 bg-red-50 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
                                             >
                                                 {cancellingWaslah ? 'Cancelling…' : 'Cancel Waslah shipment'}
@@ -4145,7 +5332,7 @@ export default function StoreOrders() {
                                                                             )}
                                                                         </div>
                                                                         <div className="text-xs text-slate-500 whitespace-nowrap">
-                                                                            {new Date(event.time).toLocaleString()}
+                                                                            {formatStoreOrderDateTime(event.time)}
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -4277,6 +5464,41 @@ export default function StoreOrders() {
 
                                 
                             </div>
+
+                            {isDeliveredStoreOrder(selectedOrder) ? (
+                                <div className="rounded-xl border border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50 p-5">
+                                    <h3 className="text-lg font-semibold text-pink-900">After delivery</h3>
+                                    <p className="mt-1 text-xs text-pink-800/80">
+                                        Start a return or a replacement for this delivered order. The customer is emailed automatically.
+                                    </p>
+                                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setReturnActionReason('');
+                                                setReturnActionType('RETURN');
+                                            }}
+                                            disabled={hasOpenStoreReturn(selectedOrder, 'RETURN') || String(selectedOrder.status || '').toUpperCase() === 'RETURNED'}
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pink-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                        >
+                                            <Undo2 size={16} />
+                                            {hasOpenStoreReturn(selectedOrder, 'RETURN') ? 'Return already started' : 'Return this order'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setReturnActionReason('');
+                                                setReturnActionType('REPLACEMENT');
+                                            }}
+                                            disabled={hasOpenStoreReturn(selectedOrder, 'REPLACEMENT') || String(selectedOrder.status || '').toUpperCase() === 'RETURNED'}
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                        >
+                                            <RefreshCw size={16} />
+                                            {hasOpenStoreReturn(selectedOrder, 'REPLACEMENT') ? 'Replacement already started' : 'Start replacement'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : null}
 
                             {/* Return/Replacement Request Section */}
                             {selectedOrder.returns && selectedOrder.returns.length > 0 && (
@@ -4787,7 +6009,15 @@ export default function StoreOrders() {
                             <div className="flex justify-end gap-3">
                                 <button
                                     onClick={async () => {
-                                        if (!window.confirm('Move this order to trash? You can restore it from Trash.')) return;
+                                        const confirmed = await askCenterConfirm({
+                                            title: 'Move order to trash?',
+                                            message: 'This order will move to Trash. You can restore it later.',
+                                            confirmLabel: 'Move to Trash',
+                                            cancelLabel: 'Keep Order',
+                                            tone: 'red',
+                                            icon: 'trash',
+                                        });
+                                        if (!confirmed) return;
                                         try {
                                             const token = await getToken();
                                             await axios.delete(`/api/store/orders/${selectedOrder._id}`, {
@@ -4887,6 +6117,67 @@ export default function StoreOrders() {
                                     })}
                                 </ul>
                             )}
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {returnActionType ? (
+                <div
+                    className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+                    onClick={() => {
+                        if (submittingReturnAction) return;
+                        setReturnActionType(null);
+                        setReturnActionReason('');
+                    }}
+                >
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-2xl font-bold text-slate-900">
+                            {returnActionType === 'REPLACEMENT' ? 'Start replacement' : 'Return this order'}
+                        </h3>
+                        <p className="mt-2 text-sm text-slate-600">
+                            {returnActionType === 'REPLACEMENT'
+                                ? 'This marks the delivered order for replacement and emails the customer.'
+                                : 'This marks the delivered order as a return and emails the customer.'}
+                        </p>
+                        <label className="mt-5 block text-sm font-semibold text-slate-700">
+                            Reason <span className="font-normal text-slate-400">(optional)</span>
+                        </label>
+                        <textarea
+                            value={returnActionReason}
+                            onChange={(e) => setReturnActionReason(e.target.value)}
+                            rows={4}
+                            placeholder={returnActionType === 'REPLACEMENT'
+                                ? 'Example: Customer received the wrong size. Sending a replacement.'
+                                : 'Example: Customer requested a return after delivery.'}
+                            className="mt-2 w-full resize-none rounded-xl border-2 border-slate-300 px-4 py-3 text-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-500"
+                        />
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setReturnActionType(null);
+                                    setReturnActionReason('');
+                                }}
+                                disabled={submittingReturnAction}
+                                className="flex-1 rounded-xl bg-slate-200 px-6 py-3 font-semibold text-slate-700 hover:bg-slate-300 disabled:opacity-60"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={startStoreReturnAction}
+                                disabled={submittingReturnAction}
+                                className={`flex-1 rounded-xl px-6 py-3 font-semibold text-white disabled:opacity-60 ${
+                                    returnActionType === 'REPLACEMENT'
+                                        ? 'bg-sky-600 hover:bg-sky-700'
+                                        : 'bg-pink-600 hover:bg-pink-700'
+                                }`}
+                            >
+                                {submittingReturnAction
+                                    ? 'Saving…'
+                                    : (returnActionType === 'REPLACEMENT' ? 'Confirm replacement' : 'Confirm return')}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -5002,6 +6293,203 @@ export default function StoreOrders() {
                 }}
                 onSave={savePaymentFailedFollowUp}
             />
+
+            <StoreCenterPopupShell
+                open={Boolean(centerConfirm)}
+                zIndex={120}
+                onBackdropClick={() => closeCenterConfirm(false)}
+                labelledBy="store-orders-center-confirm-title"
+            >
+                {centerConfirm ? (
+                    <>
+                        <div className="absolute -left-10 -top-14 h-40 w-40 bg-violet-400/15 blur-3xl" />
+                        <div className="absolute -right-8 -bottom-12 h-36 w-36 bg-blue-300/15 blur-3xl" />
+                        <div className="relative p-6">
+                            <motion.div
+                                className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
+                                    centerConfirm.tone === 'red'
+                                        ? 'bg-red-50 text-red-600'
+                                        : 'bg-violet-50 text-violet-700'
+                                }`}
+                                initial={{ scale: 0.6, opacity: 0, rotate: -12 }}
+                                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                                transition={{ type: 'spring', stiffness: 420, damping: 18, delay: 0.05 }}
+                            >
+                                {centerConfirm.icon === 'trash' ? (
+                                    <Trash2 size={22} />
+                                ) : centerConfirm.icon === 'calendar' ? (
+                                    <CalendarClock size={22} />
+                                ) : centerConfirm.icon === 'alert' ? (
+                                    <AlertTriangle size={22} />
+                                ) : (
+                                    <Truck size={22} />
+                                )}
+                            </motion.div>
+                            <motion.h3
+                                id="store-orders-center-confirm-title"
+                                className="text-center text-lg font-semibold text-slate-900"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.08, duration: 0.28, ease: CENTER_POPUP_EASE }}
+                            >
+                                {centerConfirm.title}
+                            </motion.h3>
+                            <motion.p
+                                className="mt-2 whitespace-pre-line text-center text-sm leading-relaxed text-slate-600"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.12, duration: 0.28, ease: CENTER_POPUP_EASE }}
+                            >
+                                {centerConfirm.message}
+                            </motion.p>
+                            <motion.div
+                                className="mt-5 grid grid-cols-2 gap-3"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.16, duration: 0.28, ease: CENTER_POPUP_EASE }}
+                            >
+                                <button
+                                    type="button"
+                                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+                                    onClick={() => closeCenterConfirm(false)}
+                                >
+                                    {centerConfirm.cancelLabel || 'Cancel'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-105 active:scale-[0.98] ${
+                                        centerConfirm.tone === 'red'
+                                            ? 'bg-red-600 shadow-red-200/50'
+                                            : 'bg-violet-700 shadow-violet-200/50'
+                                    }`}
+                                    onClick={() => closeCenterConfirm(true)}
+                                >
+                                    {centerConfirm.confirmLabel || 'OK'}
+                                </button>
+                            </motion.div>
+                        </div>
+                    </>
+                ) : null}
+            </StoreCenterPopupShell>
+
+            <StoreCenterPopupShell
+                open={Boolean(centerProgress)}
+                zIndex={125}
+                maxWidthClass="max-w-sm"
+                dismissible={false}
+                role="status"
+            >
+                {centerProgress ? (
+                    <div className="relative p-6">
+                        <motion.div
+                            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-violet-50 text-violet-700"
+                            animate={{ scale: [1, 1.08, 1] }}
+                            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                        >
+                            <RefreshCw size={22} className="animate-spin" />
+                        </motion.div>
+                        <h3 className="text-center text-lg font-semibold text-slate-900">
+                            {centerProgress.title}
+                        </h3>
+                        <p className="mt-2 whitespace-pre-line text-center text-sm leading-relaxed text-slate-600">
+                            {centerProgress.message}
+                        </p>
+                        <motion.div
+                            className="mx-auto mt-5 h-1.5 w-40 overflow-hidden rounded-full bg-slate-100"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                        >
+                            <motion.div
+                                className="h-full w-1/2 rounded-full bg-violet-600"
+                                animate={{ x: ['-100%', '200%'] }}
+                                transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+                            />
+                        </motion.div>
+                    </div>
+                ) : null}
+            </StoreCenterPopupShell>
+
+            <StoreCenterPopupShell
+                open={Boolean(centerNotice)}
+                zIndex={130}
+                onBackdropClick={() => closeCenterNotice('secondary')}
+                labelledBy="store-orders-center-notice-title"
+            >
+                {centerNotice ? (
+                    <>
+                        <div className="absolute -left-10 -top-14 h-40 w-40 bg-emerald-400/15 blur-3xl" />
+                        <div className="absolute -right-8 -bottom-12 h-36 w-36 bg-violet-300/15 blur-3xl" />
+                        <div className="relative p-6">
+                            <motion.div
+                                className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
+                                    centerNotice.tone === 'error'
+                                        ? 'bg-red-50 text-red-600'
+                                        : centerNotice.tone === 'warning'
+                                            ? 'bg-amber-50 text-amber-700'
+                                            : 'bg-emerald-50 text-emerald-700'
+                                }`}
+                                initial={{ scale: 0.5, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ type: 'spring', stiffness: 460, damping: 16, delay: 0.04 }}
+                            >
+                                {centerNotice.tone === 'error' || centerNotice.icon === 'alert' ? (
+                                    <AlertTriangle size={22} />
+                                ) : centerNotice.icon === 'calendar' ? (
+                                    <CalendarClock size={22} />
+                                ) : (
+                                    <CheckCircle2 size={22} />
+                                )}
+                            </motion.div>
+                            <motion.h3
+                                id="store-orders-center-notice-title"
+                                className="text-center text-lg font-semibold text-slate-900"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.08, duration: 0.28, ease: CENTER_POPUP_EASE }}
+                            >
+                                {centerNotice.title}
+                            </motion.h3>
+                            <motion.p
+                                className="mt-2 whitespace-pre-line text-center text-sm leading-relaxed text-slate-600"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.12, duration: 0.28, ease: CENTER_POPUP_EASE }}
+                            >
+                                {centerNotice.message}
+                            </motion.p>
+                            <motion.div
+                                className={`mt-5 grid gap-3 ${centerNotice.secondaryLabel ? 'grid-cols-2' : 'grid-cols-1'}`}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.16, duration: 0.28, ease: CENTER_POPUP_EASE }}
+                            >
+                                {centerNotice.secondaryLabel ? (
+                                    <button
+                                        type="button"
+                                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+                                        onClick={() => closeCenterNotice('secondary')}
+                                    >
+                                        {centerNotice.secondaryLabel}
+                                    </button>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-105 active:scale-[0.98] ${
+                                        centerNotice.tone === 'error'
+                                            ? 'bg-red-600 shadow-red-200/50'
+                                            : centerNotice.tone === 'warning'
+                                                ? 'bg-amber-600 shadow-amber-200/50'
+                                                : 'bg-violet-700 shadow-violet-200/50'
+                                    }`}
+                                    onClick={() => closeCenterNotice('primary')}
+                                >
+                                    {centerNotice.primaryLabel || 'OK'}
+                                </button>
+                            </motion.div>
+                        </div>
+                    </>
+                ) : null}
+            </StoreCenterPopupShell>
         </>
     );
 }

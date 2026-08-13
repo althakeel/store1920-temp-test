@@ -216,6 +216,14 @@ Optional; contact is also taken from the Firebase token / profile.
 | `GET` | `/api/products/top-rated` | Public | Top rated |
 | `GET` | `/api/public/offers` | Public | Offers page + pagination |
 
+**A+ content on PDP:** product payloads from `by-slug` / `page` may include:
+
+| Field | Use |
+|-------|-----|
+| `aPlusDesktop` / `aPlusDesktopAr` | Website desktop A+ HTML |
+| `aPlusMobile` / `aPlusMobileAr` | Mobile website + **app** A+ HTML |
+
+App should render **`aPlusMobile`** (or `aPlusMobileAr` when `lang=ar`). Skip the section if empty.
 **`GET /api/products` query (common):**
 
 | Param | Example | Meaning |

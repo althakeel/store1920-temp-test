@@ -7,13 +7,14 @@ import { isWaslahAlreadyProcessedError } from '@/lib/waslah';
 import {
   getWaslahShipmentHttpError,
   shipOrderWithWaslah,
+  shipOrdersWithWaslah,
 } from '@/lib/waslahShipmentService';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/store/waslah/ship
- * Body: { orderId, pickupInfo?, skipPickup?, paymentMethod? }
+ * Body: { orderId } OR { orderIds: [] }, pickupInfo?, skipPickup?, paymentMethod?, serviceId?
  *
  * Authentication and HTTP mapping stay here; the resumable shipment workflow
  * lives in lib/waslahShipmentService so automatic shipping can safely reuse it.
@@ -41,18 +42,35 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    orderId = String(body?.orderId || '').trim();
-    if (!orderId) {
-      return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
+    const singleOrderId = String(body?.orderId || '').trim();
+    const bulkOrderIds = Array.isArray(body?.orderIds)
+      ? body.orderIds.map((value) => String(value || '').trim()).filter(Boolean)
+      : [];
+
+    if (!singleOrderId && !bulkOrderIds.length) {
+      return NextResponse.json({ error: 'orderId or orderIds is required' }, { status: 400 });
     }
 
-    const result = await shipOrderWithWaslah({
-      orderId,
+    const sharedOptions = {
       storeId,
       pickupInfo: body?.pickupInfo || {},
-      skipPickup: Boolean(body?.skipPickup),
+      skipPickup: body?.skipPickup !== undefined ? Boolean(body.skipPickup) : true,
       paymentMethod: body?.paymentMethod || 'credit_limit',
       serviceId: body?.serviceId || '',
+    };
+
+    if (bulkOrderIds.length > 1 || (bulkOrderIds.length === 1 && !singleOrderId)) {
+      const result = await shipOrdersWithWaslah({
+        orderIds: bulkOrderIds.length ? bulkOrderIds : [singleOrderId],
+        ...sharedOptions,
+      });
+      return NextResponse.json(result, { status: result.succeeded > 0 ? 200 : 400 });
+    }
+
+    orderId = singleOrderId || bulkOrderIds[0];
+    const result = await shipOrderWithWaslah({
+      orderId,
+      ...sharedOptions,
       dryRun: Boolean(body?.dryRun),
       testCreateOnly: Boolean(body?.testCreateOnly),
       syncOnly: Boolean(body?.syncOnly),

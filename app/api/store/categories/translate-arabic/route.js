@@ -8,8 +8,8 @@ import { getAiErrorMessage } from '@/lib/aiProviderErrors';
 const MAX_LENGTH = 2000;
 const GEMINI_MODELS = [
   process.env.GEMINI_PRODUCT_AUTOFILL_MODEL,
+  'gemini-3.6-flash',
   'gemini-2.5-flash',
-  'gemini-2.0-flash',
   'gemini-flash-latest',
 ].filter(Boolean).filter((model, index, list) => list.indexOf(model) === index);
 

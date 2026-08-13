@@ -3235,6 +3235,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                   showMainDescription={true}
                   showOverviewSections={true}
                   compactMobile={true}
+                  aPlusViewport="mobile"
                 />
               </div>
 
@@ -3776,6 +3777,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
               showSuggestedProducts={false}
               showMainDescription={true}
               showOverviewSections={false}
+              aPlusViewport="desktop"
             />
           </div>
         </div>

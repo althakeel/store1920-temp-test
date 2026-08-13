@@ -35,7 +35,13 @@ function buildTrackingParams(phoneNumber, awbNumber) {
 }
 
 function getTrackingOrderKey(order = {}) {
-  return String(order?._id || order?.trackingId || order?.waslah?.trackingNumber || '').trim();
+  return String(
+    order?._id
+    || order?.waslah?.emxTrackingNumber
+    || order?.trackingId
+    || order?.waslah?.trackingNumber
+    || '',
+  ).trim();
 }
 
 function mergePublicLiveTracking(current, incoming) {
@@ -83,7 +89,14 @@ function TrackOrderPageInner() {
 
   const refreshLiveTracking = async ({ manual = false } = {}) => {
     if (trackingRefreshInFlight.current || !order) return null;
-    const trackingReference = String(order.trackingId || order.waslah?.trackingNumber || awbNumber || '').trim();
+    const trackingReference = String(
+      getPublicTrackingDisplayId(order)
+      || order.trackingId
+      || order.waslah?.emxTrackingNumber
+      || order.waslah?.trackingNumber
+      || awbNumber
+      || '',
+    ).trim();
     if (!trackingReference) return null;
 
     const requestGeneration = trackingLookupGeneration.current;
@@ -134,11 +147,18 @@ function TrackOrderPageInner() {
   const handleRefresh = () => refreshLiveTracking({ manual: true });
 
   useEffect(() => {
-    const trackingReference = String(order?.trackingId || order?.waslah?.trackingNumber || '').trim();
+    const trackingReference = String(
+      getPublicTrackingDisplayId(order)
+      || order?.trackingId
+      || order?.waslah?.emxTrackingNumber
+      || order?.waslah?.trackingNumber
+      || '',
+    ).trim();
     const courier = String(order?.courier || '').toLowerCase();
     const isEmxOrder = Boolean(
       order?.waslah?.orderId
       || order?.waslah?.trackingNumber
+      || order?.waslah?.emxTrackingNumber
       || courier.includes('emx')
       || courier.includes('waslah'),
     );
@@ -220,7 +240,7 @@ function TrackOrderPageInner() {
     const ref = extractTrackingReferenceFromInput(reference);
 
     if (!contact && !ref) {
-      toast.error('Please enter mobile number, email, AWB, or order number — not the track-order page URL');
+      toast.error('Please enter mobile number, email, tracking number, or order number — not the track-order page URL');
       return false;
     }
     if (ref && ref !== String(reference || '').trim()) {
@@ -381,7 +401,7 @@ function TrackOrderPageInner() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-slate-800 mb-2">Track Your Order</h1>
-            <p className="text-slate-600">Enter your mobile number, email, AWB, reference number, or order number to track your shipment</p>
+            <p className="text-slate-600">Enter your mobile number, email, tracking number, reference number, or order number to track your shipment</p>
           </div>
 
           {/* Search Form */}
@@ -406,15 +426,15 @@ function TrackOrderPageInner() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">AWB / Reference / Booking / Order No</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Tracking number / Order No</label>
                 <input
                   type="text"
                   value={awbNumber}
                   onChange={(e) => setAwbNumber(e.target.value)}
-                  placeholder="Enter AWB, reference number, booking number, or order no"
+                  placeholder="EMX tracking number, order no, or reference"
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <p className="text-xs text-slate-500 mt-1">You can use your EMX AWB, C3X AWB, order number, mobile number, or email.</p>
+                <p className="text-xs text-slate-500 mt-1">Use the EMX tracking number from your label (e.g. 1000045332510), order number, mobile, or email.</p>
               </div>
               <button
                 type="submit"
@@ -445,7 +465,7 @@ function TrackOrderPageInner() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
               <h3 className="text-lg font-semibold text-slate-800 mb-2">Order Not Found</h3>
-              <p className="text-slate-600">Please check your mobile number, email, AWB, reference number, or booking number and try again.</p>
+              <p className="text-slate-600">Please check your mobile number, email, tracking number, reference number, or booking number and try again.</p>
             </div>
           )}
 
@@ -486,9 +506,9 @@ function TrackOrderPageInner() {
                 </div>
               )}
               {/* Tracking not ready notice */}
-              {!order.trackingId && !order.c3x && !order.waslah && (
+              {!getPublicTrackingDisplayId(order) && !order.c3x && !order.waslah && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-yellow-800 text-sm">
-                  Shipment hasn't been created yet. You'll see live tracking here once the courier AWB is generated.
+                  Shipment hasn't been created yet. You'll see live tracking here once the EMX tracking number is generated.
                 </div>
               )}
               {/* Order Status */}
@@ -500,7 +520,7 @@ function TrackOrderPageInner() {
                     </p>
                     <h2 className="mt-1 text-xl font-semibold text-slate-900">
                       {getPublicTrackingDisplayId(order)
-                        ? `Tracking ID: ${getPublicTrackingDisplayId(order)}`
+                        ? `Tracking number: ${getPublicTrackingDisplayId(order)}`
                         : getDisplayOrderLabel(order)}
                     </h2>
                     {order.createdAt && !Number.isNaN(new Date(order.createdAt).getTime()) && (
@@ -546,7 +566,7 @@ function TrackOrderPageInner() {
                       )}
                       {getPublicTrackingDisplayId(order) ? (
                         <div className="rounded-lg bg-white/75 p-3">
-                          <p className="text-xs font-medium text-slate-500">Tracking ID</p>
+                          <p className="text-xs font-medium text-slate-500">Tracking number</p>
                           <p className="mt-1 font-mono font-semibold text-slate-900">{getPublicTrackingDisplayId(order)}</p>
                         </div>
                       ) : null}
@@ -758,7 +778,7 @@ function TrackOrderPageInner() {
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">What you can enter</h3>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Mobile number, email, EMX AWB, C3X AWB, reference number, or Order No.
+                      Mobile number, email, EMX tracking number, order number, or reference.
                     </p>
                   </div>
                 </div>
@@ -772,7 +792,7 @@ function TrackOrderPageInner() {
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">What you will see</h3>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Current status, tracking ID, courier name, route updates, and order items.
+                      Current status, EMX tracking number, courier name, route updates, and order items.
                     </p>
                   </div>
                 </div>
@@ -786,7 +806,7 @@ function TrackOrderPageInner() {
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">When tracking appears</h3>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Live courier updates show after the shipment is created and AWB is generated.
+                      Live courier updates show after the shipment is created and the EMX tracking number is generated.
                     </p>
                   </div>
                 </div>

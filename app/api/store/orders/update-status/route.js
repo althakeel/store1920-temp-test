@@ -41,7 +41,7 @@ export async function POST(request) {
         // Validate status
         const validStatuses = [
             'ORDER_PLACED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED',
-            'PAYMENT_FAILED', 'AWAITING_PAYMENT', 'RTO', 'RETURN', 'RETURNED', 'RETURN_INITIATED', 'RETURN_APPROVED',
+            'PAYMENT_FAILED', 'AWAITING_PAYMENT', 'RTO', 'RETURN', 'RETURNED', 'REPLACEMENT', 'RETURN_INITIATED', 'RETURN_APPROVED',
             'RETURN_REQUESTED', 'PICKUP_REQUESTED', 'WAITING_FOR_PICKUP', 
             'PICKED_UP', 'WAREHOUSE_RECEIVED', 'OUT_FOR_DELIVERY',
             // Lowercase variants for compatibility

@@ -60,7 +60,16 @@ export async function POST(request) {
       );
     }
 
-    const cancelResult = await cancelWaslahOrder(waslahOrderId);
+    const trackingNumbers = [
+      order.waslah?.emxTrackingNumber,
+      order.waslah?.trackingNumber,
+      order.trackingId,
+      order.waslah?.waslahTrackingNumber,
+    ]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+
+    const cancelResult = await cancelWaslahOrder(waslahOrderId, { trackingNumbers });
     const cancelledAt = new Date();
     const displayStatus = getWaslahCheckpointDisplay({
       subtag: 'Cancelled_001',
@@ -91,8 +100,13 @@ export async function POST(request) {
         'waslah.trackingNumber': null,
         'waslah.labelUrl': null,
         'waslah.labelPrintedAt': null,
+        'waslah.labelDownloadCount': 0,
         'waslah.processed': false,
         'waslah.processedAt': null,
+        'waslah.pickupRequestedAt': null,
+        'waslah.pickupDate': null,
+        'waslah.pickupTime': null,
+        'waslah.pickupVehicle': null,
         'waslah.reference': null,
         'waslah.unlinkedInWaslah': false,
         'waslah.carrierStatus': 'CANCELLED',
@@ -140,12 +154,15 @@ export async function POST(request) {
       console.error('[store/waslah/cancel] customer email failed', emailError?.message || emailError);
     }
 
+    const notFoundOnWaslah = cancelResult?.reason === 'waslah_order_not_found';
     return NextResponse.json({
       success: true,
       alreadyCancelled: Boolean(cancelResult.alreadyCancelled),
-      message: cancelResult.alreadyCancelled
-        ? 'Waslah shipment was already cancelled. You can ship again with EMX.'
-        : 'Waslah shipment cancelled. The store order is still open so you can ship again.',
+      message: notFoundOnWaslah
+        ? 'Waslah no longer has this shipment (already removed or invalid id). Local link cleared — you can ship again with EMX.'
+        : cancelResult.alreadyCancelled
+          ? 'Waslah shipment was already cancelled. You can ship again with EMX.'
+          : 'Waslah shipment cancelled. The store order is still open so you can ship again.',
       order: {
         _id: updatedOrder._id,
         status: updatedOrder.status,

@@ -12,7 +12,7 @@ import { downloadInvoice } from '@/lib/generateInvoice'
 import DeliveryReviewModal from '@/components/DeliveryReviewModal'
 import ReviewForm from '@/components/ReviewForm'
 import { GUEST_ORDERS_LINKED_EVENT, linkGuestOrdersForCurrentUser } from '@/lib/linkGuestOrdersClient'
-import { getDisplayOrderNumber } from '@/lib/orderDisplay'
+import { getDisplayOrderNumber, getPublicTrackingDisplayId } from '@/lib/orderDisplay'
 
 export default function DashboardOrdersPage() {
   const [user, setUser] = useState(undefined)
@@ -1085,7 +1085,7 @@ export default function DashboardOrdersPage() {
                         </div>
 
                         {/* Live Delivery Tracking */}
-                        {(order.trackingId || order.trackingUrl || order.courier || order.delhivery) && (
+                        {(getPublicTrackingDisplayId(order) || order.trackingId || order.trackingUrl || order.courier || order.delhivery || order.waslah) && (
                           <div className="bg-gradient-to-br from-slate-50 to-blue-50 border-2 border-blue-200 rounded-xl p-6 space-y-5">
                             {/* Header */}
 <div className="flex items-center gap-3 pb-4 border-b-2 border-blue-200">
@@ -1149,12 +1149,12 @@ export default function DashboardOrdersPage() {
                                     <span className="font-semibold text-slate-800 capitalize">{order.courier}</span>
                                   </div>
                                 )}
-                                {order.trackingId && (
+                                {getPublicTrackingDisplayId(order) ? (
                                   <div className="flex items-center justify-between">
-                                    <span className="text-slate-600 font-medium">Tracking ID</span>
-                                    <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-3 py-1 rounded">{order.trackingId}</span>
+                                    <span className="text-slate-600 font-medium">Tracking number</span>
+                                    <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-3 py-1 rounded">{getPublicTrackingDisplayId(order)}</span>
                                   </div>
-                                )}
+                                ) : null}
                               </div>
                               
                               {order.trackingUrl && (

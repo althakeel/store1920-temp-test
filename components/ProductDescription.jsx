@@ -42,7 +42,17 @@ function stripEmbeddedSpecTable(html = '') {
 }
 
 // Updated design - Noon.com style v2
-const ProductDescription = ({ product, reviews = [], loadingReviews = false, onReviewAdded, showSuggestedProducts = true, showMainDescription = true, showOverviewSections = true, compactMobile = false }) => {
+const ProductDescription = ({
+    product,
+    reviews = [],
+    loadingReviews = false,
+    onReviewAdded,
+    showSuggestedProducts = true,
+    showMainDescription = true,
+    showOverviewSections = true,
+    compactMobile = false,
+    aPlusViewport = 'auto',
+}) => {
 
     const router = useRouter()
     const { t, isArabic } = useStorefrontI18n()
@@ -283,6 +293,30 @@ const ProductDescription = ({ product, reviews = [], loadingReviews = false, onR
     const hasShortDescription2 = aboutPlainText.length > 0
     const shouldCollapseAbout = aboutPlainText.length > 180
 
+    const resolvedAPlusViewport = aPlusViewport === 'auto'
+        ? (compactMobile ? 'mobile' : 'desktop')
+        : aPlusViewport
+    const rawAPlus = useMemo(() => {
+        if (resolvedAPlusViewport === 'mobile') {
+            return isArabic
+                ? (product?.aPlusMobileAr || product?.aPlusMobile || '')
+                : (product?.aPlusMobile || '')
+        }
+        return isArabic
+            ? (product?.aPlusDesktopAr || product?.aPlusDesktop || '')
+            : (product?.aPlusDesktop || '')
+    }, [
+        resolvedAPlusViewport,
+        isArabic,
+        product?.aPlusDesktop,
+        product?.aPlusMobile,
+        product?.aPlusDesktopAr,
+        product?.aPlusMobileAr,
+    ])
+    const aPlusHtml = useMemo(() => sanitizeProductRichHtml(rawAPlus), [rawAPlus])
+    const aPlusPlainText = aPlusHtml.replace(/<[^>]*>/g, '').trim()
+    const hasAPlusContent = aPlusPlainText.length > 0
+
     useEffect(() => {
         if (!showSuggestedProducts) return
         fetchSuggestedProducts()
@@ -434,6 +468,22 @@ const ProductDescription = ({ product, reviews = [], loadingReviews = false, onR
                     )}
                 </div>
             )}
+
+            {showMainDescription && hasAPlusContent ? (
+                <div
+                    className={`${compactMobile ? 'order-1' : 'order-3'} bg-white ${compactMobile ? 'border-t border-gray-100 px-4 py-3' : 'border-t border-gray-200 pt-6 mt-2'}`}
+                    dir={isArabic ? 'rtl' : 'ltr'}
+                >
+                    <h2 className={`${compactMobile ? 'mb-2 text-[15px] font-bold' : 'mb-3 text-[18px] font-semibold'} leading-none text-gray-900`}>
+                        {t('product.aPlusContent')}
+                    </h2>
+                    <div
+                        className={PRODUCT_RICH_CONTENT_CLASS}
+                        dir={isArabic ? 'rtl' : 'ltr'}
+                        dangerouslySetInnerHTML={{ __html: aPlusHtml }}
+                    />
+                </div>
+            ) : null}
 
             {/* Suggested Products Section */}
             {showSuggestedProducts && suggestedProducts.length > 0 && (

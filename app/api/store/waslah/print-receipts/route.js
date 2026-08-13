@@ -7,7 +7,9 @@ import {
   extractWaslahPrintReceiptUrl,
   getWaslahOrderIdsFromOrders,
   isWaslahLabelReadyOrder,
+  buildLabelDownloadedMongoUpdate,
 } from '@/lib/waslahReceipts';
+import { extractEmxCarrierLabelPdf, mergeEmxCarrierLabelPdfs } from '@/lib/waslahEmxLabelPdf';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +17,9 @@ export const dynamic = 'force-dynamic';
  * POST /api/store/waslah/print-receipts
  * Body: { orderIds: string[] }
  *
- * Generates one combined PDF of Waslah order receipts / labels for label-ready orders.
+ * Generates EMX carrier label PDF(s) only (Waslah receipt pages removed).
+ * Prints each Waslah order separately, then merges EMX pages — bulk Waslah PDFs
+ * often put all receipts first, which breaks simple even/odd page stripping.
  */
 export async function POST(request) {
   try {
@@ -69,45 +73,69 @@ export async function POST(request) {
 
     if (!waslahOrderIds.length) {
       return Response.json(
-        { error: 'None of the selected orders have a Waslah shipment with AWB generated yet' },
+        { error: 'None of the selected orders have an EMX shipment yet. Send to EMX first.' },
         { status: 400 },
       );
     }
 
-    const printResult = await printWaslahReceipt(waslahOrderIds, { withLabel: true });
-    const pdfUrl = extractWaslahPrintReceiptUrl(printResult);
+    const emxPdfBuffers = [];
+    const errors = [];
 
-    if (!pdfUrl) {
+    for (const waslahOrderId of waslahOrderIds) {
+      try {
+        const printResult = await printWaslahReceipt([waslahOrderId], {
+          withLabel: true,
+          carrierLabelOnly: true,
+        });
+        const pdfUrl = extractWaslahPrintReceiptUrl(printResult, { preferCarrierLabel: true });
+        if (!pdfUrl) {
+          errors.push(`${waslahOrderId}: no label URL`);
+          continue;
+        }
+
+        const pdfResponse = await fetch(pdfUrl);
+        if (!pdfResponse.ok) {
+          errors.push(`${waslahOrderId}: download HTTP ${pdfResponse.status}`);
+          continue;
+        }
+
+        const combinedPdf = Buffer.from(await pdfResponse.arrayBuffer());
+        const emxOnlyPdf = await extractEmxCarrierLabelPdf(combinedPdf);
+        emxPdfBuffers.push(emxOnlyPdf);
+      } catch (orderError) {
+        errors.push(`${waslahOrderId}: ${orderError?.message || 'print failed'}`);
+      }
+    }
+
+    if (!emxPdfBuffers.length) {
       return Response.json(
-        { error: 'Waslah did not return a receipt PDF URL', detail: printResult },
+        {
+          error: 'Could not build EMX carrier labels for the selected orders',
+          detail: errors.slice(0, 5),
+        },
         { status: 502 },
       );
     }
 
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      return Response.json(
-        { error: `Failed to download receipt PDF from Waslah (HTTP ${pdfResponse.status})` },
-        { status: 502 },
-      );
-    }
+    const emxOnlyPdf = emxPdfBuffers.length === 1
+      ? emxPdfBuffers[0]
+      : await mergeEmxCarrierLabelPdfs(emxPdfBuffers);
 
-    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
-    const filename = `order-receipts-${labelReadyOrders.length}-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const filename = `emx-carrier-labels-${emxPdfBuffers.length}-${new Date().toISOString().slice(0, 10)}.pdf`;
     const printedAt = new Date();
 
-    await Order.updateMany(
-      { _id: { $in: labelReadyOrders.map((order) => order._id) } },
-      { $set: { 'waslah.labelPrintedAt': printedAt } },
-    );
+    await Promise.all(labelReadyOrders.map((order) => (
+      Order.findByIdAndUpdate(order._id, buildLabelDownloadedMongoUpdate(order, printedAt))
+    )));
 
-    return new Response(pdfBuffer, {
+    return new Response(emxOnlyPdf, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': String(pdfBuffer.length),
+        'Content-Length': String(emxOnlyPdf.length),
         'Cache-Control': 'no-store',
+        ...(errors.length ? { 'X-Waslah-Label-Warnings': String(errors.length) } : {}),
       },
     });
   } catch (error) {

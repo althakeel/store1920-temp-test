@@ -10,7 +10,7 @@ import Link from "next/link";
 import axios from "axios";
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
 import { getProductThumbnailUrl } from '@/lib/productMedia';
-import { getDisplayOrderNumber, getOrderLineProduct, getOrderMongoId } from '@/lib/orderDisplay';
+import { getDisplayOrderNumber, getOrderLineProduct, getOrderMongoId, getPublicTrackingDisplayId } from '@/lib/orderDisplay';
 
 const OrderItem = ({ order: initialOrder }) => {
 
@@ -43,19 +43,23 @@ const OrderItem = ({ order: initialOrder }) => {
     
     // Auto-refresh tracking data every 30 seconds when expanded
     useEffect(() => {
-        if (!expanded || !order.trackingId) return;
+        const trackingRef = getPublicTrackingDisplayId(order) || order.trackingId;
+        if (!expanded || !trackingRef) return;
 
         const fetchTrackingData = async () => {
             try {
                 setRefreshing(true);
-                const response = await axios.get(`/api/track-order?awb=${order.trackingId}`);
+                const response = await axios.get(`/api/track-order?awb=${encodeURIComponent(trackingRef)}`);
                 if (response.data.success && response.data.order) {
                     // Update order with fresh tracking data
                     const updatedOrder = {
                         ...order,
                         delhivery: response.data.order.delhivery,
+                        waslah: response.data.order.waslah || order.waslah,
                         status: response.data.order.status || order.status,
-                        trackingUrl: response.data.order.trackingUrl || order.trackingUrl
+                        trackingId: response.data.order.trackingId || order.trackingId,
+                        trackingUrl: response.data.order.trackingUrl || order.trackingUrl,
+                        courier: response.data.order.courier || order.courier,
                     };
                     
                     // Auto-mark COD orders as PAID if they're DELIVERED
@@ -80,7 +84,7 @@ const OrderItem = ({ order: initialOrder }) => {
 
         // Cleanup interval on unmount or when collapsed
         return () => clearInterval(interval);
-    }, [expanded, order.trackingId]);
+    }, [expanded, order.trackingId, order?.waslah?.trackingNumber]);
     
     // Check if order is delivered and within 7 days
     const isDelivered = order.status === 'DELIVERED';
@@ -301,7 +305,7 @@ const OrderItem = ({ order: initialOrder }) => {
                         </div>
 
                         {/* Live Delivery Tracking - EXACT SAME AS DASHBOARD */}
-                        {(order.trackingId || order.trackingUrl || order.courier || order.delhivery) && (
+                        {(getPublicTrackingDisplayId(order) || order.trackingId || order.trackingUrl || order.courier || order.delhivery || order.waslah) && (
                             <div className="bg-gradient-to-br from-slate-50 to-blue-50 border-2 border-blue-200 rounded-xl p-6 space-y-5">
                                 {/* Header with Auto-Refresh Indicator */}
                                 <div className="flex items-center justify-between pb-4 border-b-2 border-blue-200">
@@ -368,12 +372,12 @@ const OrderItem = ({ order: initialOrder }) => {
                                                 <span className="font-semibold text-slate-800 capitalize">{order.courier}</span>
                                             </div>
                                         )}
-                                        {order.trackingId && (
+                                        {getPublicTrackingDisplayId(order) ? (
                                             <div className="flex items-center justify-between">
-                                                <span className="text-slate-600 font-medium">Tracking ID</span>
-                                                <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-3 py-1 rounded">{order.trackingId}</span>
+                                                <span className="text-slate-600 font-medium">Tracking number</span>
+                                                <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-3 py-1 rounded">{getPublicTrackingDisplayId(order)}</span>
                                             </div>
-                                        )}
+                                        ) : null}
                                     </div>
                                     
                                     {order.trackingUrl && (

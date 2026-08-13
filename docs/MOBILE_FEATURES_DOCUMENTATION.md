@@ -39,7 +39,7 @@ GET /api/public/mobile-features?storeId={storeId}
 
 ---
 
-## 2. Auth
+## 2. Auth             
 
 | Method | Who | Auth |
 |--------|-----|------|

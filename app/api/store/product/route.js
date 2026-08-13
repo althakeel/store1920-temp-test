@@ -865,10 +865,6 @@ export async function PUT(request) {
             price: finalPrice,
             category: categories[0], // Keep first category for backward compatibility
             categories, // New: store all categories
-            // Empty SKU must not wipe an existing value (FormData often sends "").
-            sku: (sku !== null && String(sku).trim() !== '')
-              ? String(sku).trim()
-              : (product.sku || null),
             images: imagesUrl,
             hasVariants: hasVariantsResolved,
             variants,
@@ -888,6 +884,13 @@ export async function PUT(request) {
             seoDescription,
             seoKeywords,
         };
+
+        // SKU is seller-managed only. Accept FormData SKU only when non-empty
+        // (typed in the product form). Never wipe an existing SKU with blank "".
+        const nextSku = sku !== null ? String(sku).trim() : '';
+        if (nextSku) {
+            updateData.sku = nextSku;
+        }
 
         // Add stockQuantity if provided
         if (stockQuantity !== undefined) {

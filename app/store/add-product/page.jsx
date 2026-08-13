@@ -354,7 +354,10 @@ function RichTextDescriptionEditor({
     placeholder,
     getAuthTokenOrThrow,
     dir = 'ltr',
+    showUploadBar = false,
+    mediaHint = 'You can upload images and videos (max 50MB) directly into the content',
 }) {
+    const [uploadingMedia, setUploadingMedia] = useState(false)
     const editor = useEditor({
         extensions: [
             StarterKit,
@@ -398,9 +401,100 @@ function RichTextDescriptionEditor({
         }
     }, [value, editor])
 
+    const insertUploadedImages = async (fileList) => {
+        const files = Array.from(fileList || []).filter((file) => file?.type?.startsWith('image/'))
+        if (!files.length) return
+        if (!getAuthTokenOrThrow) {
+            toast.error('Sign in again to upload images')
+            return
+        }
+
+        setUploadingMedia(true)
+        try {
+            const token = await getAuthTokenOrThrow()
+            let inserted = 0
+            for (const file of files) {
+                const data = await uploadStoreImage(file, { token })
+                if (data?.url) {
+                    editor?.chain().focus().setImage({ src: data.url }).run()
+                    inserted += 1
+                }
+            }
+            if (inserted > 0) {
+                toast.success(inserted === 1 ? 'Image uploaded' : `${inserted} images uploaded`)
+            }
+        } catch (error) {
+            toast.error(getUploadErrorMessage(error))
+        } finally {
+            setUploadingMedia(false)
+        }
+    }
+
+    const insertUploadedVideo = async (file) => {
+        if (!file) return
+        if (file.size > 50 * 1024 * 1024) {
+            toast.error('Video file too large (max 50MB)')
+            return
+        }
+        if (!getAuthTokenOrThrow) {
+            toast.error('Sign in again to upload video')
+            return
+        }
+
+        setUploadingMedia(true)
+        try {
+            toast.loading('Uploading video...')
+            const token = await getAuthTokenOrThrow()
+            const data = await uploadStoreImage(file, { token, compress: false })
+            editor?.chain().focus().setVideo({ src: data.url }).run()
+            toast.dismiss()
+            toast.success('Video uploaded!')
+        } catch (error) {
+            toast.dismiss()
+            toast.error(getUploadErrorMessage(error))
+        } finally {
+            setUploadingMedia(false)
+        }
+    }
+
     return (
         <div dir={dir}>
-            <label className="block text-sm font-medium mb-1">{label}</label>
+            {label ? <label className="block text-sm font-medium mb-1">{label}</label> : null}
+
+            {showUploadBar ? (
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2">
+                    <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 ${uploadingMedia ? 'pointer-events-none opacity-60' : ''}`}>
+                        Upload images
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            disabled={uploadingMedia}
+                            onChange={async (e) => {
+                                await insertUploadedImages(e.target.files)
+                                e.target.value = ''
+                            }}
+                        />
+                    </label>
+                    <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border border-violet-300 bg-white px-3 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 ${uploadingMedia ? 'pointer-events-none opacity-60' : ''}`}>
+                        Upload video
+                        <input
+                            type="file"
+                            accept="video/*"
+                            className="hidden"
+                            disabled={uploadingMedia}
+                            onChange={async (e) => {
+                                await insertUploadedVideo(e.target.files?.[0])
+                                e.target.value = ''
+                            }}
+                        />
+                    </label>
+                    <span className="text-[11px] text-emerald-900/80">
+                        {uploadingMedia ? 'Uploading…' : 'Images are inserted into the editor below.'}
+                    </span>
+                </div>
+            ) : null}
 
             <div className="border border-gray-300 rounded-t bg-white p-3 flex flex-wrap gap-1.5 shadow-sm">
                 <button type="button" onClick={() => editor?.chain().focus().toggleBold().run()} className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${editor?.isActive('bold') ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 hover:bg-gray-200'}`} title="Bold"><strong>B</strong></button>
@@ -431,56 +525,29 @@ function RichTextDescriptionEditor({
                 <button type="button" onClick={() => editor?.chain().focus().setTextAlign('center').run()} className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${editor?.isActive({ textAlign: 'center' }) ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 hover:bg-gray-200'}`} title="Align Center">↔</button>
                 <button type="button" onClick={() => editor?.chain().focus().setTextAlign('right').run()} className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${editor?.isActive({ textAlign: 'right' }) ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 hover:bg-gray-200'}`} title="Align Right">➡</button>
                 <div className="w-px h-6 bg-gray-300 self-center mx-1"></div>
-                <label className="px-3 py-1.5 rounded text-sm font-medium bg-green-100 hover:bg-green-200 transition-all cursor-pointer flex items-center gap-1" title="Upload Image">
-                    🖼️ <span className="hidden sm:inline">Image</span>
+                <label className={`px-3 py-1.5 rounded text-sm font-medium bg-green-100 hover:bg-green-200 transition-all cursor-pointer flex items-center gap-1 ${uploadingMedia ? 'pointer-events-none opacity-60' : ''}`} title="Upload Image">
+                    🖼️ <span>Image</span>
                     <input
                         type="file"
                         accept="image/*"
+                        multiple
                         className="hidden"
+                        disabled={uploadingMedia}
                         onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-
-                            try {
-                                const token = await getAuthTokenOrThrow()
-                                const data = await uploadStoreImage(file, { token })
-
-                                editor?.chain().focus().setImage({ src: data.url }).run()
-                                toast.success('Image uploaded!')
-                            } catch (error) {
-                                toast.error(getUploadErrorMessage(error))
-                            }
+                            await insertUploadedImages(e.target.files)
                             e.target.value = ''
                         }}
                     />
                 </label>
-                <label className="px-3 py-1.5 rounded text-sm font-medium bg-purple-100 hover:bg-purple-200 transition-all cursor-pointer flex items-center gap-1" title="Upload Video">
-                    🎥 <span className="hidden sm:inline">Video</span>
+                <label className={`px-3 py-1.5 rounded text-sm font-medium bg-purple-100 hover:bg-purple-200 transition-all cursor-pointer flex items-center gap-1 ${uploadingMedia ? 'pointer-events-none opacity-60' : ''}`} title="Upload Video">
+                    🎥 <span>Video</span>
                     <input
                         type="file"
                         accept="video/*"
                         className="hidden"
+                        disabled={uploadingMedia}
                         onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-
-                            if (file.size > 50 * 1024 * 1024) {
-                                toast.error('Video file too large (max 50MB)')
-                                return
-                            }
-
-                            try {
-                                toast.loading('Uploading video...')
-                                const token = await getAuthTokenOrThrow()
-                                const data = await uploadStoreImage(file, { token, compress: false })
-
-                                editor?.chain().focus().setVideo({ src: data.url }).run()
-                                toast.dismiss()
-                                toast.success('Video uploaded!')
-                            } catch (error) {
-                                toast.dismiss()
-                                toast.error(getUploadErrorMessage(error))
-                            }
+                            await insertUploadedVideo(e.target.files?.[0])
                             e.target.value = ''
                         }}
                     />
@@ -496,7 +563,7 @@ function RichTextDescriptionEditor({
                 editor={editor}
                 className={`border border-t-0 border-gray-300 rounded-b bg-white p-4 min-h-[250px] max-h-[500px] overflow-y-auto prose prose-slate max-w-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all [&_video]:max-w-full [&_video]:rounded [&_video]:my-4 [&_img]:max-w-full [&_img]:rounded [&_img]:my-2 ${dir === 'rtl' ? '[&_p]:text-right [&_h1]:text-right [&_h2]:text-right [&_h3]:text-right [&_li]:text-right' : ''}`}
             />
-            <p className="text-xs text-gray-500 mt-1">💡 You can upload images and videos (max 50MB) directly into the description</p>
+            <p className="text-xs text-gray-500 mt-1">💡 {mediaHint}</p>
         </div>
     )
 }
@@ -636,11 +703,12 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
         const [bulkEnabled, setBulkEnabled] = useState(false);
         const [variants, setVariants] = useState([]);
         const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
+        const [isSkuManuallyEdited, setIsSkuManuallyEdited] = useState(false);
         const [images, setImages] = useState(() => createEmptyImageSlots());
         const [draggingMediaKey, setDraggingMediaKey] = useState(null);
         const [dragOverMediaKey, setDragOverMediaKey] = useState(null);
         const [productInfo, setProductInfo] = useState({
-            name: '', nameAr: '', slug: '', brand: '', brandAr: '', shortDescription: '', shortDescriptionAr: '', shortDescription2: '', shortDescription2Ar: '', specTableEnabled: false, specTableTitle: 'Product information', specTableTitleAr: 'مواصفات المنتج', specTableColumns: ['Property', 'Value'], specTableColumnsAr: ['الخاصية', 'القيمة'], specTableRows: [['', '']], specTableRowsAr: [['', '']], description: '', descriptionAr: '', AED: '', price: '', priceAr: '', AEDAr: '', category: '', sku: '', stockQuantity: 50, soldCount: 0, colors: [], sizes: [], fastDelivery: false, freeShippingEligible: false, useProductsPath: false, allowReturn: true, allowReplacement: true, reviews: [], badges: [], imageAspectRatio: '1:1', cardVideoPreviewEnabled: true, cardVideoPreviewDelaySec: 24, tags: [], seoTitle: '', seoDescription: '', seoKeywords: [], deliveredBy: '', soldBy: '', paymentInfo: '', hsCode: '', originCountry: '', shippingWeightKg: ''
+            name: '', nameAr: '', slug: '', brand: '', brandAr: '', shortDescription: '', shortDescriptionAr: '', shortDescription2: '', shortDescription2Ar: '', specTableEnabled: false, specTableTitle: 'Product information', specTableTitleAr: 'مواصفات المنتج', specTableColumns: ['Property', 'Value'], specTableColumnsAr: ['الخاصية', 'القيمة'], specTableRows: [['', '']], specTableRowsAr: [['', '']], description: '', descriptionAr: '', aPlusDesktop: '', aPlusMobile: '', aPlusDesktopAr: '', aPlusMobileAr: '', AED: '', price: '', priceAr: '', AEDAr: '', category: '', sku: '', stockQuantity: 50, soldCount: 0, colors: [], sizes: [], fastDelivery: false, freeShippingEligible: false, useProductsPath: false, allowReturn: true, allowReplacement: true, reviews: [], badges: [], imageAspectRatio: '1:1', cardVideoPreviewEnabled: true, cardVideoPreviewDelaySec: 24, tags: [], seoTitle: '', seoDescription: '', seoKeywords: [], deliveredBy: '', soldBy: '', paymentInfo: '', hsCode: '', originCountry: '', shippingWeightKg: ''
         });
         const [tagInput, setTagInput] = useState('');
         const [seoKeywordInput, setSeoKeywordInput] = useState('');
@@ -921,6 +989,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
         }
 
         console.log('Initializing form with product:', product._id)
+            setIsSkuManuallyEdited(false)
             setProductInfo({
                 name: product.name || "",
                 nameAr: product.nameAr || "",
@@ -952,6 +1021,10 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                     : [['', '']],
                 description: product.description || "",
                 descriptionAr: product.descriptionAr || "",
+                aPlusDesktop: product.aPlusDesktop || "",
+                aPlusMobile: product.aPlusMobile || "",
+                aPlusDesktopAr: product.aPlusDesktopAr || "",
+                aPlusMobileAr: product.aPlusMobileAr || "",
                 AED: product.AED || "",
                 price: product.price || "",
                 priceAr: product.attributes?.priceAr || "",
@@ -1068,6 +1141,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                         price: v.price ?? '',
                         AED: v.AED ?? v.price ?? '',
                         stock: Number(v.stock) > 0 ? Number(v.stock) : '',
+                        sku: v.sku || '',
                     }
                 })
                 setVariants([...baseMap.values()])
@@ -1162,6 +1236,9 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
         } else if (name === 'slug') {
             setIsSlugManuallyEdited(true)
             setProductInfo(prev => ({ ...prev, slug: slugifyValue(value) }))
+        } else if (name === 'sku') {
+            setIsSkuManuallyEdited(true)
+            setProductInfo(prev => ({ ...prev, sku: value }))
         } else {
             setProductInfo(prev => ({ ...prev, [name]: value }))
         }
@@ -1480,7 +1557,14 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
 
         for (let index = 0; index < steps.length; index += 1) {
             const step = steps[index]
-            setProductInfo((prev) => ({ ...prev, ...step.patch(prev) }))
+            // Never let AI overwrite the seller SKU field.
+            setProductInfo((prev) => {
+                const patch = step.patch(prev)
+                if (patch && Object.prototype.hasOwnProperty.call(patch, 'sku')) {
+                    delete patch.sku
+                }
+                return { ...prev, ...patch, sku: prev.sku }
+            })
             filledGroups.push(step.label)
             setAiProgress({
                 percent: Math.round(applyStartPercent + stepSize * (index + 1)),
@@ -1720,6 +1804,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 seoTitle: imported.seoTitle || prev.seoTitle,
                 seoDescription: imported.seoDescription || prev.seoDescription,
                 seoKeywords: appendUniqueTags(prev.seoKeywords || [], imported.seoKeywords || []),
+                // Keep existing SKU — import/AI must never overwrite it.
+                sku: prev.sku,
             }));
 
             if (Array.isArray(imported.images) && imported.images.length > 0) {
@@ -1938,6 +2024,10 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
 
             const description = await sanitizeRichTextMedia(productInfo.description, uploadEmbedded)
             const descriptionAr = await sanitizeRichTextMedia(productInfo.descriptionAr, uploadEmbedded)
+            const aPlusDesktop = await sanitizeRichTextMedia(productInfo.aPlusDesktop, uploadEmbedded)
+            const aPlusMobile = await sanitizeRichTextMedia(productInfo.aPlusMobile, uploadEmbedded)
+            const aPlusDesktopAr = await sanitizeRichTextMedia(productInfo.aPlusDesktopAr, uploadEmbedded)
+            const aPlusMobileAr = await sanitizeRichTextMedia(productInfo.aPlusMobileAr, uploadEmbedded)
 
             // Pricing mode radio is the source of truth — do not re-infer from leftover
             // bulkOptions / bundleQty that may still be in state after switching modes.
@@ -1986,7 +2076,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                         // Prefer matrix cell → variant row → pack row → product Stock Qty.
                         const stock = pickMatrixNumber(cell.stock, v.stock, b.stock, productStockFallback, 0)
                         expanded.push({
-                            sku: v.sku || '',
+                            sku: String(cell.sku || v.sku || '').trim(),
                             options: resolveVariantImageOptions({
                                 ...baseOpts,
                                 bundleQty: Number(b.qty),
@@ -2099,13 +2189,24 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 shortDescription2Ar: productInfo.shortDescription2Ar || '',
                 description,
                 descriptionAr,
+                aPlusDesktop,
+                aPlusMobile,
+                aPlusDesktopAr,
+                aPlusMobileAr,
                 price: Number(productInfo.price)
                     || (variantsToSend.length > 0 ? Number(variantsToSend[0].price) : 0)
                     || 0,
                 AED: Number(productInfo.AED)
                     || (variantsToSend.length > 0 ? Number(variantsToSend[0].AED || variantsToSend[0].price) : 0)
                     || 0,
-                sku: String(productInfo.sku || '').trim(),
+                // SKU updates only when the seller typed in the SKU field (never AI/import).
+                ...(product?._id
+                  ? (isSkuManuallyEdited && String(productInfo.sku || '').trim()
+                    ? { sku: String(productInfo.sku).trim(), skuManual: true }
+                    : {})
+                  : (String(productInfo.sku || '').trim()
+                    ? { sku: String(productInfo.sku).trim(), skuManual: true }
+                    : {})),
                 // Omit blank stock on edit so server keeps existing qty (Number('')||0 was wiping stock).
                 ...(String(productInfo.stockQuantity ?? '').trim() !== ''
                   ? { stockQuantity: Number(productInfo.stockQuantity) }
@@ -2336,7 +2437,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                     </div>
                     <div>
                         <label className="block text-xs font-semibold mb-1 text-gray-500 uppercase tracking-wide">SKU</label>
-                        <input name="sku" value={productInfo.sku || ""} onChange={onChangeHandler} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" placeholder="Optional" />
+                        <input name="sku" value={productInfo.sku || ""} onChange={onChangeHandler} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" placeholder="Type manually — AI will not change this" />
+                        <p className="mt-1 text-[11px] text-slate-500">SKU changes only when you type here. AI autofill and URL import never overwrite it.</p>
                     </div>
                     <div className="sm:col-span-2">
                         <label className="block text-xs font-semibold mb-1 text-gray-500 uppercase tracking-wide">Categories</label>
@@ -2828,6 +2930,68 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                   </div>
                 </FormSection>
 
+                <FormSection id="section-aplus" title="A+ Content" icon="✨" subtitle="Rich modules shown below the description — separate layouts for desktop and mobile" defaultOpen={isEditing}>
+                  <div className="space-y-5">
+                    <p className="text-xs text-slate-500">
+                      Use this for Amazon-style A+ / enhanced brand content. Upload images with the green bar or the Image button, then save the product. Desktop content shows on large screens; mobile content shows on phone layout and the mobile app product API.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-semibold mb-2 text-gray-500 uppercase tracking-wide">Desktop A+ Content</label>
+                      <RichTextDescriptionEditor
+                        label=""
+                        value={productInfo.aPlusDesktop || ''}
+                        onChange={(nextValue) => setProductInfo(prev => ({ ...prev, aPlusDesktop: nextValue }))}
+                        placeholder="Desktop A+ modules, banners, comparison tables..."
+                        getAuthTokenOrThrow={getAuthTokenOrThrow}
+                        showUploadBar
+                        mediaHint="Upload A+ images/videos here (max 50MB). They insert into this desktop module."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-2 text-gray-500 uppercase tracking-wide">Mobile A+ Content</label>
+                      <RichTextDescriptionEditor
+                        label=""
+                        value={productInfo.aPlusMobile || ''}
+                        onChange={(nextValue) => setProductInfo(prev => ({ ...prev, aPlusMobile: nextValue }))}
+                        placeholder="Mobile-optimized A+ content (narrower images, shorter modules)..."
+                        getAuthTokenOrThrow={getAuthTokenOrThrow}
+                        showUploadBar
+                        mediaHint="Upload A+ images/videos here (max 50MB). They insert into this mobile module."
+                      />
+                    </div>
+                    {showArabic ? (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold mb-2 text-gray-500 uppercase tracking-wide" dir="rtl">محتوى A+ لسطح المكتب</label>
+                          <RichTextDescriptionEditor
+                            label=""
+                            value={productInfo.aPlusDesktopAr || ''}
+                            onChange={(nextValue) => setProductInfo(prev => ({ ...prev, aPlusDesktopAr: nextValue }))}
+                            placeholder="محتوى A+ لسطح المكتب..."
+                            getAuthTokenOrThrow={getAuthTokenOrThrow}
+                            dir="rtl"
+                            showUploadBar
+                            mediaHint="Upload A+ images/videos here (max 50MB)."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-2 text-gray-500 uppercase tracking-wide" dir="rtl">محتوى A+ للجوال</label>
+                          <RichTextDescriptionEditor
+                            label=""
+                            value={productInfo.aPlusMobileAr || ''}
+                            onChange={(nextValue) => setProductInfo(prev => ({ ...prev, aPlusMobileAr: nextValue }))}
+                            placeholder="محتوى A+ للجوال..."
+                            getAuthTokenOrThrow={getAuthTokenOrThrow}
+                            dir="rtl"
+                            showUploadBar
+                            mediaHint="Upload A+ images/videos here (max 50MB)."
+                          />
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                </FormSection>
+
                 <FormSection id="section-advanced" title="Tags, SEO & Badges" icon="🔧" subtitle="Optional — tags, search metadata, and promotional badges" defaultOpen={isEditing}>
                   <div className="space-y-5">
                 <div>
@@ -3236,7 +3400,12 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                                     <label className="block text-xs font-semibold mb-1 text-gray-500 uppercase tracking-wide">SKU</label>
                                     <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" placeholder="Optional"
                                       value={v.sku || ''}
-                                      onChange={(e) => { const nv = [...variants]; nv[idx] = { ...v, sku: e.target.value }; setVariants(nv) }} />
+                                      onChange={(e) => {
+                                        setIsSkuManuallyEdited(true)
+                                        const nv = [...variants]
+                                        nv[idx] = { ...v, sku: e.target.value }
+                                        setVariants(nv)
+                                      }} />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-semibold mb-1 text-gray-500 uppercase tracking-wide">Stock</label>
@@ -3375,8 +3544,9 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                                   Option: {getVariantCardLabel(v, vi)}
                                 </div>
                                 <div className="p-3 space-y-2">
-                                  <div className="grid grid-cols-[minmax(90px,1fr)_100px_100px_84px] gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                  <div className="grid grid-cols-[minmax(90px,1fr)_110px_90px_90px_72px] gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                                     <div>Pack size</div>
+                                    <div>SKU</div>
                                     <div>Sale (AED)</div>
                                     <div>Regular (AED)</div>
                                     <div>Stock</div>
@@ -3387,11 +3557,12 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                                     const fallbackAED = pickMatrixNumber(v.AED, b.AED, fallbackPrice)
                                     const fallbackStock = pickMatrixNumber(v.stock, b.stock, Number(productInfo.stockQuantity) || 0)
                                     return (
-                                      <div key={bi} className="grid grid-cols-[minmax(90px,1fr)_100px_100px_84px] gap-2 items-center">
+                                      <div key={bi} className="grid grid-cols-[minmax(90px,1fr)_110px_90px_90px_72px] gap-2 items-center">
                                         <div className="text-xs font-medium text-slate-600 truncate">
                                           {formatMatrixPackSizeLabel(b.qty)}
                                           <span className="text-slate-400"> ({b.qty} unit{b.qty > 1 ? 's' : ''} each)</span>
                                         </div>
+                                        <input type="text" placeholder={v.sku || 'SKU'} className="border border-slate-200 rounded-md px-2 py-1.5 text-sm bg-white" value={cell.sku ?? ''} onChange={(e) => { setIsSkuManuallyEdited(true); setCell(v.options, b.qty, 'sku', e.target.value) }} />
                                         <input type="number" step="0.01" placeholder="Sale" title={fallbackPrice > 0 ? `Inherits ${fallbackPrice} if blank` : undefined} className="border border-slate-200 rounded-md px-2 py-1.5 text-sm bg-white" value={cell.price ?? ''} onChange={(e) => setCell(v.options, b.qty, 'price', parseOptionalPriceInput(e.target.value))} />
                                         <input type="number" step="0.01" placeholder="Regular" title={fallbackAED > 0 ? `Inherits ${fallbackAED} if blank` : undefined} className="border border-slate-200 rounded-md px-2 py-1.5 text-sm bg-white" value={cell.AED ?? ''} onChange={(e) => setCell(v.options, b.qty, 'AED', parseOptionalPriceInput(e.target.value))} />
                                         <input type="number" placeholder={fallbackStock > 0 ? String(fallbackStock) : 'Stock'} className="border border-slate-200 rounded-md px-2 py-1.5 text-sm bg-white" value={cell.stock ?? ''} onChange={(e) => setCell(v.options, b.qty, 'stock', e.target.value === '' ? '' : Number(e.target.value))} />

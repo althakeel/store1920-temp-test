@@ -473,6 +473,9 @@ Returns project ID, auth domain, and setup hints (no secrets).
 | Document | Purpose |
 |----------|---------|
 | [warehouse-inventory-api.md](./warehouse-inventory-api.md) | Product search, stock update, history APIs |
+| [warehouse-app-emx-tracking-pickup.md](./warehouse-app-emx-tracking-pickup.md) | EMX tracking, pickup, labels, order details |
+| [warehouse-tracking-api.md](./warehouse-tracking-api.md) | Tracking API short reference |
+| [warehouse-order-packing-api.md](./warehouse-order-packing-api.md) | Pack button / packed history |
 | Store web login | `/store/login` |
 | Store inventory UI | `/store/inventory` |
 

@@ -12,6 +12,11 @@ const ProductSchema = new mongoose.Schema({
   shortDescription: String,
   shortDescriptionAr: { type: String, default: '' },
   shortDescription2: { type: String, default: '' },
+  // Amazon-style A+ modules — separate rich HTML for desktop website vs mobile/app.
+  aPlusDesktop: { type: String, default: '' },
+  aPlusMobile: { type: String, default: '' },
+  aPlusDesktopAr: { type: String, default: '' },
+  aPlusMobileAr: { type: String, default: '' },
   specTableEnabled: { type: Boolean, default: false },
   specTableColumns: { type: [String], default: ['Property', 'Value'] },
   specTableRows: { type: Array, default: [] },

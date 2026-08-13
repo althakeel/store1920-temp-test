@@ -3,6 +3,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const productRedirects = require('./data/productRedirects.json');
+const categoryRedirects = require('./data/categoryRedirects.json');
 
 // Keep remotePatterns compact (Next hard-caps at 50). Prefer wildcards over
 // listing every CDN host. Unknown hosts still render via SafeNextImage → <img>.
@@ -93,7 +94,40 @@ const nextConfig = {
     },
 
     async redirects() {
-        return Object.entries(productRedirects || {}).flatMap(([fromSlug, destination]) => {
+        const trailingSlashRedirects = [
+            {
+                source: '/product/:slug+/',
+                destination: '/product/:slug+',
+                permanent: true,
+            },
+            {
+                source: '/products/:slug+/',
+                destination: '/products/:slug+',
+                permanent: true,
+            },
+            {
+                source: '/category/:path+/',
+                destination: '/category/:path+',
+                permanent: true,
+            },
+        ];
+
+        const legacyAddToCartRedirects = [
+            {
+                source: '/product/:slug',
+                has: [{ type: 'query', key: 'add-to-cart' }],
+                destination: '/product/:slug',
+                permanent: true,
+            },
+            {
+                source: '/products/:slug',
+                has: [{ type: 'query', key: 'add-to-cart' }],
+                destination: '/products/:slug',
+                permanent: true,
+            },
+        ];
+
+        const productSlugRedirects = Object.entries(productRedirects || {}).flatMap(([fromSlug, destination]) => {
             const sourceSlug = String(fromSlug || '').trim().replace(/^\/+/, '');
             const dest = String(destination || '').trim();
             if (!sourceSlug || !dest) return [];
@@ -110,6 +144,26 @@ const nextConfig = {
                 },
             ];
         });
+
+        const categoryPathRedirects = Object.entries(categoryRedirects || {}).flatMap(([fromPath, destination]) => {
+            const sourcePath = String(fromPath || '').trim().replace(/^\/+/, '').replace(/^category\//i, '');
+            const dest = String(destination || '').trim();
+            if (!sourcePath || !dest) return [];
+            return [
+                {
+                    source: `/category/${sourcePath}`,
+                    destination: dest,
+                    permanent: true,
+                },
+            ];
+        });
+
+        return [
+            ...trailingSlashRedirects,
+            ...legacyAddToCartRedirects,
+            ...productSlugRedirects,
+            ...categoryPathRedirects,
+        ];
     },
 
     webpack: (config, { dev }) => {

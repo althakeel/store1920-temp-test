@@ -2,13 +2,20 @@ import dbConnect from '@/lib/mongodb';
 import Order from '@/models/Order';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
-import { isWaslahLabelReadyOrder } from '@/lib/waslahReceipts';
+import {
+  buildLabelDownloadedMongoUpdate,
+  getStatusAfterLabelDownload,
+  isWaslahLabelReadyOrder,
+} from '@/lib/waslahReceipts';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/store/waslah/mark-label-printed
  * Body: { orderIds: string[] }
+ *
+ * Marks EMX labels as downloaded, increments download count, and moves eligible
+ * orders to Waiting for Pickup.
  */
 export async function POST(request) {
   try {
@@ -46,11 +53,8 @@ export async function POST(request) {
       storeId: String(storeId),
     }).lean();
 
-    const printableIds = orders
-      .filter(isWaslahLabelReadyOrder)
-      .map((order) => order._id);
-
-    if (!printableIds.length) {
+    const printableOrders = orders.filter(isWaslahLabelReadyOrder);
+    if (!printableOrders.length) {
       return Response.json(
         { error: 'None of the selected orders have a label ready to mark as printed' },
         { status: 400 },
@@ -58,16 +62,45 @@ export async function POST(request) {
     }
 
     const printedAt = new Date();
-    await Order.updateMany(
-      { _id: { $in: printableIds } },
-      { $set: { 'waslah.labelPrintedAt': printedAt } },
-    );
+    const updatedOrders = [];
+
+    for (const order of printableOrders) {
+      const previousStatus = String(order.status || '').toUpperCase();
+      const nextStatus = getStatusAfterLabelDownload(order);
+      const saved = await Order.findByIdAndUpdate(
+        order._id,
+        buildLabelDownloadedMongoUpdate(order, printedAt),
+        { new: true },
+      ).lean();
+      if (saved) updatedOrders.push(saved);
+
+      if (nextStatus && nextStatus !== previousStatus) {
+        try {
+          const { notifyCustomerOfOrderStatusChange } = await import('@/lib/orderStatusCustomerNotify');
+          await notifyCustomerOfOrderStatusChange(saved || order, nextStatus, {
+            previousStatus,
+            source: 'waslah_label_download',
+          });
+        } catch (emailError) {
+          console.error('[mark-label-printed] customer email failed', emailError?.message || emailError);
+        }
+      }
+    }
 
     return Response.json({
       success: true,
-      markedCount: printableIds.length,
+      markedCount: printableOrders.length,
       labelPrintedAt: printedAt.toISOString(),
-      orderIds: printableIds.map(String),
+      status: 'WAITING_FOR_PICKUP',
+      orderIds: printableOrders.map((order) => String(order._id)),
+      orders: updatedOrders.map((order) => ({
+        _id: order._id,
+        status: order.status,
+        waslah: {
+          labelPrintedAt: order.waslah?.labelPrintedAt || printedAt,
+          labelDownloadCount: Number(order.waslah?.labelDownloadCount) || 0,
+        },
+      })),
     });
   } catch (error) {
     console.error('[store/waslah/mark-label-printed]', error);

@@ -26,6 +26,7 @@ const STATUS_LABELS = {
   RETURNED: 'Returned',
   RTO: 'RTO (not collected)',
   RETURN: 'Return (after delivery)',
+  REPLACEMENT: 'Replacement (after delivery)',
   RETURN_INITIATED: 'Return initiated',
   RETURN_APPROVED: 'Return approved',
 };
@@ -34,7 +35,7 @@ function getStatusBucket(status = '') {
   const normalized = String(status || '').toUpperCase();
 
   if (normalized === 'DELIVERED') return 'delivered';
-  if (['RETURNED', 'RTO', 'RETURN', 'RETURN_INITIATED', 'RETURN_APPROVED'].includes(normalized)) return 'returned';
+  if (['RETURNED', 'RTO', 'RETURN', 'REPLACEMENT', 'RETURN_INITIATED', 'RETURN_APPROVED'].includes(normalized)) return 'returned';
   if (
     ['SHIPPED', 'OUT_FOR_DELIVERY', 'PICKED_UP', 'PICKUP_REQUESTED', 'WAITING_FOR_PICKUP', 'WAREHOUSE_RECEIVED', 'IN_TRANSIT'].includes(normalized)
   ) {

@@ -63,6 +63,7 @@
     "node-mailjet": "^6.0.11",
     "nodemailer": "^7.0.11",
     "openai": "^5.19.1",
+    "pdf-lib": "^1.17.1",
     "razorpay": "^2.9.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

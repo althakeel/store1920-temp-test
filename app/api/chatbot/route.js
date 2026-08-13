@@ -224,7 +224,7 @@ export async function POST(request) {
 - Status: ${order?.status || 'N/A'}
 - Payment: ${order?.paymentMethod || 'N/A'} | Paid: ${order?.isPaid ? 'Yes' : 'No'}
 - Total: AED${Number(order?.total || 0)}
-- Tracking ID: ${order?.trackingId || 'Not assigned yet'}
+- Tracking number: ${order?.trackingId || order?.waslah?.trackingNumber || 'Not assigned yet'}
 - Courier: ${order?.courier || 'N/A'}
 - Tracking URL: ${order?.trackingUrl || 'N/A'}
 - Matched By: ${lookup?.matchedBy || 'N/A'}
@@ -638,7 +638,7 @@ IMPORTANT: Use ALL this information to answer customer questions accurately. If 
             console.log('[Chatbot] Sending request to Gemini AI...');
 
             // Generate AI response
-            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const model = genAI.getGenerativeModel({ model: process.env.GEMINI_CHATBOT_MODEL || "gemini-3.6-flash" });
             const result = await model.generateContent(fullPrompt);
             const response = await result.response;
             const aiMessage = response.text();
@@ -728,7 +728,7 @@ IMPORTANT: Use ALL this information to answer customer questions accurately. If 
                         const o = liveOrderLookup.order;
                         const itemsCount = Array.isArray(o.orderItems) ? o.orderItems.length : 0;
                         return NextResponse.json({
-                            message: `I found your order.\n\nOrder No: ${getDisplayOrderNumber(o) || 'Pending'}\nStatus: ${o.status || 'N/A'}\nPayment: ${o.paymentMethod || 'N/A'} (${o.isPaid ? 'Paid' : 'Pending'})\nTracking ID: ${o.trackingId || 'Not assigned yet'}\nCourier: ${o.courier || 'N/A'}\nItems: ${itemsCount}\nTotal: AED${Number(o.total || 0)}\nMatched by: ${liveOrderLookup.matchedBy || 'N/A'}\n\n${liveOrderLookup.liveTrackingNote || 'I can also help you with return/cancellation for this order.'}`,
+                            message: `I found your order.\n\nOrder No: ${getDisplayOrderNumber(o) || 'Pending'}\nStatus: ${o.status || 'N/A'}\nPayment: ${o.paymentMethod || 'N/A'} (${o.isPaid ? 'Paid' : 'Pending'})\nTracking number: ${o.trackingId || o.waslah?.trackingNumber || 'Not assigned yet'}\nCourier: ${o.courier || 'N/A'}\nItems: ${itemsCount}\nTotal: AED${Number(o.total || 0)}\nMatched by: ${liveOrderLookup.matchedBy || 'N/A'}\n\n${liveOrderLookup.liveTrackingNote || 'I can also help you with return/cancellation for this order.'}`,
                             timestamp: new Date().toISOString(),
                             isFallback: true
                         });
@@ -744,7 +744,7 @@ IMPORTANT: Use ALL this information to answer customer questions accurately. If 
 
                     if (!liveOrderLookup?.identifier && !liveOrderLookup?.email && !liveOrderLookup?.phone) {
                         return NextResponse.json({
-                            message: "Sure — I can track your order. Please share any one of these: Order No, Tracking ID (AWB), registered phone number, or email.",
+                            message: "Sure — I can track your order. Please share any one of these: Order No, Tracking number (EMX), registered phone number, or email.",
                             timestamp: new Date().toISOString(),
                             isFallback: true
                         });

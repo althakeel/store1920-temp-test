@@ -3,18 +3,27 @@
 import { CheckCircle2, Download, Truck, X } from 'lucide-react';
 
 export function buildWaslahShipNotice(data = {}) {
-    const awb = String(data.trackingNumber || data.order?.trackingId || data.order?.waslah?.trackingNumber || '').trim();
+    const awb = String(
+        data.trackingNumber
+        || data.order?.waslah?.emxTrackingNumber
+        || data.order?.waslah?.trackingNumber
+        || data.order?.trackingId
+        || '',
+    ).trim();
+    const emxAwb = /^1000\d{9,12}$/.test(awb) || (/^\d{10,16}$/.test(awb) && !/^62\d+$/.test(awb))
+        ? awb
+        : '';
     const labelUrl = String(data.labelUrl || data.order?.waslah?.labelUrl || '').trim();
     const pickup = data.pickupInfo || {};
 
     if (data.alreadyProcessed) {
         return {
             title: 'Already in Waslah',
-            awb,
+            awb: emxAwb,
             labelUrl,
             lines: [
-                awb ? `AWB ${awb} synced to this order.` : 'Shipment synced to this order.',
-                labelUrl ? 'Shipping label is ready to print.' : null,
+                emxAwb ? `EMX tracking ${emxAwb} synced to this order.` : 'Shipment synced to this order.',
+                labelUrl ? 'EMX carrier label is ready to print.' : null,
                 'EMX pickup may already be scheduled — do not ship again.',
             ].filter(Boolean),
         };
@@ -23,27 +32,27 @@ export function buildWaslahShipNotice(data = {}) {
     if (data.linkedExisting && data.syncOnly) {
         return {
             title: 'Synced from Waslah',
-            awb,
+            awb: emxAwb,
             labelUrl,
             lines: [
-                awb ? `AWB ${awb} linked successfully.` : 'Waslah shipment linked.',
-                labelUrl ? 'Download and print the label before pickup.' : null,
+                emxAwb ? `EMX tracking ${emxAwb} linked successfully.` : 'Waslah shipment linked.',
+                labelUrl ? 'Download and print the EMX carrier label before pickup.' : null,
             ].filter(Boolean),
         };
     }
 
     const pickupLine = pickup.pickup_date
         ? `Pickup scheduled for ${pickup.pickup_date}${pickup.pickup_time ? ` (${pickup.pickup_time})` : ''}.`
-        : 'Pickup scheduled with EMX.';
+        : null;
 
     return {
-        title: 'Shipped with EMX',
-        awb,
+        title: 'Sent to EMX',
+        awb: emxAwb,
         labelUrl,
         lines: [
             pickupLine,
-            awb ? `AWB ${awb}` : null,
-            labelUrl ? 'Print the label and attach it to the parcel before EMX collects.' : null,
+            emxAwb ? `EMX tracking number: ${emxAwb}` : 'Schedule pickup to get the EMX tracking number and carrier label.',
+            labelUrl ? 'Download Carrier Label (EMX only — not the Waslah receipt).' : null,
         ].filter(Boolean),
     };
 }
@@ -76,17 +85,15 @@ export default function WaslahShipNotice({ notice, onDismiss, onLabelDownload })
                             </li>
                         ))}
                     </ul>
-                    {notice.labelUrl ? (
-                        <a
-                            href={notice.labelUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                    {notice.labelUrl || notice.awb || onLabelDownload ? (
+                        <button
+                            type="button"
                             onClick={() => onLabelDownload?.()}
                             className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-700"
                         >
                             <Download size={14} />
-                            Download shipping label
-                        </a>
+                            Download Carrier Label
+                        </button>
                     ) : null}
                 </div>
                 <button

@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import CategoryPageView from '@/components/category/CategoryPageView';
 import {
   resolveCategoryByPathSegments,
@@ -8,14 +8,18 @@ import {
 } from '@/lib/categoryPageData';
 import {
   buildBreadcrumbListJsonLd,
-  buildCategoryCanonicalUrl,
-  buildCategoryMetaDescription,
-  buildCategoryMetaTitle,
+  buildCategoryCollectionJsonLd,
+  buildCategoryPageMetadata,
 } from '@/lib/categorySeo';
+import { buildCategoryUrl } from '@/lib/categorySlug';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
+/**
+ * Puts Store → Categories SEO fields into the document <head>
+ * (title, meta description, canonical, Open Graph, Twitter).
+ */
 export async function generateMetadata({ params }) {
   const { slug = [] } = await params;
   const resolved = await resolveCategoryByPathSegments(slug);
@@ -24,21 +28,7 @@ export async function generateMetadata({ params }) {
   }
 
   const { category, chain } = resolved;
-  const title = buildCategoryMetaTitle(category);
-  const description = buildCategoryMetaDescription(category);
-  const canonical = buildCategoryCanonicalUrl(chain);
-
-  return {
-    title,
-    description,
-    alternates: { canonical },
-    openGraph: {
-      title,
-      description,
-      url: canonical,
-      type: 'website',
-    },
-  };
+  return buildCategoryPageMetadata(category, chain);
 }
 
 export default async function CategoryPage({ params }) {
@@ -47,7 +37,13 @@ export default async function CategoryPage({ params }) {
   const resolved = await resolveCategoryByPathSegments(slug);
   if (!resolved) notFound();
 
-  const { category, chain, children, all = [] } = resolved;
+  const { category, chain, children, all = [], pathRedirect = false } = resolved;
+
+  // Legacy / incomplete category paths → canonical matched category URL.
+  if (pathRedirect) {
+    redirect(buildCategoryUrl(chain));
+  }
+
   const [{ products, total }, headerStats] = await Promise.all([
     getCategoryProducts(category._id, {
       page: 1,
@@ -56,13 +52,18 @@ export default async function CategoryPage({ params }) {
     }),
     getCategoryHeaderStats(category._id, { allCategories: all }),
   ]);
-  const jsonLd = buildBreadcrumbListJsonLd(chain);
+  const breadcrumbJsonLd = buildBreadcrumbListJsonLd(chain);
+  const collectionJsonLd = buildCategoryCollectionJsonLd(category, chain);
 
   return (
     <div className="min-h-screen bg-white">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
       />
 
       <CategoryPageView

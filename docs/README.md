@@ -26,6 +26,8 @@ This folder is the **full API documentation set** — from public storefront / m
 | 9 | [WHATSAPP_INTEGRATION_API.md](./WHATSAPP_INTEGRATION_API.md) | Messaging | WhatsApp abandoned cart & orders |
 | 10 | [STORE1920_API_AND_ZOHO_CRM.md](./STORE1920_API_AND_ZOHO_CRM.md) | CRM | Zoho sync |
 | 11 | [warehouse-order-packing-api.md](./warehouse-order-packing-api.md) | Warehouse app | Packing |
+| 11b | [warehouse-app-emx-tracking-pickup.md](./warehouse-app-emx-tracking-pickup.md) | Warehouse app | EMX tracking, pickup, labels, details |
+| 11c | [warehouse-tracking-api.md](./warehouse-tracking-api.md) | Warehouse app | Tracking endpoint short reference |
 | 12 | [warehouse-inventory-api.md](./warehouse-inventory-api.md) | Warehouse app | Inventory |
 | 13 | [warehouse-android-firebase-setup.md](./warehouse-android-firebase-setup.md) | Warehouse setup | Firebase |
 | 14 | [GOOGLE_MERCHANT_CENTER_COMPLIANCE.md](./GOOGLE_MERCHANT_CENTER_COMPLIANCE.md) | Ads / Merchant Center | Compliance |
