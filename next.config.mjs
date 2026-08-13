@@ -94,6 +94,55 @@ const nextConfig = {
     },
 
     async redirects() {
+        // Specific legacy slug maps MUST come before generic trailing-slash /
+        // add-to-cart rules, otherwise SEO URLs only hop to the same broken slug.
+        const productSlugRedirects = Object.entries(productRedirects || {}).flatMap(([fromSlug, destination]) => {
+            const sourceSlug = String(fromSlug || '').trim().replace(/^\/+/, '');
+            const dest = String(destination || '').trim();
+            if (!sourceSlug || !dest) return [];
+            return [
+                {
+                    source: `/product/${sourceSlug}`,
+                    destination: dest,
+                    permanent: true,
+                },
+                {
+                    source: `/product/${sourceSlug}/`,
+                    destination: dest,
+                    permanent: true,
+                },
+                {
+                    source: `/products/${sourceSlug}`,
+                    destination: dest,
+                    permanent: true,
+                },
+                {
+                    source: `/products/${sourceSlug}/`,
+                    destination: dest,
+                    permanent: true,
+                },
+            ];
+        });
+
+        const categoryPathRedirects = Object.entries(categoryRedirects || {}).flatMap(([fromPath, destination]) => {
+            const sourcePath = String(fromPath || '').trim().replace(/^\/+/, '').replace(/^category\//i, '');
+            const dest = String(destination || '').trim();
+            if (!sourcePath || !dest) return [];
+            return [
+                {
+                    source: `/category/${sourcePath}`,
+                    destination: dest,
+                    permanent: true,
+                },
+                {
+                    source: `/category/${sourcePath}/`,
+                    destination: dest,
+                    permanent: true,
+                },
+            ];
+        });
+
+        // Fallback for unknown product/category URLs that only differ by trailing slash.
         const trailingSlashRedirects = [
             {
                 source: '/product/:slug+/',
@@ -112,57 +161,10 @@ const nextConfig = {
             },
         ];
 
-        const legacyAddToCartRedirects = [
-            {
-                source: '/product/:slug',
-                has: [{ type: 'query', key: 'add-to-cart' }],
-                destination: '/product/:slug',
-                permanent: true,
-            },
-            {
-                source: '/products/:slug',
-                has: [{ type: 'query', key: 'add-to-cart' }],
-                destination: '/products/:slug',
-                permanent: true,
-            },
-        ];
-
-        const productSlugRedirects = Object.entries(productRedirects || {}).flatMap(([fromSlug, destination]) => {
-            const sourceSlug = String(fromSlug || '').trim().replace(/^\/+/, '');
-            const dest = String(destination || '').trim();
-            if (!sourceSlug || !dest) return [];
-            return [
-                {
-                    source: `/product/${sourceSlug}`,
-                    destination: dest,
-                    permanent: true,
-                },
-                {
-                    source: `/products/${sourceSlug}`,
-                    destination: dest,
-                    permanent: true,
-                },
-            ];
-        });
-
-        const categoryPathRedirects = Object.entries(categoryRedirects || {}).flatMap(([fromPath, destination]) => {
-            const sourcePath = String(fromPath || '').trim().replace(/^\/+/, '').replace(/^category\//i, '');
-            const dest = String(destination || '').trim();
-            if (!sourcePath || !dest) return [];
-            return [
-                {
-                    source: `/category/${sourcePath}`,
-                    destination: dest,
-                    permanent: true,
-                },
-            ];
-        });
-
         return [
-            ...trailingSlashRedirects,
-            ...legacyAddToCartRedirects,
             ...productSlugRedirects,
             ...categoryPathRedirects,
+            ...trailingSlashRedirects,
         ];
     },
 

@@ -19,14 +19,14 @@ const CATEGORY_REDIRECT_MAP = new Map(
 export function middleware(request) {
   const { pathname, search } = request.nextUrl;
 
-  // Legacy product slugs (WooCommerce / renamed products)
+  // Legacy product slugs (WooCommerce / renamed products), incl. trailing slash + ?add-to-cart=
   const productMatch = pathname.match(/^\/(product|products)\/([^/]+)\/?$/i);
   if (productMatch) {
     const slug = decodeURIComponent(productMatch[2] || '').trim().toLowerCase();
     const destination = PRODUCT_REDIRECT_MAP.get(slug);
     if (destination) {
       const url = new URL(destination, request.url);
-      // Preserve only non-legacy query keys (drop add-to-cart)
+      // Drop WooCommerce leftovers; never overwrite destination query (e.g. search-results).
       if (search) {
         const params = new URLSearchParams(search);
         params.delete('add-to-cart');
@@ -34,6 +34,13 @@ export function middleware(request) {
         if (kept && !url.search) url.search = kept;
       }
       return NextResponse.redirect(url, 308);
+    }
+
+    // Unknown mapped slug but still has legacy add-to-cart → strip query to clean URL.
+    if (search && new URLSearchParams(search).has('add-to-cart')) {
+      const clean = request.nextUrl.clone();
+      clean.searchParams.delete('add-to-cart');
+      return NextResponse.redirect(clean, 308);
     }
   }
 
