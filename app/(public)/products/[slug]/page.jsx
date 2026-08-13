@@ -1,7 +1,9 @@
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { getProductPageData } from "@/lib/productPageData";
 import { resolveStorefrontLanguage } from "@/lib/storefrontLanguage";
 import { resolveProductPage } from "@/lib/productPageRoute";
+import { resolveProductSlugRedirect } from "@/lib/productRedirects";
 import ProductPageClient from "@/components/ProductPageClient";
 
 export const revalidate = 120;
@@ -16,6 +18,10 @@ export async function generateMetadata({ params }) {
   const resolvedParams = await params;
   const slug = String(resolvedParams?.slug || "").trim();
   if (!slug) return { title: "Product" };
+
+  if (resolveProductSlugRedirect(slug)) {
+    return { title: "Redirecting…" };
+  }
 
   try {
     const language = await getStorefrontLanguage();
@@ -43,6 +49,12 @@ export async function generateMetadata({ params }) {
 export default async function ProductsSlugProductPage({ params }) {
   const resolvedParams = await params;
   const slug = String(resolvedParams?.slug || "").trim();
+
+  const slugRedirect = resolveProductSlugRedirect(slug);
+  if (slugRedirect) {
+    redirect(slugRedirect);
+  }
+
   const language = await getStorefrontLanguage();
   const initialData = await resolveProductPage(slug, language, "products");
 
