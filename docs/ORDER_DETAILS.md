@@ -59,7 +59,7 @@ On success the order is updated with:
 | `trackingId` | **Canonical AWB** (indexed; used by public track lookup) |
 | `waslah.trackingNumber` | Same AWB under Waslah nest |
 | `waslah.orderId` | Waslah 24-char shipment order ID |
-| `waslah.reference` | Provider reference (`S1920-{orderNo}`, e.g. `S1920-616815`) |
+| `waslah.reference` | Provider reference (order number, e.g. `618821`; older shipments may be `S1920-618821`) |
 | `waslah.cartId` / `waslah.serviceId` | Waslah cart / service |
 | `waslah.labelUrl` | Shipping label URL |
 | `waslah.labelPrintedAt` | When label was marked printed |

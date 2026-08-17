@@ -7,6 +7,8 @@ Related docs:
 | Doc | Focus |
 |-----|--------|
 | This file | Tracking + pickup + order details for warehouse app |
+| [warehouse-emx-label-scan.md](./warehouse-emx-label-scan.md) | **Door To Door barcode scan** (why scan fails + how to fix) |
+| [warehouse-return-collect-api.md](./warehouse-return-collect-api.md) | **Return collected** scan → dashboard RETURNED / RTO |
 | [warehouse-tracking-api.md](./warehouse-tracking-api.md) | Short tracking endpoint reference |
 | [warehouse-order-packing-api.md](./warehouse-order-packing-api.md) | Pack button / packed history |
 | [warehouse-inventory-api.md](./warehouse-inventory-api.md) | Stock / SKU scanner |
@@ -69,8 +71,9 @@ See [warehouse-android-firebase-setup.md](./warehouse-android-firebase-setup.md)
 1) Pickup queue
    GET /api/warehouse/tracking?status=WAITING_FOR_PICKUP,PICKUP_REQUESTED&packed=true
 
-2) Scan EMX barcode / order number
+2) Scan EMX Door To Door barcode (1000…) — see warehouse-emx-label-scan.md
    POST /api/warehouse/tracking  { "q": "<scan>", "live": true }
+   Fallback: scan/type Reference S1920-… or order number
 
 3) Order detail screen
    Show: order #, AWB, items, packed badge, pickup date/time,
@@ -86,6 +89,11 @@ See [warehouse-android-firebase-setup.md](./warehouse-android-firebase-setup.md)
 
 6) If pickup not requested yet (pickup.requested = false)
    POST /api/store/waslah/pickup  { "orderId": "...", "pickupInfo": {...} }
+
+7) Returning parcel (customer return or RTO)
+   POST /api/warehouse/returns/collect  { "q": "<scan>", "type": "RETURNED" }
+   or { "q": "<scan>", "type": "RTO" }
+   App message: Return collected  —  dashboard status Returned or RTO
 ```
 
 Typical status path:
@@ -95,6 +103,9 @@ Typical status path:
 ---
 
 ## 1. Scan / look up tracking (warehouse key OK)
+
+**Scan the EMX label “Door To Door” barcode** (`1000…`).  
+Full scan guide (orientation, Service Type None, GS1 cleanup): [warehouse-emx-label-scan.md](./warehouse-emx-label-scan.md)
 
 ### POST (best for scanners)
 

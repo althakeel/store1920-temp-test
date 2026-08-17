@@ -149,6 +149,55 @@ function orderMatchesSearch(order, query) {
 
     const qDigits = q.replace(/\D/g, '');
     const qNoHash = q.replace(/^#/, '');
+    const short = order?.shortOrderNumber != null ? String(order.shortOrderNumber) : '';
+    const isOrderNumberShaped = /^\d{4,8}$/.test(qDigits)
+        && qDigits === qNoHash.replace(/\D/g, '')
+        && !/[a-z]/i.test(qNoHash);
+
+    // Typing a store order number (e.g. 618681) should not also match phones
+    // that merely contain those digits in the middle (e.g. +971561868129).
+    if (isOrderNumberShaped) {
+        if (short && short === qDigits) return true;
+
+        const exactFields = [
+            order?.trackingId,
+            order?.waslah?.trackingNumber,
+            order?.waslah?.emxTrackingNumber,
+            order?.waslah?.reference,
+            order?.delhivery?.waybill,
+            order?.delhivery?.awb,
+            order?.legacySourceId,
+            order?._id ? String(order._id) : '',
+        ]
+            .filter(Boolean)
+            .map((value) => String(value).toLowerCase());
+
+        if (exactFields.some((value) => {
+            const digits = value.replace(/\D/g, '');
+            return value === q
+                || value === qNoHash
+                || value === `s1920-${qDigits}`
+                || value === `#${qDigits}`
+                || digits === qDigits;
+        })) {
+            return true;
+        }
+
+        const phoneDigits = [
+            order?.guestPhone,
+            order?.alternatePhone,
+            order?.shippingAddress?.phone,
+        ]
+            .filter(Boolean)
+            .map((value) => String(value).replace(/\D/g, ''));
+
+        // Allow last-N phone search only when the number ends with the query.
+        if (phoneDigits.some((value) => value === qDigits || value.endsWith(qDigits))) {
+            return true;
+        }
+
+        return false;
+    }
 
     const textFields = [
         order?.guestName,
@@ -160,11 +209,13 @@ function orderMatchesSearch(order, query) {
         order?.shippingAddress?.name,
         order?.shippingAddress?.email,
         order?.shippingAddress?.phone,
-        order?.shortOrderNumber != null ? String(order.shortOrderNumber) : '',
+        short,
         order?._id ? String(order._id) : '',
         order?.legacySourceId,
         order?.trackingId,
         order?.waslah?.trackingNumber,
+        order?.waslah?.emxTrackingNumber,
+        order?.waslah?.reference,
         order?.waslah?.orderId,
         order?.trackingUrl,
         order?.courier,
@@ -190,9 +241,10 @@ function orderMatchesSearch(order, query) {
             order?.guestPhone,
             order?.alternatePhone,
             order?.shippingAddress?.phone,
-            order?.shortOrderNumber != null ? String(order.shortOrderNumber) : '',
+            short,
             order?.trackingId,
             order?.waslah?.trackingNumber,
+            order?.waslah?.emxTrackingNumber,
             order?.delhivery?.waybill,
         ]
             .filter(Boolean)
@@ -587,6 +639,7 @@ export default function StoreOrders() {
     const suppressLiveAlertsRef = useRef(false);
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [deletingBulkOrders, setDeletingBulkOrders] = useState(false);
+    const [bulkUpdatingStatus, setBulkUpdatingStatus] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [ordersPerPage, setOrdersPerPage] = useState(20);
     const [sortBy, setSortBy] = useState('date');
@@ -2395,6 +2448,56 @@ export default function StoreOrders() {
         }
     };
 
+    const updateSelectedOrdersStatus = async (newStatus) => {
+        if (!selectedOrderIds.length) {
+            toast.error('Select orders first');
+            return;
+        }
+        if (!newStatus) return;
+
+        const statusMeta = getStoreOrderStatusMeta(newStatus);
+        const confirmed = await askCenterConfirm({
+            title: 'Change status for selected orders?',
+            message: `${selectedOrderIds.length} selected order(s) will be set to ${statusMeta.label}. Customers are emailed when the status actually changes.`,
+            confirmLabel: `Set to ${statusMeta.label}`,
+            cancelLabel: 'Cancel',
+            tone: 'violet',
+            icon: 'alert',
+        });
+        if (!confirmed) return;
+
+        try {
+            setBulkUpdatingStatus(true);
+            const token = await getToken(true);
+            if (!token) {
+                toast.error('Authentication failed. Please sign in again.');
+                return;
+            }
+
+            const { data } = await axios.post('/api/store/orders/bulk-status', {
+                orderIds: selectedOrderIds,
+                status: newStatus,
+            }, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const failedCount = Number(data?.failedCount || 0);
+            if (failedCount > 0) {
+                toast.error(data?.message
+                    ? `${data.message}. ${failedCount} failed.`
+                    : `Updated some orders. ${failedCount} failed.`);
+            } else {
+                toast.success(data?.message || 'Selected orders updated');
+            }
+            await fetchOrders();
+        } catch (error) {
+            console.error('Bulk status update failed:', error);
+            toast.error(error?.response?.data?.error || 'Failed to update selected orders');
+        } finally {
+            setBulkUpdatingStatus(false);
+        }
+    };
+
     const schedulePickupWithDelhivery = async () => {
         if (!selectedOrder) return;
         
@@ -3263,6 +3366,9 @@ export default function StoreOrders() {
             message: [
                 `${eligible.length} order(s) will be sent to EMX.`,
                 'This creates the shipments only. You can schedule pickup for them next.',
+                eligible.length > 5
+                    ? 'Large selections are sent in batches of 5 so the request does not time out (504).'
+                    : '',
                 skipped > 0
                     ? `${skipped} selected order(s) will be skipped (already shipped, missing address, or not eligible).`
                     : '',
@@ -3275,30 +3381,72 @@ export default function StoreOrders() {
         if (!confirmed) return;
 
         setShippingWithWaslah(true);
-        setCenterProgress({
-            title: 'Sending to EMX…',
-            message: `Creating EMX shipments for ${eligible.length} order(s). Please wait.`,
-        });
+        const pickupDefaults = getDefaultWaslahPickupInfo();
+        const aggregated = {
+            succeeded: 0,
+            failed: 0,
+            total: eligible.length,
+            results: [],
+            orders: [],
+        };
+        const BULK_EMX_SHIP_CHUNK_SIZE = 5;
+        const BULK_EMX_SHIP_TIMEOUT_MS = 90000;
+
         try {
             const token = await getToken();
             if (!token) throw new Error('Authentication failed. Please sign in again.');
-            const pickupDefaults = getDefaultWaslahPickupInfo();
 
-            const { data } = await axios.post('/api/store/waslah/ship', {
-                orderIds: eligible.map((order) => order._id),
-                pickupInfo: {
-                    pickup_date: waslahPickupInfo.pickup_date || pickupDefaults.pickup_date,
-                    pickup_time: waslahPickupInfo.pickup_time || pickupDefaults.pickup_time,
-                    pickup_vehicle: waslahPickupInfo.pickup_vehicle || pickupDefaults.pickup_vehicle,
-                },
-                serviceId: waslahServices[0]?.id || undefined,
-                skipPickup: true,
-            }, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            for (let start = 0; start < eligible.length; start += BULK_EMX_SHIP_CHUNK_SIZE) {
+                const chunk = eligible.slice(start, start + BULK_EMX_SHIP_CHUNK_SIZE);
+                const from = start + 1;
+                const to = start + chunk.length;
+                setCenterProgress({
+                    title: 'Sending to EMX…',
+                    message: `Creating EMX shipments ${from}–${to} of ${eligible.length}. Batches of ${BULK_EMX_SHIP_CHUNK_SIZE} avoid gateway timeouts.`,
+                });
 
-            if (Array.isArray(data?.orders) && data.orders.length) {
-                const byId = new Map(data.orders.map((order) => [String(order._id), order]));
+                try {
+                    const { data } = await axios.post('/api/store/waslah/ship', {
+                        orderIds: chunk.map((order) => order._id),
+                        pickupInfo: {
+                            pickup_date: waslahPickupInfo.pickup_date || pickupDefaults.pickup_date,
+                            pickup_time: waslahPickupInfo.pickup_time || pickupDefaults.pickup_time,
+                            pickup_vehicle: waslahPickupInfo.pickup_vehicle || pickupDefaults.pickup_vehicle,
+                        },
+                        serviceId: waslahServices[0]?.id || undefined,
+                        skipPickup: true,
+                    }, {
+                        headers: { Authorization: `Bearer ${token}` },
+                        timeout: BULK_EMX_SHIP_TIMEOUT_MS,
+                    });
+
+                    aggregated.succeeded += Number(data?.succeeded || 0);
+                    aggregated.failed += Number(data?.failed || 0);
+                    if (Array.isArray(data?.results)) aggregated.results.push(...data.results);
+                    if (Array.isArray(data?.orders)) aggregated.orders.push(...data.orders);
+                } catch (chunkError) {
+                    const status = chunkError?.response?.status;
+                    const timedOut = chunkError?.code === 'ECONNABORTED'
+                        || status === 504
+                        || status === 524
+                        || status === 408;
+                    const chunkMessage = timedOut
+                        ? 'This batch timed out. Wait a few seconds, then send remaining orders again — some may already be on EMX.'
+                        : formatWaslahError(chunkError, 'This batch failed to send to EMX');
+
+                    aggregated.failed += chunk.length;
+                    chunk.forEach((order) => {
+                        aggregated.results.push({
+                            orderId: String(order._id),
+                            success: false,
+                            error: chunkMessage,
+                        });
+                    });
+                }
+            }
+
+            if (aggregated.orders.length) {
+                const byId = new Map(aggregated.orders.map((order) => [String(order._id), order]));
                 setOrders((current) => current.map((row) => {
                     const updated = byId.get(String(row._id));
                     return updated ? { ...row, ...updated } : row;
@@ -3313,12 +3461,19 @@ export default function StoreOrders() {
             clearPageCache('store-orders');
             setCenterProgress(null);
 
+            const data = {
+                ...aggregated,
+                message: aggregated.failed
+                    ? `Sent ${aggregated.succeeded} of ${aggregated.total} order(s) to EMX; ${aggregated.failed} failed. Schedule pickup next.`
+                    : `Sent ${aggregated.succeeded} order(s) to EMX. Schedule pickup next.`,
+            };
             const firstError = (data.results || []).find((entry) => !entry.success)?.error;
-            if (data?.succeeded > 0 && !data?.failed) {
+
+            if (data.succeeded > 0 && !data.failed) {
                 setWaslahPickupInfo(getDefaultWaslahPickupInfo());
                 showCenterNotice({
                     title: 'Sent to EMX',
-                    message: data.message || `${data.succeeded} order(s) sent to EMX. Schedule pickup next to get carrier labels.`,
+                    message: data.message,
                     tone: 'success',
                     icon: 'check',
                     primaryLabel: 'Schedule Pickup',
@@ -3327,14 +3482,14 @@ export default function StoreOrders() {
                         setShowBulkPickupPanel(true);
                     },
                 });
-            } else if (data?.succeeded > 0 && data?.failed > 0) {
+            } else if (data.succeeded > 0 && data.failed > 0) {
                 setWaslahPickupInfo(getDefaultWaslahPickupInfo());
                 showCenterNotice({
                     title: 'Partly sent to EMX',
                     message: [
-                        data.message || `Sent ${data.succeeded} of ${data.total} order(s) to EMX.`,
+                        data.message,
                         firstError ? `First error: ${firstError}` : '',
-                        'You can still schedule pickup for the orders that succeeded.',
+                        'You can still schedule pickup for the orders that succeeded. Re-select any that failed and send again.',
                     ].filter(Boolean).join('\n\n'),
                     tone: 'warning',
                     icon: 'alert',
@@ -3344,7 +3499,7 @@ export default function StoreOrders() {
                         setShowBulkPickupPanel(true);
                     },
                 });
-            } else if (data?.failed > 0) {
+            } else if (data.failed > 0) {
                 showCenterNotice({
                     title: 'Send to EMX failed',
                     message: firstError || `${data.failed} order(s) failed to send to EMX`,
@@ -3352,8 +3507,8 @@ export default function StoreOrders() {
                     icon: 'alert',
                     primaryLabel: 'OK',
                 });
-            } else if (!data?.succeeded && !data?.failed) {
-                throw new Error(data?.error || 'Waslah did not accept the bulk ship request');
+            } else {
+                throw new Error('Waslah did not accept the bulk ship request');
             }
 
             await fetchOrders();
@@ -4083,7 +4238,7 @@ export default function StoreOrders() {
                         <div className="text-sm font-medium text-blue-900">
                             {selectedOrderIds.length} order(s) selected
                             <span className="mt-0.5 block text-xs font-normal text-blue-700">
-                                Use checkboxes to choose orders, then send to EMX, schedule pickup, or download labels.
+                                Use checkboxes to choose orders, then change status, send to EMX, schedule pickup, or download labels.
                                 {waslahConfig.configured ? (
                                     <>
                                         {' '}
@@ -4095,6 +4250,19 @@ export default function StoreOrders() {
                             </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex min-w-[200px] items-center gap-2">
+                                <span className="whitespace-nowrap text-xs font-semibold text-blue-900">
+                                    Change status
+                                </span>
+                                <OrderStatusPicker
+                                    value=""
+                                    placeholder={bulkUpdatingStatus ? 'Updating…' : 'Select status'}
+                                    size="sm"
+                                    className="min-w-[180px]"
+                                    disabled={bulkUpdatingStatus || deletingBulkOrders}
+                                    onChange={updateSelectedOrdersStatus}
+                                />
+                            </div>
                             {waslahConfig.configured ? (
                                 <>
                                     <button
@@ -4532,6 +4700,14 @@ export default function StoreOrders() {
                                                     className="min-w-[160px] flex-1"
                                                     onChange={(newStatus) => updateOrderStatus(order._id, newStatus, getToken, fetchOrders)}
                                                 />
+                                                {order?.warehouseReturn?.collected ? (
+                                                    <span
+                                                        className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-800"
+                                                        title="Warehouse scanned this returning parcel"
+                                                    >
+                                                        Return collected
+                                                    </span>
+                                                ) : null}
                                                 {getDisplayAwb(order) && (
                                                     <button
                                                         type="button"
@@ -4681,6 +4857,14 @@ export default function StoreOrders() {
                                             Mark packed
                                         </button>
                                     )}
+                                    {selectedOrder?.warehouseReturn?.collected ? (
+                                        <p className="mt-2 ms-2 inline-flex items-center rounded-full bg-indigo-400/25 px-2.5 py-1 text-[11px] font-semibold text-indigo-50 ring-1 ring-indigo-200/40">
+                                            Return collected
+                                            {selectedOrder.warehouseReturn.collectedByName
+                                                ? ` · ${selectedOrder.warehouseReturn.collectedByName}`
+                                                : ''}
+                                        </p>
+                                    ) : null}
                                     {isManualOrder ? (
                                         <div className="mt-2 flex flex-wrap gap-2">
                                             <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
@@ -5801,10 +5985,48 @@ export default function StoreOrders() {
                                     Payment & Status
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
-                                    <div>
-                                        <p className="text-slate-500">Total Amount</p>
-                                        <p className="text-xl font-bold text-slate-900">{currency}{selectedOrder.total}</p>
-                                    </div>
+                                    {(() => {
+                                        const orderTotal = Number(selectedOrder.total || 0);
+                                        const shippingFee = Number(
+                                            selectedOrder.shippingFee
+                                            ?? selectedOrder.shipping
+                                            ?? 0,
+                                        );
+                                        const hasShippingCharge = shippingFee > 0;
+                                        const itemsSubtotal = Math.max(0, orderTotal - (hasShippingCharge ? shippingFee : 0));
+
+                                        return (
+                                            <>
+                                                {hasShippingCharge ? (
+                                                    <>
+                                                        <div>
+                                                            <p className="text-slate-500">Items subtotal</p>
+                                                            <p className="text-lg font-semibold text-slate-900">
+                                                                {currency}{itemsSubtotal.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-slate-500">Shipping charge</p>
+                                                            <p className="text-lg font-semibold text-slate-900">
+                                                                {currency}{shippingFee.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                ) : null}
+                                                <div>
+                                                    <p className="text-slate-500">Total Amount</p>
+                                                    <p className="text-xl font-bold text-slate-900">
+                                                        {currency}{orderTotal.toFixed(2)}
+                                                    </p>
+                                                    {hasShippingCharge ? (
+                                                        <p className="mt-0.5 text-[11px] text-slate-500">
+                                                            Includes {currency}{shippingFee.toFixed(2)} shipping
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                     <div>
                                         <p className="text-slate-500">Payment Method</p>
                                         <p className="font-medium text-slate-900">{selectedOrder.paymentMethod}</p>

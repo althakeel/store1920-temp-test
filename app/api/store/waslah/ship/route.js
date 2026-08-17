@@ -11,6 +11,7 @@ import {
 } from '@/lib/waslahShipmentService';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 120;
 
 /**
  * POST /api/store/waslah/ship

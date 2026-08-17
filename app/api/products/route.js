@@ -159,9 +159,10 @@ export async function GET(request){
         paginated: paginated ? 'true' : 'false',
         skuDedupe: 'true',
     });
+    const skipProductCache = selectedCategories.length > 0;
 
     try {
-        const cachedProducts = getCachedData(cacheKey);
+        const cachedProducts = skipProductCache ? null : getCachedData(cacheKey);
         if (cachedProducts) {
             return createProductsResponse(cachedProducts, { 'X-Cache': 'HIT' });
         }
@@ -359,14 +360,19 @@ export async function GET(request){
             : enrichedProducts;
 
         // CACHE RESULTS - Store in memory for 10 minutes (with error handling)
-        try {
-            setCachedData(cacheKey, responsePayload, 600);
-        } catch (cacheErr) {
-            console.error('Cache set error:', cacheErr.message);
-            // Continue without cache if cache fails
+        if (!skipProductCache) {
+            try {
+                setCachedData(cacheKey, responsePayload, 600);
+            } catch (cacheErr) {
+                console.error('Cache set error:', cacheErr.message);
+                // Continue without cache if cache fails
+            }
         }
 
-        return createProductsResponse(responsePayload);
+        return createProductsResponse(
+            responsePayload,
+            skipProductCache ? { 'Cache-Control': 'no-store' } : undefined,
+        );
     } catch (error) {
         console.error('Error in products API:', error);
         if (error instanceof Error && error.stack) {

@@ -5,6 +5,7 @@ import { getAuth } from '@/lib/firebase-admin';
 import { findOrderByTrackingIdentifier } from '@/lib/orderTrackingLookup';
 import { batchPopulateOrderUsers } from '@/lib/storeOrderUsers';
 import { formatWarehousePacking } from '@/lib/warehouseOrderPacking';
+import { formatWarehouseReturn } from '@/lib/warehouseReturnCollect';
 import { syncWaslahStatusForOrder } from '@/lib/waslahOrderStatusSync';
 import { getOrderLineProduct } from '@/lib/orderDisplay';
 import { getProductThumbnailUrl } from '@/lib/productMedia';
@@ -68,8 +69,18 @@ export async function GET(request) {
     }
 
     const order = await findOrderByTrackingIdentifier(q);
-    if (!order || order.deletedAt || String(order.storeId) !== String(storeId)) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    if (!order || order.deletedAt) {
+      return NextResponse.json({ error: 'Order not found', q }, { status: 404 });
+    }
+    if (String(order.storeId) !== String(storeId)) {
+      return NextResponse.json(
+        {
+          error: 'Order found but belongs to another store for this login',
+          q,
+          code: 'WRONG_STORE',
+        },
+        { status: 404 },
+      );
     }
 
     await batchPopulateOrderUsers([order], { getAuth });
@@ -97,6 +108,7 @@ export async function GET(request) {
       order: {
         ...enriched,
         warehousePacking: formatWarehousePacking(enriched),
+        warehouseReturn: formatWarehouseReturn(enriched),
       },
     });
   } catch (error) {

@@ -188,7 +188,7 @@ function ShopContent() {
             page,
         });
 
-        fetch(url, { signal: controller.signal })
+        fetch(url, { signal: controller.signal, cache: 'no-store' })
             .then((res) => res.json())
             .then((data) => {
                 if (controller.signal.aborted) return;

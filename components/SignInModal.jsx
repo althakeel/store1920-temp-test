@@ -582,7 +582,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
 
           {view === 'forgot' ? (
             <form className="flex flex-col gap-2.5 sm:gap-3" onSubmit={handleForgotSubmit}>
-              <p className="text-sm text-gray-600">Enter your email to receive a secure password reset link and code.</p>
+              <p className="text-sm text-gray-600">Enter your account email. We send a reset link and a one-time code — check inbox and spam.</p>
               <input
                 type="email"
                 placeholder="Enter your email"
@@ -618,7 +618,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
 
           {view === 'reset' ? (
             <form className="flex flex-col gap-2.5 sm:gap-3" onSubmit={handleResetConfirm}>
-              <p className="text-sm text-gray-600">Set a new strong password. Use the email code if you do not have a link token.</p>
+              <p className="text-sm text-gray-600">Set a new strong password. Use the code from the email if you opened this screen without the link.</p>
               <input
                 type="email"
                 className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full"

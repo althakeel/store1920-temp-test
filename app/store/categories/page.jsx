@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/useAuth';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -883,7 +884,14 @@ export default function StoreCategoryMenu() {
             <div className="min-w-0 flex-1 w-full">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0 flex-1">
-                  <h3 className={`font-semibold text-slate-900 ${depth === 0 ? 'text-base sm:text-lg' : depth === 1 ? 'text-sm sm:text-base' : 'text-sm'}`}>{getCategoryDisplayName(category.name)}</h3>
+                  <h3 className={`font-semibold text-slate-900 ${depth === 0 ? 'text-base sm:text-lg' : depth === 1 ? 'text-sm sm:text-base' : 'text-sm'}`}>
+                    <Link
+                      href={`/store/manage-product?category=${encodeURIComponent(categoryId)}`}
+                      className="hover:text-blue-700 hover:underline"
+                    >
+                      {getCategoryDisplayName(category.name)}
+                    </Link>
+                  </h3>
                   {(category.nameAr || suggestUaeArabicCategory(category)) ? (
                     <p className="mt-1 text-sm text-slate-600" dir="rtl">
                       {category.nameAr || suggestUaeArabicCategory(category)}
@@ -907,9 +915,12 @@ export default function StoreCategoryMenu() {
                       ? `${meta.label} with ${childCount} nested ${childCount === 1 ? 'category' : 'categories'}`
                       : `${meta.label} with no nested categories`}
                   </p>
-                  <p className="mt-1 inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700 sm:text-xs">
+                  <Link
+                    href={`/store/manage-product?category=${encodeURIComponent(categoryId)}`}
+                    className="mt-1 inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700 transition hover:bg-blue-50 hover:text-blue-800 sm:text-xs"
+                  >
                     {productCount} {productCount === 1 ? 'product' : 'products'}
-                  </p>
+                  </Link>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 xl:flex-col xl:items-end">

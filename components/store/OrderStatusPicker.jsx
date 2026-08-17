@@ -98,13 +98,20 @@ export default function OrderStatusPicker({
   size = 'md',
   className = '',
   packed = false,
+  placeholder = '',
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [menuStyle, setMenuStyle] = useState({});
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
-  const current = getStoreOrderStatusMeta(value, { packed });
+  const current = value
+    ? getStoreOrderStatusMeta(value, { packed })
+    : {
+        value: '',
+        label: placeholder || 'Change status',
+        color: 'bg-slate-100 text-slate-700',
+      };
   const isCompact = size === 'sm';
 
   const filteredGroups = useMemo(() => {

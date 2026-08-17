@@ -2,22 +2,33 @@ import { NextResponse } from 'next/server';
 import {
   normalizeEmail,
   generateToken,
-  hashSecret,
   verifyMathCaptcha,
   verifyGoogleRecaptcha,
   getClientIp,
 } from '@/lib/authSecurity';
-import { issueOtp, verifyOtp } from '@/lib/authOtp';
+import {
+  issueOtp,
+  verifyOtp,
+  issuePasswordResetToken,
+  consumePasswordResetToken,
+} from '@/lib/authOtp';
 import { sendMail } from '@/lib/email';
 import { getAuth } from '@/lib/firebase-admin';
-import { setCachedData, getCachedData, deleteCacheKey } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
+function siteOrigin(request) {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL
+    || process.env.SITE_URL
+    || request.headers.get('origin')
+    || 'https://store1920.com'
+  ).replace(/\/$/, '');
+}
+
 /**
- * Request password reset — issues a one-time token emailed to the user.
- * Firebase sendPasswordResetEmail is also used from the client when possible;
- * this route provides server-side hashed tokens + rate-friendly email.
+ * Request password reset — emails a Firebase link + OTP (and our app link).
+ * Always returns a generic success message to avoid email enumeration.
  */
 export async function POST(request) {
   try {
@@ -36,10 +47,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'CAPTCHA verification failed' }, { status: 400 });
     }
 
-    // Always return success to avoid email enumeration
     const generic = {
       ok: true,
-      message: 'If an account exists for that email, a reset link has been sent.',
+      message: 'If an account exists for that email, a reset link has been sent. Check inbox and spam.',
     };
 
     let userRecord = null;
@@ -49,44 +59,51 @@ export async function POST(request) {
       return NextResponse.json(generic);
     }
 
+    const origin = siteOrigin(request);
     const resetToken = generateToken(32);
-    const cacheKey = `pwdreset:${hashSecret(resetToken)}`;
-    setCachedData(cacheKey, { uid: userRecord.uid, email, createdAt: Date.now() }, 900);
+    await issuePasswordResetToken(email, resetToken);
 
-    // Also store OTP for alternate entry
     const { code, expiresAt } = await issueOtp(email, 'password_reset');
 
-    const origin = process.env.NEXT_PUBLIC_SITE_URL
-      || process.env.SITE_URL
-      || request.headers.get('origin')
-      || 'https://store1920.com';
-    const resetUrl = `${origin.replace(/\/$/, '')}/sign-in?resetToken=${resetToken}&email=${encodeURIComponent(email)}`;
+    let firebaseResetLink = '';
+    try {
+      firebaseResetLink = await getAuth().generatePasswordResetLink(email, {
+        url: `${origin}/sign-in`,
+      });
+    } catch (e) {
+      console.warn('[password-reset] Firebase link:', e?.message || e);
+    }
+
+    const appResetUrl = `${origin}/sign-in?resetToken=${encodeURIComponent(resetToken)}&email=${encodeURIComponent(email)}`;
+    const primaryLink = firebaseResetLink || appResetUrl;
 
     try {
       await sendMail({
         to: email,
         subject: 'Reset your Store1920 password',
         html: `
-          <p>We received a request to reset your password.</p>
-          <p><a href="${resetUrl}">Reset password</a></p>
-          <p>Or enter this code: <strong>${code}</strong></p>
-          <p>This expires at ${expiresAt.toISOString()}. If you did not request this, ignore this email.</p>
+          <p>Hi${userRecord.displayName ? ` ${userRecord.displayName}` : ''},</p>
+          <p>We received a request to reset your Store1920 password.</p>
+          <p><a href="${primaryLink}" style="display:inline-block;padding:12px 20px;background:#1f2937;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Reset password</a></p>
+          <p>Or open this link:<br/><a href="${primaryLink}">${primaryLink}</a></p>
+          ${firebaseResetLink && firebaseResetLink !== appResetUrl
+            ? `<p>Prefer the in-app form? Use this link and the code below:<br/><a href="${appResetUrl}">${appResetUrl}</a></p>`
+            : ''}
+          <p>Or enter this one-time code in the app: <strong style="font-size:18px;letter-spacing:2px;">${code}</strong></p>
+          <p>Code expires at ${expiresAt.toISOString()} (about 10 minutes). If you did not request this, you can ignore this email.</p>
         `,
         fromType: 'transactional',
+        skipStoreSmtp: true,
       });
     } catch (mailErr) {
       console.error('[password-reset] email failed', mailErr);
-    }
-
-    // Firebase link as well (best-effort)
-    try {
-      const link = await getAuth().generatePasswordResetLink(email, {
-        url: `${origin.replace(/\/$/, '')}/sign-in`,
-      });
-      // Prefer our emailed link; Firebase link available for logging/debug
-      void link;
-    } catch (e) {
-      console.warn('[password-reset] Firebase link:', e?.message || e);
+      // Still return generic — but log so ops can see provider failures.
+      // Do not claim success if we know delivery failed for a real account:
+      // return a soft retry hint without confirming the email exists.
+      return NextResponse.json({
+        ok: false,
+        error: 'We could not send the reset email right now. Please try again in a few minutes, or contact support@store1920.com.',
+      }, { status: 502 });
     }
 
     return NextResponse.json(generic);
@@ -98,7 +115,7 @@ export async function POST(request) {
 
 /**
  * Confirm reset with token or OTP + set new password via Admin SDK.
- * POST { email, newPassword, resetToken? , otp? }
+ * Body: { email, newPassword, resetToken? , otp? }
  */
 export async function PUT(request) {
   try {
@@ -116,13 +133,16 @@ export async function PUT(request) {
 
     let uid = null;
     if (body.resetToken) {
-      const cacheKey = `pwdreset:${hashSecret(body.resetToken)}`;
-      const cached = getCachedData(cacheKey);
-      deleteCacheKey(cacheKey);
-      if (!cached || cached.email !== email) {
-        return NextResponse.json({ error: 'Invalid or expired reset token' }, { status: 400 });
+      const consumed = await consumePasswordResetToken(email, body.resetToken);
+      if (!consumed.ok) {
+        return NextResponse.json({ error: consumed.error }, { status: 400 });
       }
-      uid = cached.uid;
+      try {
+        const userRecord = await getAuth().getUserByEmail(email);
+        uid = userRecord.uid;
+      } catch {
+        return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      }
     } else if (body.otp) {
       const verified = await verifyOtp(email, 'password_reset', body.otp);
       if (!verified.ok) {

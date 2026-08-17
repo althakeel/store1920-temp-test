@@ -69,7 +69,11 @@ const OrderSchema = new mongoose.Schema({
     cartId: { type: String, default: null },
     serviceId: { type: String, default: null },
     reference: { type: String, default: null },
-    trackingNumber: { type: String, default: null },
+    trackingNumber: { type: String, default: null, index: true },
+    // EMX Door To Door barcode (1000…) — kept explicit so scanners can look it up.
+    emxTrackingNumber: { type: String, default: null, index: true },
+    // Waslah platform receipt (62…) — not used for EMX label scans.
+    waslahTrackingNumber: { type: String, default: null, index: true },
     labelUrl: { type: String, default: null },
     labelPrintedAt: { type: Date, default: null },
     labelDownloadCount: { type: Number, default: 0 },
@@ -271,6 +275,21 @@ const OrderSchema = new mongoose.Schema({
     emailSentAt: { type: Date, default: null },
   },
 
+  // Warehouse scanned a returning parcel (customer return or RTO)
+  warehouseReturn: {
+    collected: { type: Boolean, default: false, index: true },
+    collectedAt: { type: Date, default: null },
+    collectedByUid: { type: String, default: null },
+    collectedByName: { type: String, default: null },
+    collectedByEmail: { type: String, default: null },
+    previousStatus: { type: String, default: null },
+    status: { type: String, default: null },
+    notes: { type: String, default: null },
+    scan: { type: String, default: null },
+    stockRestockedAt: { type: Date, default: null },
+    stockRestock: { type: Object, default: null },
+  },
+
   deletedAt: { type: Date, default: null, index: true },
   deletedBy: { type: String, default: null },
   deletedByName: { type: String, default: null },
@@ -290,6 +309,7 @@ OrderSchema.index({ isGuest: 1, guestEmail: 1 });             // Link guest orde
 OrderSchema.index({ storeId: 1, deletedAt: 1, createdAt: -1 });
 OrderSchema.index({ isGuest: 1, guestPhone: 1 });             // Link guest orders by phone
 OrderSchema.index({ storeId: 1, 'warehousePacking.packed': 1, 'warehousePacking.packedAt': -1 });
+OrderSchema.index({ storeId: 1, 'warehouseReturn.collected': 1, 'warehouseReturn.collectedAt': -1 });
 OrderSchema.index({ 'waslah.autoShipStatus': 1, 'waslah.autoShipNextRetryAt': 1 });
 
 export default mongoose.models.Order || mongoose.model("Order", OrderSchema);

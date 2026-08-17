@@ -66,7 +66,7 @@ import {
   variantOptionKeyInUse,
   isMatrixVariant,
   getProductBundleMode,
-  formatMatrixPackSizeLabel,
+  formatBundleTierLabel,
   isMatrixVariantProduct,
   getMatrixBundleTiers,
   matchMatrixVariant,
@@ -1192,6 +1192,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
         entry: {
           quantity: Math.min(safeMax, normalizedQty),
           price: Number(variant.price),
+          sku: String(variant.sku || product.sku || '').trim(),
           productName: product.name || product.title || 'Product',
           variantOptions: {
             ...cartVariantOptions,
@@ -1228,6 +1229,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
         entry: {
           quantity: packs,
           price: Number(variant.price),
+          sku: String(variant.sku || product.sku || '').trim(),
           productName: product.name || product.title || 'Product',
           variantOptions: {
             ...cartVariantOptions,
@@ -1256,6 +1258,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       entry: {
         quantity: targetQty,
         price: effPrice,
+        sku: String(selectedVariant?.sku || product.sku || '').trim(),
         productName: product.name || product.title || 'Product',
         variantOptions: cartVariantOptions,
         ...offerFields,
@@ -1355,8 +1358,12 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
             .filter((qty) => Number.isFinite(qty) && qty > 0),
         )].sort((a, b) => a - b);
 
-      bundleRowVariants = tiers.map((qty) => matchMatrixVariant(variants, selectedOptions, qty)
-        || { options: { bundleQty: qty }, price: product.price, stock: 0 });
+      bundleRowVariants = tiers
+        .map((qty) => matchMatrixVariant(variants, selectedOptions, qty)
+          || { options: { bundleQty: qty }, price: product.price, sku: '', stock: 0 })
+        .filter((row) => Number(row?.price) > 0);
+
+      if (!bundleRowVariants.length) return null;
     } else if (bulkVariants.length) {
       bundleRowVariants = bulkVariants.slice();
       if (bulkBundleTiers.length) {
@@ -1385,9 +1392,10 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
             const tag = v.tag || v.options?.tag || '';
             const tagLabel = getBundleTagLabel(tag);
             const bundleImage = getBundleOptionImage(v);
-            const label = isMatrixProduct
-              ? formatMatrixPackSizeLabel(qty)
-              : (v.options?.title?.trim() || (qty === 1 ? t('product.buy1') : t('product.bundleOf', { qty })));
+            const label = String(v.options?.bundleTitle || '').trim()
+              || (isMatrixProduct
+                ? formatBundleTierLabel(qty)
+                : (String(v.options?.title || '').trim() || formatBundleTierLabel(qty)));
             const rowOutOfStock = Number(v.stock) <= 0;
 
             return (
@@ -1442,6 +1450,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                       {qty === 2 && !tag ? <p className="mt-0.5 text-xs text-gray-500">{t('product.perfectFor2Pack')}</p> : null}
                       {qty === 3 && !tag ? <p className="mt-0.5 text-xs text-gray-500">{t('product.bestValue')}</p> : null}
                       {rowOutOfStock ? <p className="mt-0.5 text-xs text-red-600">{t('common.outOfStock')}</p> : null}
+                      {v.sku ? <p className="mt-0.5 text-[11px] text-gray-400">SKU: {v.sku}</p> : null}
                     </div>
                   </div>
                 </div>

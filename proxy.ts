@@ -5,6 +5,7 @@ import {
   detectLanguageFromAcceptLanguage,
 } from '@/lib/storefrontLanguage';
 import { resolveLegacyCategoryRedirect } from '@/lib/categoryRedirects';
+import { resolveLegacyProductRedirect } from '@/lib/productRedirects';
 import {
   applyCorsHeaders,
   applyRateLimitHeaders,
@@ -107,6 +108,11 @@ export async function proxy(request: NextRequest) {
     || request.headers.get('Next-Router-Prefetch') === '1'
   ) {
     return NextResponse.next();
+  }
+
+  const productRedirect = resolveLegacyProductRedirect(request.nextUrl);
+  if (productRedirect) {
+    return NextResponse.redirect(new URL(productRedirect, request.url), 308);
   }
 
   const categoryRedirect = resolveLegacyCategoryRedirect(request.nextUrl);

@@ -16,6 +16,7 @@ APIs for the **warehouse / pickup app** to look up EMX tracking, pickup windows,
 Related warehouse APIs:
 
 - Pack order: `POST /api/store/orders/pack` (see [warehouse-order-packing-api.md](./warehouse-order-packing-api.md))
+- Collect return / RTO: `POST /api/warehouse/returns/collect` (see [warehouse-return-collect-api.md](./warehouse-return-collect-api.md))
 - Download EMX label: `GET/POST /api/store/waslah/carrier-label` (Firebase) — show `labelReady` / `Downloaded ×N` in app
 - Schedule pickup: `POST /api/store/waslah/pickup` (Firebase seller token)
 - Inventory: [warehouse-inventory-api.md](./warehouse-inventory-api.md)

@@ -88,6 +88,111 @@ function CompactPills({ items = [], maxVisible = 2, pillClassName, moreClassName
     )
 }
 
+function RemoveFromCategoryModal({
+    open,
+    categoryName,
+    items = [],
+    onToggle,
+    onCancel,
+    onConfirm,
+    isRemoving = false,
+}) {
+    if (!open) return null
+
+    const selectedCount = items.filter((item) => item.checked).length
+
+    return (
+        <div className="fixed inset-0 z-[1100] flex items-end justify-center p-4 sm:items-center">
+            <button
+                type="button"
+                className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
+                aria-label="Close remove from category"
+                disabled={isRemoving}
+                onClick={onCancel}
+            />
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="remove-category-title"
+                className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+            >
+                <div className="bg-gradient-to-br from-orange-500 to-amber-600 px-5 py-5 text-white">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-100">Category assignment</p>
+                    <h3 id="remove-category-title" className="mt-1 text-xl font-semibold">
+                        Remove from {categoryName}?
+                    </h3>
+                    <p className="mt-1 text-sm text-orange-50">
+                        Products stay in the store. They will no longer show in this category.
+                    </p>
+                </div>
+
+                <div className="px-5 py-4">
+                    <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-800">
+                            {selectedCount} of {items.length} selected
+                        </p>
+                        <p className="text-xs text-slate-500">Uncheck any product to keep it</p>
+                    </div>
+                    <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                        {items.map((item) => (
+                            <label
+                                key={item.id}
+                                className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-3 py-2.5 transition ${
+                                    item.checked
+                                        ? 'border-orange-200 bg-orange-50'
+                                        : 'border-slate-200 bg-slate-50 opacity-70'
+                                }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={item.checked}
+                                    onChange={() => onToggle(item.id)}
+                                    disabled={isRemoving}
+                                    className="h-4 w-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                {item.image ? (
+                                    <img
+                                        src={item.image}
+                                        alt=""
+                                        className="h-10 w-10 rounded-lg border border-white bg-white object-cover"
+                                    />
+                                ) : (
+                                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-xs font-semibold text-slate-400">
+                                        —
+                                    </span>
+                                )}
+                                <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{item.name}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={isRemoving}
+                        className="flex-1 rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                    >
+                        Keep in category
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        disabled={isRemoving || selectedCount === 0}
+                        className="flex-1 rounded-xl bg-orange-600 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        {isRemoving
+                            ? 'Removing...'
+                            : `Remove ${selectedCount} product${selectedCount === 1 ? '' : 's'}`}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export default function StoreManageProducts() {
     const dispatch = useDispatch();
 
@@ -161,6 +266,8 @@ export default function StoreManageProducts() {
     const [fbtSearchTotal, setFbtSearchTotal] = useState(0)
     const [selectedProductIds, setSelectedProductIds] = useState([])
     const [deletingBulkProducts, setDeletingBulkProducts] = useState(false)
+    const [removingFromCategory, setRemovingFromCategory] = useState(false)
+    const [removeCategoryModal, setRemoveCategoryModal] = useState({ open: false, items: [] })
     const [showBulkEditModal, setShowBulkEditModal] = useState(false)
     const [bulkEditSaving, setBulkEditSaving] = useState(false)
     const [bulkEditForm, setBulkEditForm] = useState({
@@ -440,6 +547,10 @@ export default function StoreManageProducts() {
         }
         return getProductCategoryLabels(product, categoryMap)
     }
+
+    const selectedCategoryName = selectedCategory
+        ? (resolveCategoryName(categoryMap, selectedCategory) || 'this category')
+        : ''
 
     const toggleStock = async (productId) => {
         const token = await getToken()
@@ -851,6 +962,91 @@ export default function StoreManageProducts() {
         toast.success(`Exported ${filteredProducts.length} product(s)`)
     }
 
+    const openRemoveFromCategoryModal = (productIds = []) => {
+        if (!selectedCategory) {
+            toast.error('Choose a category first')
+            return
+        }
+        const ids = [...new Set(productIds.map((productId) => String(productId || '').trim()).filter(Boolean))]
+        if (!ids.length) {
+            toast.error('Select products to remove first')
+            return
+        }
+
+        setRemoveCategoryModal({
+            open: true,
+            items: ids.map((id) => {
+                const product = products.find((item) => String(item._id) === id)
+                return {
+                    id,
+                    name: String(product?.name || 'Product').trim() || 'Product',
+                    image: product ? getProductListImageSrc(product) : '',
+                    checked: true,
+                }
+            }),
+        })
+    }
+
+    const closeRemoveFromCategoryModal = () => {
+        if (removingFromCategory) return
+        setRemoveCategoryModal({ open: false, items: [] })
+    }
+
+    const toggleRemoveModalProduct = (productId) => {
+        setRemoveCategoryModal((prev) => ({
+            ...prev,
+            items: prev.items.map((item) => (
+                item.id === productId ? { ...item, checked: !item.checked } : item
+            )),
+        }))
+    }
+
+    const confirmRemoveFromCategory = async () => {
+        const productIds = removeCategoryModal.items
+            .filter((item) => item.checked)
+            .map((item) => item.id)
+
+        if (!selectedCategory) {
+            toast.error('Choose a category first')
+            return
+        }
+        if (!productIds.length) {
+            toast.error('Select products to remove first')
+            return
+        }
+
+        try {
+            setRemovingFromCategory(true)
+            const token = await getToken()
+            const { data } = await axios.post('/api/store/product/remove-from-category', {
+                productIds,
+                categoryId: selectedCategory,
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+
+            const skipped = Array.isArray(data?.skipped) ? data.skipped : []
+            if (data?.removedCount > 0) {
+                toast.success(data?.message || 'Removed from category')
+            } else {
+                toast.error(data?.message || 'No products were removed from this category')
+            }
+            if (skipped.length) {
+                const firstReason = skipped[0]?.reason || 'Could not remove some products'
+                toast.error(skipped.length === 1 ? firstReason : `${skipped.length} product(s) were not removed. ${firstReason}`)
+            }
+
+            setSelectedProductIds((prev) => prev.filter((id) => !productIds.includes(id)))
+            setRemoveCategoryModal({ open: false, items: [] })
+            await fetchStoreProducts({ silent: true })
+            dispatch(fetchProductsAction(STOREFRONT_CATALOG_FETCH))
+        } catch (error) {
+            toast.error(error?.response?.data?.error || error.message || 'Failed to remove products from category')
+        } finally {
+            setRemovingFromCategory(false)
+        }
+    }
+
     const deleteSelectedProducts = async () => {
         if (!selectedProductIds.length) {
             toast.error('Select products to delete first')
@@ -1096,6 +1292,21 @@ export default function StoreManageProducts() {
                     {aiAutofillRunning ? 'AI Auto Fill...' : 'AI Auto Fill Queue'}
                 </button>
             </div>
+            {selectedCategory ? (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+                    <p className="text-sm text-orange-950">
+                        Showing products in <span className="font-semibold">{selectedCategoryName}</span>. Tick the checkboxes to remove several at once.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => openRemoveFromCategoryModal(selectedProductIds)}
+                        disabled={removingFromCategory || !selectedProductIds.length}
+                        className="rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Remove selected ({selectedProductIds.length})
+                    </button>
+                </div>
+            ) : null}
 
             <div className="mb-6 flex w-full flex-wrap items-center gap-2">
                 <span className="text-sm font-medium text-slate-600">Details progress</span>
@@ -1369,6 +1580,16 @@ export default function StoreManageProducts() {
                         >
                             Bulk Edit
                         </button>
+                        {selectedCategory ? (
+                            <button
+                                type="button"
+                                onClick={() => openRemoveFromCategoryModal(selectedProductIds)}
+                                disabled={removingFromCategory}
+                                className="px-3 py-2 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {removingFromCategory ? 'Removing...' : `Remove from ${selectedCategoryName}`}
+                            </button>
+                        ) : null}
                         <button
                             type="button"
                             onClick={deleteSelectedProducts}
@@ -1543,7 +1764,7 @@ export default function StoreManageProducts() {
                                 </label>
                             </td>
                             <td className="px-4 py-3">
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2">
                                     <button
                                         onClick={() => handleOpenFbtModal(product)}
                                         className="px-3 py-1 bg-emerald-600 text-white text-xs rounded hover:bg-emerald-700 transition"
@@ -1556,6 +1777,16 @@ export default function StoreManageProducts() {
                                     >
                                         Edit
                                     </button>
+                                    {selectedCategory ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => openRemoveFromCategoryModal([String(product._id)])}
+                                            disabled={removingFromCategory}
+                                            className="px-3 py-1 border border-orange-300 bg-orange-50 text-orange-800 text-xs rounded hover:bg-orange-100 transition disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            Remove from category
+                                        </button>
+                                    ) : null}
                                     <button 
                                         onClick={() => handleDelete(product)}
                                         className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition"
@@ -1915,6 +2146,15 @@ export default function StoreManageProducts() {
                     </div>
                 </div>
             )}
+            <RemoveFromCategoryModal
+                open={removeCategoryModal.open}
+                categoryName={selectedCategoryName || 'this category'}
+                items={removeCategoryModal.items}
+                onToggle={toggleRemoveModalProduct}
+                onCancel={closeRemoveFromCategoryModal}
+                onConfirm={confirmRemoveFromCategory}
+                isRemoving={removingFromCategory}
+            />
             </>
             )}
         </div>

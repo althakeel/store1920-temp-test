@@ -351,6 +351,7 @@ See [§3.1](#31-recommended-mobile-home-call-order).
 | Platform admin | `/api/admin/*` | [ADMIN_API.md](./ADMIN_API.md) |
 | Webhooks & crons | `/api/stripe`, `/api/tabby/webhook`, `/api/cron/*`, … | [WEBHOOKS_AND_CRONS.md](./WEBHOOKS_AND_CRONS.md) |
 | Warehouse packing | warehouse routes | [warehouse-order-packing-api.md](./warehouse-order-packing-api.md) |
+| Warehouse return collect | `/api/warehouse/returns/collect` | [warehouse-return-collect-api.md](./warehouse-return-collect-api.md) — status + stock restock |
 | Warehouse EMX tracking / pickup / labels | `/api/warehouse/tracking`, Waslah pickup/label | [warehouse-app-emx-tracking-pickup.md](./warehouse-app-emx-tracking-pickup.md) |
 | Warehouse tracking (short) | `/api/warehouse/tracking` | [warehouse-tracking-api.md](./warehouse-tracking-api.md) |
 | Warehouse inventory | warehouse routes | [warehouse-inventory-api.md](./warehouse-inventory-api.md) |
