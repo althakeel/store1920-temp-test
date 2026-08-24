@@ -6,11 +6,21 @@ import axios from "axios";
 import { countryCodes, UAE_PHONE_CODE, UAE_PHONE_CODE_OPTIONS } from "@/assets/countryCodes";
 import { indiaStatesAndDistricts } from "@/assets/indiaStatesAndDistricts";
 import { useSelector, useDispatch } from "react-redux";
-import { fetchAddress } from "@/lib/features/address/addressSlice";
+import { fetchAddress, clearAddresses } from "@/lib/features/address/addressSlice";
+import {
+  readGuestCheckoutState,
+  writeGuestCheckoutState,
+  upsertGuestAddress,
+  removeGuestAddress,
+  formToGuestDraft,
+  normalizeGuestAddress,
+  isCompleteGuestDraft,
+} from "@/lib/guestCheckoutAddress";
 import { clearCart, deleteItemFromCart, setCartEntry } from "@/lib/features/cart/cartSlice";
 import { fetchShippingSettings, calculateShipping, cartHasOnlyFreeShippingProducts } from "@/lib/shipping";
 import {
   getPaymentMethodLimitError,
+  isPaymentMethodEnabled,
   isPaymentMethodOverLimit,
 } from '@/lib/paymentMethodLimits';
 import {
@@ -58,10 +68,10 @@ import {
 import { UAE_EMIRATES, getUaeAreaOptionsForEmirate, getUaeAreasForEmirate, isUaeCountry } from "@/lib/uaeEmirateAreas";
 import SearchableSelect from "@/components/SearchableSelect";
 import PhoneNumberField from "@/components/PhoneNumberField";
-import Creditimage1 from '../../../assets/creditcards/19 - Copy.webp';
-import Creditimage2 from '../../../assets/creditcards/16 - Copy.webp';
-import Creditimage3 from '../../../assets/creditcards/20.webp';
-import Creditimage4 from '../../../assets/creditcards/11.webp';
+import VisaLogo from '../../../assets/creditcards/visa.png';
+import MastercardLogo from '../../../assets/creditcards/mastercard.png';
+import GooglePayLogo from '../../../assets/creditcards/google-pay.png';
+import AmexLogo from '../../../assets/creditcards/11.webp';
 import { STORE_CURRENCY } from '@/lib/storeCurrency';
 import { getProductSubtitle } from '@/lib/productDisplay';
 import { getProductPath } from '@/lib/productUrl';
@@ -102,6 +112,9 @@ export default function CheckoutPage() {
   const storefrontWalletEnabled = isStorefrontWalletEnabled();
   const addressList = useSelector((state) => state.address?.list || []);
   const addressFetchError = useSelector((state) => state.address?.error);
+  const [guestAddresses, setGuestAddresses] = useState([]);
+  const guestHydratedRef = useRef(false);
+  const checkoutAddressList = user ? addressList : guestAddresses;
   const { cartItems } = useSelector((state) => state.cart);
   const products = useSelector((state) => state.product.list);
   
@@ -466,15 +479,12 @@ export default function CheckoutPage() {
           },
         };
 
-        if (typeof window !== 'undefined' && (form.email || form.phone)) {
-          try {
-            localStorage.setItem('store1920_guest_contact', JSON.stringify({
-              name: form.name || null,
-              email: form.email || null,
-              phone: form.phone || null,
-              phoneCode: form.phoneCode || '+971',
-            }));
-          } catch (_) {}
+        if (typeof window !== 'undefined' && !user) {
+          writeGuestCheckoutState({
+            addresses: guestAddresses,
+            selectedId: form.addressId,
+            draft: formToGuestDraft(form),
+          });
         }
 
         const response = await fetch('/api/abandoned-checkout', {
@@ -505,14 +515,87 @@ export default function CheckoutPage() {
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [form, cartItems, products, user, placingOrder, payingNow, abandonHeartbeat]);
+  }, [form, cartItems, products, user, guestAddresses, placingOrder, payingNow, abandonHeartbeat]);
 
-  // Fetch addresses for logged-in users
+  // Logged-in: fetch saved addresses. Guest: restore checkout address from local storage.
   useEffect(() => {
-    if (user && getToken) {
-      dispatch(fetchAddress({ getToken }));
+    if (authLoading) return;
+
+    if (user) {
+      guestHydratedRef.current = false;
+      if (getToken) dispatch(fetchAddress({ getToken }));
+      return;
     }
-  }, [user, getToken, dispatch]);
+
+    dispatch(clearAddresses());
+    if (guestHydratedRef.current) return;
+
+    const saved = readGuestCheckoutState();
+    let addresses = (saved.addresses || []).map((address) => normalizeGuestAddress(address));
+    if (!addresses.length && isCompleteGuestDraft(saved.draft)) {
+      addresses = [normalizeGuestAddress(saved.draft)];
+    }
+    const selected = addresses.find((item) => String(item._id) === String(saved.selectedId))
+      || addresses[0]
+      || saved.draft
+      || null;
+
+    setGuestAddresses(addresses);
+
+    if (selected) {
+      setForm((f) => ({
+        ...f,
+        addressId: selected._id || f.addressId || '',
+        name: selected.name || f.name,
+        email: selected.email || f.email,
+        phone: cleanDigits(selected.phone) || f.phone,
+        phoneCode: selected.phoneCode || f.phoneCode || UAE_PHONE_CODE,
+        alternatePhone: cleanDigits(selected.alternatePhone) || f.alternatePhone,
+        alternatePhoneCode: selected.alternatePhoneCode || f.alternatePhoneCode || UAE_PHONE_CODE,
+        street: selected.street || f.street,
+        city: selected.city || f.city,
+        state: selected.state || f.state,
+        district: selected.district || f.district,
+        country: selected.country || f.country,
+        pincode: pickValidPincode(selected.zip, selected.pincode, f.pincode),
+      }));
+
+      if (selected.state && isUaeCountry(selected.country || 'United Arab Emirates')) {
+        setDistricts(getUaeAreasForEmirate(selected.state));
+      } else if (selected.state && isIndiaCountry(selected.country)) {
+        const stateObj = indiaStatesAndDistricts.find((entry) => entry.state === selected.state);
+        setDistricts(stateObj ? stateObj.districts : []);
+      }
+    }
+
+    guestHydratedRef.current = true;
+  }, [authLoading, user, getToken, dispatch]);
+
+  useEffect(() => {
+    if (authLoading || user || !guestHydratedRef.current) return;
+    writeGuestCheckoutState({
+      addresses: guestAddresses,
+      selectedId: form.addressId,
+      draft: formToGuestDraft(form),
+    });
+  }, [
+    authLoading,
+    user,
+    guestAddresses,
+    form.addressId,
+    form.name,
+    form.email,
+    form.phone,
+    form.phoneCode,
+    form.alternatePhone,
+    form.alternatePhoneCode,
+    form.street,
+    form.city,
+    form.state,
+    form.district,
+    form.country,
+    form.pincode,
+  ]);
   
   // Fetch available coupons
   useEffect(() => {
@@ -824,18 +907,25 @@ export default function CheckoutPage() {
   };
   const isCODDisabledForOrder =
     hasPersonalizedOfferItem ||
-    shippingSetting?.enableCOD === false ||
+    !isPaymentMethodEnabled(shippingSetting, 'cod') ||
     (maxCODAmount > 0 && totalAfterWallet > maxCODAmount);
+  const isCardEnabled = isPaymentMethodEnabled(shippingSetting, 'card');
+  const isTabbyEnabled = isPaymentMethodEnabled(shippingSetting, 'tabby');
+  const isTamaraEnabled = isPaymentMethodEnabled(shippingSetting, 'tamara');
   const isCardOverLimit = isPaymentMethodOverLimit(shippingSetting, 'card', totalAfterWallet);
   const isTabbyOverLimit = isPaymentMethodOverLimit(shippingSetting, 'tabby', totalAfterWallet);
   const isTamaraOverLimit = isPaymentMethodOverLimit(shippingSetting, 'tamara', totalAfterWallet);
+  const showCardPayment = isCardEnabled && !isCardOverLimit;
+  const showTabbyPayment = isTabbyEnabled && !isTabbyOverLimit;
+  const showTamaraPayment = isTamaraEnabled && !isTamaraOverLimit;
+  const showCodPayment = !hasPersonalizedOfferItem && isPaymentMethodEnabled(shippingSetting, 'cod');
   const isPaymentMissing = needsPaymentSelection && !form.payment;
   const isInvalidPaymentSelection =
     form.payment !== 'wallet' && (
       (form.payment === 'cod' && isCODDisabledForOrder)
-      || (form.payment === 'card' && isCardOverLimit)
-      || (form.payment === 'tabby' && isTabbyOverLimit)
-      || (form.payment === 'tamara' && isTamaraOverLimit)
+      || (form.payment === 'card' && (!isCardEnabled || isCardOverLimit))
+      || (form.payment === 'tabby' && (!isTabbyEnabled || isTabbyOverLimit))
+      || (form.payment === 'tamara' && (!isTamaraEnabled || isTamaraOverLimit))
     );
   const isPlaceOrderDisabled = placingOrder || payingNow;
   const hasCheckoutFormBlockers = isPaymentMissing || isInvalidPaymentSelection;
@@ -851,7 +941,7 @@ export default function CheckoutPage() {
     : hasCheckoutFormBlockers
       ? 'bg-amber-600 hover:bg-amber-700'
       : placeOrderButtonActiveColors;
-  const selectedAddressForView = form.addressId ? addressList.find((a) => a._id === form.addressId) : null;
+  const selectedAddressForView = form.addressId ? checkoutAddressList.find((a) => a._id === form.addressId) : null;
   const isLoggedInAreaMissing = Boolean(
     user
     && selectedAddressForView
@@ -954,16 +1044,19 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!form.payment || form.payment === 'wallet') return;
-    const paymentOverLimit =
-      (form.payment === 'card' && isCardOverLimit)
-      || (form.payment === 'tabby' && isTabbyOverLimit)
-      || (form.payment === 'tamara' && isTamaraOverLimit)
+    const paymentUnavailable =
+      (form.payment === 'card' && (!isCardEnabled || isCardOverLimit))
+      || (form.payment === 'tabby' && (!isTabbyEnabled || isTabbyOverLimit))
+      || (form.payment === 'tamara' && (!isTamaraEnabled || isTamaraOverLimit))
       || (form.payment === 'cod' && isCODDisabledForOrder);
-    if (paymentOverLimit) {
+    if (paymentUnavailable) {
       setForm((f) => ({ ...f, payment: '' }));
     }
   }, [
     form.payment,
+    isCardEnabled,
+    isTabbyEnabled,
+    isTamaraEnabled,
     isCardOverLimit,
     isTabbyOverLimit,
     isTamaraOverLimit,
@@ -1144,7 +1237,7 @@ export default function CheckoutPage() {
 
   const resolveCheckoutValidationContext = () => {
     const cleanedPhone = cleanDigits(form.phone);
-    const selectedAddr = (form.addressId && addressList.find((a) => a._id === form.addressId)) || null;
+    const selectedAddr = (form.addressId && checkoutAddressList.find((a) => a._id === form.addressId)) || null;
     const resolvedPhone =
       cleanedPhone || cleanDigits(selectedAddr?.phone) || cleanDigits(user?.phoneNumber || user?.phone);
     const resolvedCountry = form.country || selectedAddr?.country || 'United Arab Emirates';
@@ -1593,9 +1686,9 @@ export default function CheckoutPage() {
     const invalidCodSelection = effectivePayment === 'cod' && isCODDisabledForOrder;
     const invalidOnlinePaymentSelection =
       effectivePayment !== 'wallet' && (
-        (effectivePayment === 'card' && isCardOverLimit)
-        || (effectivePayment === 'tabby' && isTabbyOverLimit)
-        || (effectivePayment === 'tamara' && isTamaraOverLimit)
+        (effectivePayment === 'card' && (!isCardEnabled || isCardOverLimit))
+        || (effectivePayment === 'tabby' && (!isTabbyEnabled || isTabbyOverLimit))
+        || (effectivePayment === 'tamara' && (!isTamaraEnabled || isTamaraOverLimit))
       );
 
     if (paymentMissing) {
@@ -1615,7 +1708,7 @@ export default function CheckoutPage() {
       const paymentMessage = limitMessage
         || (hasPersonalizedOfferItem
           ? 'COD is not available for personalized offer products. Please use online payment.'
-          : shippingSetting?.enableCOD === false
+          : !isPaymentMethodEnabled(shippingSetting, 'cod')
             ? 'Cash on Delivery is not available.'
             : `COD is not available for orders above ${formatMoney(maxCODAmount)}.`);
       setFormError(paymentMessage);
@@ -1632,7 +1725,7 @@ export default function CheckoutPage() {
     // Clean and validate phone number
     const cleanedPhone = cleanDigits(form.phone);
     const cleanedAlternatePhone = cleanDigits(form.alternatePhone);
-    const selectedAddr = (form.addressId && addressList.find(a => a._id === form.addressId)) || null;
+    const selectedAddr = (form.addressId && checkoutAddressList.find(a => a._id === form.addressId)) || null;
     const fallbackPhone = cleanDigits(selectedAddr?.phone) || cleanDigits(user?.phoneNumber || user?.phone);
     const resolvedPhone = cleanedPhone || fallbackPhone;
     const resolvedCountry = form.country || selectedAddr?.country || 'United Arab Emirates';
@@ -1898,7 +1991,7 @@ export default function CheckoutPage() {
         const maxCODAmount = shippingSetting?.maxCODAmount || 0;
         const remainingAmount = totalAfterWallet;
         
-        if (shippingSetting?.enableCOD === false) {
+        if (!isPaymentMethodEnabled(shippingSetting, 'cod')) {
           setFormError("Cash on Delivery is not available.");
           setPlacingOrder(false);
           return;
@@ -2597,7 +2690,7 @@ export default function CheckoutPage() {
               )}
               {/* ...existing code for address/guest form... */}
               {/* Show address fetch error if present */}
-              {addressFetchError && (
+              {user && addressFetchError && (
                 <div className="text-red-600 font-semibold mb-2">
                   {addressFetchError === 'Unauthorized' ? (
                     <>
@@ -2606,7 +2699,7 @@ export default function CheckoutPage() {
                   ) : addressFetchError}
                 </div>
               )}
-              {addressList.length > 0 && !addressFetchError ? (
+              {checkoutAddressList.length > 0 && !(user && addressFetchError) ? (
                 <div id="checkout-address">
                   {/* Shipping Address Section - Noon.com Style */}
                   <div className={`bg-white rounded-lg border ${
@@ -2632,7 +2725,7 @@ export default function CheckoutPage() {
                     </div>
                     
                     {form.addressId && (() => {
-                      const selectedAddress = addressList.find(a => a._id === form.addressId);
+                      const selectedAddress = checkoutAddressList.find(a => a._id === form.addressId);
                       if (!selectedAddress) return null;
                       return (
                         <div 
@@ -2736,7 +2829,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
                 </div>
-              ) : (addressList.length === 0 && user) ? (
+              ) : (checkoutAddressList.length === 0 && user) ? (
                 <button 
                   type="button"
                   className="w-full border-2 border-dashed border-blue-400 rounded-lg p-4 text-blue-600 font-semibold hover:bg-blue-50 transition"
@@ -3013,7 +3106,7 @@ export default function CheckoutPage() {
               ) : (
               <div id="checkout-payment" className={`flex flex-col gap-2 mb-4 ${fieldHasError('checkout-payment') ? 'rounded-2xl ring-2 ring-red-100' : ''}`}>
                 {/* Credit Card Option */}
-                {!isCardOverLimit ? (
+                {showCardPayment ? (
                 <label className="flex items-center gap-3 p-4 border-2 rounded-lg transition-all cursor-pointer border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
                   <input
                     type="radio"
@@ -3034,21 +3127,21 @@ export default function CheckoutPage() {
                         <div className="text-xs text-gray-600">{t('checkout.cardSubtitle')}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Image src={Creditimage4} alt="Visa" width={24} height={16} className="object-contain mix-blend-multiply"/>
-                      <Image src={Creditimage3} alt="Mastercard" width={24} height={16} className="object-contain mix-blend-multiply"/>
-                      <Image src={Creditimage2} alt="Card" width={24} height={16} className="object-contain mix-blend-multiply"/>
-                      <Image src={Creditimage1} alt="Card" width={24} height={16} className="object-contain mix-blend-multiply"/>
+                    <div className="flex items-center gap-1.5">
+                      <Image src={VisaLogo} alt="Visa" width={36} height={24} className="h-5 w-auto object-contain rounded-sm bg-black"/>
+                      <Image src={MastercardLogo} alt="Mastercard" width={36} height={24} className="h-5 w-auto object-contain"/>
+                      <Image src={AmexLogo} alt="American Express" width={36} height={24} className="h-5 w-auto object-contain"/>
+                      <Image src={GooglePayLogo} alt="Google Pay" width={40} height={24} className="h-5 w-auto object-contain rounded-sm bg-black"/>
                     </div>
                   </div>
                 </label>
                 ) : null}
 
                 {/* Cash on Delivery Option */}
-                {!hasPersonalizedOfferItem && (() => {
+                {showCodPayment ? (() => {
                   const maxCODAmount = shippingSetting?.maxCODAmount || 0;
                   const remainingAmount = totalAfterWallet;
-                  const isCODDisabled = shippingSetting?.enableCOD === false ||
+                  const isCODDisabled =
                     (maxCODAmount > 0 && remainingAmount > maxCODAmount);
 
                   return (
@@ -3082,10 +3175,10 @@ export default function CheckoutPage() {
                       </div>
                     </label>
                   );
-                })()}
+                })() : null}
 
                 {/* Tamara BNPL Option */}
-                {!isTamaraOverLimit ? (() => {
+                {showTamaraPayment ? (() => {
                   const tamaraInstalment = totalAfterWallet > 0 ? Number((totalAfterWallet / 4).toFixed(2)) : 0;
                   return (
                     <label className="flex flex-col gap-0 p-4 border-2 rounded-lg transition-all cursor-pointer border-gray-200 hover:border-[#f075a3] has-[:checked]:border-[#f075a3] has-[:checked]:bg-[#fff5f9]">
@@ -3125,7 +3218,7 @@ export default function CheckoutPage() {
                 })() : null}
 
                 {/* Tabby BNPL Option */}
-                {!isTabbyOverLimit ? (() => {
+                {showTabbyPayment ? (() => {
                   const tabbyInstalment = totalAfterWallet > 0 ? Number((totalAfterWallet / 4).toFixed(2)) : 0;
                   return (
                     <label className="flex flex-col gap-0 p-4 border-2 rounded-lg transition-all cursor-pointer border-gray-200 hover:border-[#3DBEA3] has-[:checked]:border-[#3DBEA3] has-[:checked]:bg-[#f0faf8]">
@@ -3593,63 +3686,120 @@ export default function CheckoutPage() {
 
       <AddressModal 
         open={showAddressModal} 
+        allowGuest={!user}
         setShowAddressModal={(show) => {
           setShowAddressModal(show);
           if (!show) setEditingAddressId(null);
         }} 
         onAddressAdded={(addr) => {
+          const saved = !user ? upsertGuestAddress(guestAddresses, addr).address : addr;
+          if (!user) {
+            const next = upsertGuestAddress(guestAddresses, addr);
+            setGuestAddresses(next.addresses);
+            writeGuestCheckoutState({
+              addresses: next.addresses,
+              selectedId: next.address._id,
+              draft: formToGuestDraft(next.address),
+            });
+          }
           setForm((f) => ({
             ...f,
-            addressId: addr._id,
-            name: addr.name || f.name,
-            email: addr.email || f.email,
-            phone: cleanDigits(addr.phone) || cleanDigits(user?.phoneNumber || user?.phone) || f.phone,
-            phoneCode: addr.phoneCode || UAE_PHONE_CODE,
-            alternatePhone: cleanDigits(addr.alternatePhone),
-            alternatePhoneCode: addr.alternatePhoneCode || UAE_PHONE_CODE,
-            street: addr.street || f.street,
-            city: addr.city || f.city,
-            state: addr.state || f.state,
-            district: addr.district || f.district,
-            country: addr.country || f.country,
-            pincode: pickValidPincode(addr.zip, addr.pincode, f.pincode),
+            addressId: saved._id,
+            name: saved.name || f.name,
+            email: saved.email || f.email,
+            phone: cleanDigits(saved.phone) || cleanDigits(user?.phoneNumber || user?.phone) || f.phone,
+            phoneCode: saved.phoneCode || UAE_PHONE_CODE,
+            alternatePhone: cleanDigits(saved.alternatePhone),
+            alternatePhoneCode: saved.alternatePhoneCode || UAE_PHONE_CODE,
+            street: saved.street || f.street,
+            city: saved.city || f.city,
+            state: saved.state || f.state,
+            district: saved.district || f.district,
+            country: saved.country || f.country,
+            pincode: pickValidPincode(saved.zip, saved.pincode, f.pincode),
           }));
-          dispatch(fetchAddress({ getToken }));
+          if (user) dispatch(fetchAddress({ getToken }));
           setEditingAddressId(null);
         }}
-        initialAddress={editingAddressId ? addressList.find(a => a._id === editingAddressId) : null}
+        initialAddress={editingAddressId ? checkoutAddressList.find(a => a._id === editingAddressId) : null}
         isEdit={!!editingAddressId}
-        onAddressUpdated={() => {
-          dispatch(fetchAddress({ getToken }));
+        onAddressUpdated={(updated) => {
+          if (!user && updated) {
+            const next = upsertGuestAddress(guestAddresses, updated);
+            setGuestAddresses(next.addresses);
+            writeGuestCheckoutState({
+              addresses: next.addresses,
+              selectedId: next.address._id,
+              draft: formToGuestDraft(next.address),
+            });
+            setForm((f) => ({
+              ...f,
+              addressId: next.address._id,
+              name: next.address.name || f.name,
+              email: next.address.email || f.email,
+              phone: cleanDigits(next.address.phone) || f.phone,
+              phoneCode: next.address.phoneCode || f.phoneCode || UAE_PHONE_CODE,
+              street: next.address.street || f.street,
+              city: next.address.city || f.city,
+              state: next.address.state || f.state,
+              district: next.address.district || f.district,
+              country: next.address.country || f.country,
+              pincode: pickValidPincode(next.address.zip, next.address.pincode, f.pincode),
+            }));
+          } else if (user) {
+            dispatch(fetchAddress({ getToken }));
+          }
           setEditingAddressId(null);
         }}
         onAddressDeleted={(addressId) => {
+          if (!user) {
+            const next = removeGuestAddress(guestAddresses, addressId);
+            setGuestAddresses(next);
+            const nextSelected = next[0] || null;
+            writeGuestCheckoutState({
+              addresses: next,
+              selectedId: nextSelected?._id || '',
+              draft: nextSelected ? formToGuestDraft(nextSelected) : formToGuestDraft(form),
+            });
+            if (form.addressId === addressId) {
+              if (nextSelected) {
+                setForm((f) => ({
+                  ...f,
+                  addressId: nextSelected._id,
+                  name: nextSelected.name || f.name,
+                  email: nextSelected.email || f.email,
+                  phone: cleanDigits(nextSelected.phone) || f.phone,
+                  phoneCode: nextSelected.phoneCode || f.phoneCode || UAE_PHONE_CODE,
+                  street: nextSelected.street || f.street,
+                  city: nextSelected.city || f.city,
+                  state: nextSelected.state || f.state,
+                  district: nextSelected.district || f.district,
+                  country: nextSelected.country || f.country,
+                  pincode: pickValidPincode(nextSelected.zip, nextSelected.pincode, f.pincode),
+                }));
+              } else {
+                setForm((f) => ({ ...f, addressId: '' }));
+              }
+            }
+            return;
+          }
           dispatch(fetchAddress({ getToken }));
           if (form.addressId === addressId) {
             setForm((f) => ({ ...f, addressId: '' }));
           }
         }}
-        addressList={addressList}
+        addressList={checkoutAddressList}
         selectedAddressId={form.addressId}
         onSelectAddress={(addressId) => {
           // Find the selected address and populate form with its data
-          const selectedAddr = addressList.find(a => a._id === addressId);
+          const selectedAddr = checkoutAddressList.find(a => a._id === addressId);
           if (selectedAddr) {
             setForm(f => {
-              // Try to get phone from: address -> user profile -> keep existing
               const addressPhone = cleanDigits(selectedAddr.phone);
               const userPhone = cleanDigits(user?.phoneNumber || user?.phone);
               const finalPhone = addressPhone || userPhone || f.phone || '';
               const finalPincode = pickValidPincode(selectedAddr.zip, selectedAddr.pincode, f.pincode);
-              
-              console.log('Selecting address - Phone sources:', {
-                addressPhone,
-                userPhone,
-                finalPhone,
-                currentFormPhone: f.phone,
-                addressHasPhone: !!selectedAddr.phone
-              });
-              
+
               return { 
                 ...f, 
                 addressId,

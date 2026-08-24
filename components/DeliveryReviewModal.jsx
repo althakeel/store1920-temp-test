@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { auth } from '@/lib/firebase';
 import { getDisplayOrderNumber } from '@/lib/orderDisplay';
 
 export default function DeliveryReviewModal({ isOpen, onClose, order, onSubmit, isSubmitting }) {
@@ -13,11 +14,19 @@ export default function DeliveryReviewModal({ isOpen, onClose, order, onSubmit, 
   if (!isOpen || !order) return null;
 
   const handleImageUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
+    const input = e.target;
+    const files = Array.from(input.files || []);
+    input.value = '';
     if (files.length === 0) return;
 
     if (uploadedImages.length + files.length > 5) {
       toast.error('Maximum 5 images allowed');
+      return;
+    }
+
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      toast.error('Please sign in again to upload images');
       return;
     }
 
@@ -30,19 +39,21 @@ export default function DeliveryReviewModal({ isOpen, onClose, order, onSubmit, 
         }
 
         const formData = new FormData();
-        formData.append('image', file);
-        formData.append('type', 'delivery-review');
+        formData.append('files', file);
+        formData.append('uploadContext', 'delivery-review');
 
-        const res = await fetch('/api/store/upload-image', {
+        const res = await fetch('/api/upload', {
           method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
           body: formData,
         });
 
-        const data = await res.json();
-        if (res.ok && data.url) {
-          setUploadedImages(prev => [...prev, data.url]);
+        const data = await res.json().catch(() => ({}));
+        const url = data.url || data.urls?.[0];
+        if (res.ok && url) {
+          setUploadedImages((prev) => [...prev, url]);
         } else {
-          toast.error('Failed to upload image');
+          toast.error(data.error || 'Failed to upload image');
         }
       }
     } catch (error) {

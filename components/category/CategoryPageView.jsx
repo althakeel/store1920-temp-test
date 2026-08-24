@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { decodeHtmlEntities } from '@/lib/displayText';
-import { getLocalizedCategoryName } from '@/lib/categoryLocalization';
+import { getLocalizedCategoryDescription, getLocalizedCategoryName } from '@/lib/categoryLocalization';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 import { resolveCategoryHref } from '@/lib/categoryTreeUtils';
 import CategoryProductsPanel from '@/components/category/CategoryProductsPanel';
@@ -25,6 +25,7 @@ export default function CategoryPageView({
   const isArabic = language === 'ar';
 
   const categoryName = localizeCategoryRecord(category, language);
+  const localizedDescription = getLocalizedCategoryDescription(category, language);
   const showSubcategories = children.length > 0 && Number(category.level) < 3;
   const isL2WithL3Children = Number(category.level) === 2 && children.length > 0;
 
@@ -65,11 +66,8 @@ export default function CategoryPageView({
       <CategoryHeroCard
         name={categoryName}
         image={category.image}
-        description={decodeHtmlEntities(
-          isArabic && String(category.descriptionAr || '').trim()
-            ? category.descriptionAr
-            : (category.description || ''),
-        )}
+        description={decodeHtmlEntities(localizedDescription.text)}
+        descriptionRtl={localizedDescription.isRtl}
         stats={{
           productCount: Number(total) || Number(headerStats?.productCount) || 0,
           fastDeliveryPercent: Number(headerStats?.fastDeliveryPercent) || 0,

@@ -256,6 +256,9 @@ export async function GET(request){
         // re-read lean orders and wipe populated orderItems.productId.
         enrichedOrders = await hydrateOrderItemProducts(enrichedOrders);
 
+        const { excludeReturnPickupCloneOrders } = await import('@/lib/storeReturnLabels');
+        enrichedOrders = excludeReturnPickupCloneOrders(enrichedOrders);
+
         return NextResponse.json({orders: enrichedOrders})
     } catch (error) {
         console.error('[ORDER API ERROR]', error);

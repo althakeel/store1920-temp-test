@@ -42,6 +42,15 @@ async function markOrderLabelDownloaded(order, emxPdf) {
   const nextStatus = getStatusAfterLabelDownload(order);
   const update = buildLabelDownloadedMongoUpdate(order, printedAt);
 
+  // Mark downloaded in Mongo first so the "EMX labels ready" banner drops
+  // these orders even if a later S3 upload times out.
+  let saved = null;
+  try {
+    saved = await Order.findByIdAndUpdate(orderId, update, { new: true }).lean();
+  } catch (persistError) {
+    console.warn('[store/waslah/carrier-label] mark downloaded failed:', persistError?.message);
+  }
+
   try {
     const tracking = String(
       order.waslah?.emxTrackingNumber
@@ -56,13 +65,15 @@ async function markOrderLabelDownloaded(order, emxPdf) {
       contentType: 'application/pdf',
     });
     if (uploaded?.url) {
-      update.$set['waslah.labelUrl'] = uploaded.url;
+      saved = await Order.findByIdAndUpdate(
+        orderId,
+        { $set: { 'waslah.labelUrl': uploaded.url } },
+        { new: true },
+      ).lean() || saved;
     }
   } catch (persistError) {
     console.warn('[store/waslah/carrier-label] S3 persist failed:', persistError?.message);
   }
-
-  const saved = await Order.findByIdAndUpdate(orderId, update, { new: true }).lean();
 
   if (nextStatus && nextStatus !== previousStatus) {
     try {
@@ -127,7 +138,7 @@ async function buildEmxCarrierLabelPdfForOrder(order, { persist = true } = {}) {
   return emxPdf;
 }
 
-function pdfResponse(buffer, filename) {
+function pdfResponse(buffer, filename, extraHeaders = {}) {
   return new Response(buffer, {
     status: 200,
     headers: {
@@ -135,6 +146,8 @@ function pdfResponse(buffer, filename) {
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Length': String(buffer.length),
       'Cache-Control': 'no-store',
+      'Access-Control-Expose-Headers': 'Content-Disposition, X-Emx-Downloaded-Order-Ids',
+      ...extraHeaders,
     },
   });
 }
@@ -174,7 +187,9 @@ export async function GET(request) {
       || orderId,
     ).replace(/[^\w-]/g, '');
 
-    return pdfResponse(emxPdf, `emx-carrier-label-${trackingName}.pdf`);
+    return pdfResponse(emxPdf, `emx-carrier-label-${trackingName}.pdf`, {
+      'X-Emx-Downloaded-Order-Ids': orderId,
+    });
   } catch (error) {
     console.error('[store/waslah/carrier-label]', error);
     return NextResponse.json(
@@ -202,21 +217,17 @@ export async function POST(request) {
     if (auth.error) return auth.error;
 
     const body = await request.json().catch(() => ({}));
-    const orderIds = [...new Set(
+    const requestedIds = [...new Set(
       (Array.isArray(body?.orderIds) ? body.orderIds : [])
         .map((value) => String(value || '').trim())
         .filter(Boolean),
     )];
 
-    if (!orderIds.length) {
+    if (!requestedIds.length) {
       return NextResponse.json({ error: 'orderIds is required' }, { status: 400 });
     }
-    if (orderIds.length > MAX_BULK_LABELS) {
-      return NextResponse.json(
-        { error: `Select at most ${MAX_BULK_LABELS} orders to download labels` },
-        { status: 400 },
-      );
-    }
+
+    const orderIds = requestedIds.slice(0, MAX_BULK_LABELS);
 
     await dbConnect();
     const orders = await Order.find({
@@ -236,11 +247,13 @@ export async function POST(request) {
     }
 
     const emxBuffers = [];
+    const downloadedIds = [];
     const errors = [];
 
     for (const order of labelReady) {
       try {
         emxBuffers.push(await buildEmxCarrierLabelPdfForOrder(order));
+        downloadedIds.push(String(order._id));
       } catch (orderError) {
         errors.push(`${order._id}: ${orderError?.message || 'label failed'}`);
       }
@@ -263,6 +276,9 @@ export async function POST(request) {
     return pdfResponse(
       merged,
       `emx-carrier-labels-${emxBuffers.length}-${new Date().toISOString().slice(0, 10)}.pdf`,
+      {
+        'X-Emx-Downloaded-Order-Ids': downloadedIds.join(','),
+      },
     );
   } catch (error) {
     console.error('[store/waslah/carrier-label POST]', error);

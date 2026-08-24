@@ -52,7 +52,7 @@ function resolveAddressCity(addr) {
     return String(addr?.district || addr?.state || addr?.city || '').trim();
 }
 
-const AddressModal = ({ open, setShowAddressModal, onAddressAdded, initialAddress = null, isEdit = false, onAddressUpdated, onAddressDeleted, addressList = [], onSelectAddress, selectedAddressId }) => {
+const AddressModal = ({ open, setShowAddressModal, onAddressAdded, initialAddress = null, isEdit = false, onAddressUpdated, onAddressDeleted, addressList = [], onSelectAddress, selectedAddressId, allowGuest = false }) => {
     const { user, getToken } = useAuth()
     const dispatch = useDispatch()
     
@@ -110,6 +110,17 @@ const AddressModal = ({ open, setShowAddressModal, onAddressAdded, initialAddres
 
         try {
             setDeletingAddressId(addressId);
+
+            if (allowGuest && (!user || !user.uid)) {
+                if (pendingAddressId === addressId) {
+                    const nextId = addressList.find((item) => item._id !== addressId)?._id || null;
+                    setPendingAddressId(nextId);
+                }
+                toast.success('Address deleted');
+                onAddressDeleted?.(addressId);
+                return;
+            }
+
             const token = await getToken();
             await axios.delete(`/api/address/${encodeURIComponent(String(addressId))}`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -276,8 +287,14 @@ const AddressModal = ({ open, setShowAddressModal, onAddressAdded, initialAddres
     const handleSubmit = async (e) => {
         e.preventDefault()
         try {
-            if (!user || !user.uid) {
+            const isGuestSave = allowGuest && (!user || !user.uid);
+            if (!isGuestSave && (!user || !user.uid)) {
                 toast.error('User not authenticated. Please sign in again.');
+                return;
+            }
+
+            if (isGuestSave && !String(address.email || '').trim()) {
+                toast.error('Please enter your email address.');
                 return;
             }
 
@@ -316,10 +333,13 @@ const AddressModal = ({ open, setShowAddressModal, onAddressAdded, initialAddres
                 return;
             }
             
-            const token = await getToken()
+            const token = isGuestSave ? null : await getToken()
             
             // Prepare address data with userId from authenticated user
-            const addressData = { ...address, userId: user.uid, phone: cleanedPhone };
+            const addressData = { ...address, phone: cleanedPhone };
+            if (!isGuestSave) {
+                addressData.userId = user.uid;
+            }
             addressData.city = resolveAddressCity(address);
             addressData.zip = normalizedZip;
             delete addressData.alternatePhone;
@@ -328,8 +348,23 @@ const AddressModal = ({ open, setShowAddressModal, onAddressAdded, initialAddres
             if (!addressData.zip || addressData.zip.trim() === '') {
                 delete addressData.zip
             }
-            
-            if (isEdit && addressData.id) {
+
+            if (isGuestSave) {
+                const localAddress = {
+                    ...addressData,
+                    _id: addressData.id || `guest-${Date.now().toString(36)}`,
+                    id: addressData.id || undefined,
+                };
+                localAddress.id = localAddress._id;
+
+                if ((isEdit || editingAddress) && addressData.id) {
+                    toast.success('Address updated');
+                    onAddressUpdated?.(localAddress);
+                } else {
+                    toast.success('Address saved');
+                    onAddressAdded?.(localAddress);
+                }
+            } else if (isEdit && addressData.id) {
                 const { data } = await axios.put('/api/address', { id: addressData.id, address: addressData }, { headers: { Authorization: `Bearer ${token}` } })
                 toast.success(data.message || 'Address updated')
                 if (onAddressUpdated) {
@@ -599,6 +634,7 @@ const AddressModal = ({ open, setShowAddressModal, onAddressAdded, initialAddres
                             className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#f59e0b] focus:bg-white focus:ring-4 focus:ring-[#fde7c2]" 
                             type="email" 
                             placeholder="Email address" 
+                            required={allowGuest} 
                         />
                     </div>
 

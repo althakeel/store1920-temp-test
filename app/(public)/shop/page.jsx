@@ -1,5 +1,6 @@
 "use client";
 import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from "react";
+import Link from "next/link"
 import ProductCard from "@/components/ProductCard"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from '@/lib/useAuth'
@@ -10,7 +11,10 @@ import { getProductThumbnailUrl } from '@/lib/productMedia'
 import { PLACEHOLDER_IMAGE } from '@/lib/mediaUrls'
 import { decodeHtmlEntities } from '@/lib/displayText'
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n'
-import { getLocalizedCategoryName } from '@/lib/categoryLocalization'
+import { getLocalizedCategoryDescription, getLocalizedCategoryName } from '@/lib/categoryLocalization'
+import { toPublicCategoryPath } from '@/lib/categorySlug'
+import { findCategoryInList } from '@/lib/categoryTreeUtils'
+import CategoryHeroCard from '@/components/category/CategoryHeroCard'
 
 const SHOP_PAGE_SIZE = 60;
 
@@ -91,6 +95,15 @@ function ShopContent() {
     const [fastSellingIndex, setFastSellingIndex] = useState(0);
     const { user, getToken } = useAuth();
     const fetchAbortRef = useRef(null);
+
+    useEffect(() => {
+        const category = String(searchParams.get('category') || '').trim();
+        const categoriesParam = String(searchParams.get('categories') || '').trim();
+        if (search?.trim()) return;
+        const slug = category || (categoriesParam.includes(',') ? '' : categoriesParam);
+        if (!slug) return;
+        router.replace(toPublicCategoryPath(slug));
+    }, [router, search, searchParams]);
 
     useEffect(() => {
         let isActive = true;
@@ -296,6 +309,15 @@ function ShopContent() {
         return t('shop.subtitleAll');
     }, [search, selectedCategories.length, pageTitle, t]);
 
+    const activeShopCategory = useMemo(() => {
+        if (search || selectedCategories.length !== 1) return null;
+        return findCategoryInList(categories, selectedCategories[0]);
+    }, [categories, search, selectedCategories]);
+
+    const shopCategoryDescription = activeShopCategory
+        ? getLocalizedCategoryDescription(activeShopCategory, language)
+        : { text: '', isRtl: false };
+
     const resetFilters = useCallback(() => {
         setSortBy('newest');
         setPriceFilter('all');
@@ -304,42 +326,11 @@ function ShopContent() {
         setStockFilter('all');
         setBestSellerOnly(false);
         setFastDeliveryOnly(false);
-
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete('categories');
-        params.delete('category');
-        const query = params.toString();
-        router.replace(query ? `/shop?${query}` : '/shop', { scroll: false });
-    }, [router, searchParams]);
+    }, []);
 
     const clearCategories = useCallback(() => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete('categories');
-        params.delete('category');
-        const query = params.toString();
-        router.replace(query ? `/shop?${query}` : '/shop', { scroll: false });
-    }, [router, searchParams]);
-
-    const toggleCategory = useCallback((slug) => {
-        const normalizedSlug = String(slug || '').trim();
-        if (!normalizedSlug) return;
-
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete('category');
-
-        const next = selectedCategories.includes(normalizedSlug)
-            ? selectedCategories.filter((item) => item !== normalizedSlug)
-            : [...selectedCategories, normalizedSlug];
-
-        if (next.length) {
-            params.set('categories', next.join(','));
-        } else {
-            params.delete('categories');
-        }
-
-        const query = params.toString();
-        router.replace(query ? `/shop?${query}` : '/shop', { scroll: false });
-    }, [router, searchParams, selectedCategories]);
+        router.replace('/shop', { scroll: false });
+    }, [router]);
 
     const fastSellingProduct = fastSellingProducts[fastSellingIndex];
     const fastSellingImage = fastSellingProduct
@@ -360,14 +351,31 @@ function ShopContent() {
     return (
         <div className="min-h-screen bg-white" dir={isArabic ? 'rtl' : 'ltr'}>
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
-                <div className={`mb-6 mt-6 ${isArabic ? 'text-right' : ''}`}>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        {pageTitle}
-                    </h1>
-                    <p className="text-gray-600">
-                        {pageSubtitle}
-                    </p>
-                </div>
+                {activeShopCategory ? (
+                    <CategoryHeroCard
+                        name={localizeCategoryName(activeShopCategory)}
+                        image={activeShopCategory.image}
+                        description={decodeHtmlEntities(shopCategoryDescription.text)}
+                        descriptionRtl={shopCategoryDescription.isRtl}
+                        stats={{
+                            productCount: totalProducts,
+                            fastDeliveryPercent: 0,
+                            averageRating: 0,
+                            reviewCount: 0,
+                        }}
+                        t={t}
+                        isArabic={isArabic}
+                    />
+                ) : (
+                    <div className={`mb-6 mt-6 ${isArabic ? 'text-right' : ''}`}>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                            {pageTitle}
+                        </h1>
+                        <p className="text-gray-600">
+                            {pageSubtitle}
+                        </p>
+                    </div>
+                )}
 
                 <>
                         <div className="lg:hidden mb-3">
@@ -416,27 +424,20 @@ function ShopContent() {
                                                 const categoryId = String(category?._id || slug);
                                                 const isSelected = Boolean(slug && selectedCategories.includes(slug));
                                                 const categoryLabel = localizeCategoryName(category) || slug || t('category.category');
+                                                const href = slug ? toPublicCategoryPath(slug) : '/shop';
 
                                                 return (
-                                                    <label
+                                                    <Link
                                                         key={categoryId}
-                                                        className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition ${
+                                                        href={href}
+                                                        className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition ${
                                                             isSelected
-                                                                ? 'bg-orange-50 text-orange-700'
+                                                                ? 'bg-orange-50 font-semibold text-orange-700'
                                                                 : 'text-gray-700 hover:bg-gray-50'
                                                         }`}
                                                     >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            disabled={!slug}
-                                                            onChange={() => toggleCategory(slug)}
-                                                            className="rounded border-gray-300 text-orange-600 focus:ring-orange-300"
-                                                        />
-                                                        <span className={isSelected ? 'font-semibold' : ''}>
-                                                            {categoryLabel}
-                                                        </span>
-                                                    </label>
+                                                        {categoryLabel}
+                                                    </Link>
                                                 );
                                             })}
                                             </div>

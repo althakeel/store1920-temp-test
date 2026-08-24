@@ -17,6 +17,7 @@ import {
   Compass,
   Search,
   Truck,
+  MessageCircle,
 } from 'lucide-react'
 
 const designPages = [
@@ -79,6 +80,12 @@ const designPages = [
     description: 'Edit product badges plus delivery, returns, VAT, and rush-delivery texts for the product page.',
     href: '/store/customize/product-page',
     icon: Truck,
+  },
+  {
+    title: 'WhatsApp Product Widget',
+    description: 'Set the WhatsApp number and choose which product pages show a chat button.',
+    href: '/store/customize/whatsapp-widget',
+    icon: MessageCircle,
   },
   {
     title: 'Fast Delivery Page',

@@ -20,7 +20,7 @@ import { useAuth } from '@/lib/useAuth';
 import { trackPurchase } from '@/lib/tracking';
 import { trackOrderSuccessPurchaseOnce } from '@/lib/orderSuccessMetaPurchase';
 import { canTrackMetaPurchaseOnOrderSuccess } from '@/lib/orderConfirmationPolicy';
-import { hasTrackedPersistently, markTrackedPersistently } from '@/lib/trackingDedupe';
+import { hasTrackedPersistently, markTrackedPersistently, hasTrackedOnce, markTrackedOnce } from '@/lib/trackingDedupe';
 import { getMetaPurchaseDedupeKey } from '@/lib/metaPurchase';
 import { getDisplayOrderNumber } from '@/lib/orderDisplay';
 import { resolveOrderLineLineTotal, resolveOrderLinePackQuantity, resolveOrderLineQuantity } from '@/lib/gtmEcommerceHelpers';
@@ -251,10 +251,17 @@ function OrderSuccessContent() {
     const orderId = String(order._id);
     const orderTrackingKey = `order-success:tracked:${orderId}`;
     const purchaseKey = getMetaPurchaseDedupeKey(orderId);
+    const purchaseLoopKey = `order-success:purchase-loop:${orderId}`;
+
     if (hasTrackedPersistently(orderTrackingKey) || hasTrackedPersistently(purchaseKey)) {
       purchaseTrackedRef.current = true;
       return;
     }
+
+    if (hasTrackedOnce(purchaseLoopKey)) {
+      return;
+    }
+    markTrackedOnce(purchaseLoopKey);
 
     // Do NOT claim a session "started" key here. Auth/payment-verify remounts used to
     // cancel the retry loop and then permanently skip Purchase on the remount.

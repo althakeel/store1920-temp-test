@@ -13,6 +13,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import StoreNavLink from '@/components/store/StoreNavLink';
 import { usePathname } from 'next/navigation';
+import { Package, Truck, X } from 'lucide-react';
 import { canAccessDashboardArea } from '@/lib/storeDashboardPermissions';
 import {
   dispatchStoreNewOrderEvent,
@@ -58,6 +59,7 @@ const StoreOrderNotificationContext = createContext({
   unreadCount: 0,
   recentOrders: [],
   canViewOrders: false,
+  overduePickupCount: 0,
   markAllRead: () => {},
   refreshNotifications: () => {},
 });
@@ -73,7 +75,35 @@ function formatOrderLabel(order) {
   return `${label} · AED ${total}`;
 }
 
-function OrderToastShell({ toastInstance, title, children, onDismissAll = false }) {
+const TOAST_THEMES = {
+  order: {
+    shell: 'border-slate-200/90 bg-white shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)]',
+    accent: 'bg-emerald-500',
+    iconWrap: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100',
+    title: 'text-slate-900',
+    link: 'bg-emerald-600 text-white hover:bg-emerald-700',
+  },
+  pickup: {
+    shell: 'border-slate-200/90 bg-white shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)]',
+    accent: 'bg-amber-500',
+    iconWrap: 'bg-amber-50 text-amber-800 ring-1 ring-amber-100',
+    title: 'text-slate-900',
+    link: 'bg-amber-600 text-white hover:bg-amber-700',
+  },
+};
+
+function DashboardToastShell({
+  toastInstance,
+  theme = 'order',
+  icon,
+  eyebrow,
+  title,
+  children,
+  actionHref,
+  actionLabel,
+  onDismissAll = false,
+}) {
+  const styles = TOAST_THEMES[theme] || TOAST_THEMES.order;
   const dismiss = () => {
     if (onDismissAll) {
       dismissOrderToasts();
@@ -88,30 +118,47 @@ function OrderToastShell({ toastInstance, title, children, onDismissAll = false 
     <div
       className={`${
         toastInstance.visible ? 'animate-enter' : 'animate-leave'
-      } pointer-events-auto w-[min(100vw-1.5rem,24rem)] rounded-xl border border-emerald-200 bg-white p-4 shadow-lg`}
+      } pointer-events-auto w-[min(100vw-1.5rem,22.5rem)] overflow-hidden rounded-2xl border ${styles.shell}`}
       role="status"
       aria-live="polite"
+      lang="en"
+      dir="ltr"
     >
-      <div className="flex gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-emerald-700">{title}</p>
-          {children}
-          <StoreNavLink
-            href="/store/orders"
-            onClick={dismiss}
-            className="mt-3 inline-flex text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-          >
-            View orders →
-          </StoreNavLink>
+      <div className="flex">
+        <div className={`w-1.5 shrink-0 ${styles.accent}`} aria-hidden />
+        <div className="min-w-0 flex-1 p-3.5 pe-3">
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${styles.iconWrap}`}>
+              {icon}
+            </div>
+            <div className="min-w-0 flex-1">
+              {eyebrow ? (
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  {eyebrow}
+                </p>
+              ) : null}
+              <p className={`text-sm font-semibold tracking-tight ${styles.title}`}>{title}</p>
+              <div className="mt-1.5 space-y-0.5">{children}</div>
+              {actionHref && actionLabel ? (
+                <StoreNavLink
+                  href={actionHref}
+                  onClick={dismiss}
+                  className={`mt-3 inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${styles.link}`}
+                >
+                  {actionLabel}
+                </StoreNavLink>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={dismiss}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              aria-label={onDismissAll ? 'Dismiss all order alerts' : 'Dismiss notification'}
+            >
+              <X size={14} strokeWidth={2.25} />
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={dismiss}
-          className="shrink-0 text-lg leading-none text-slate-400 hover:text-slate-600"
-          aria-label={onDismissAll ? 'Dismiss all order alerts' : 'Dismiss notification'}
-        >
-          ×
-        </button>
       </div>
     </div>
   );
@@ -119,13 +166,21 @@ function OrderToastShell({ toastInstance, title, children, onDismissAll = false 
 
 function showNewOrderToast(order) {
   toast.custom((toastInstance) => (
-    <OrderToastShell toastInstance={toastInstance} title="New confirmed order">
-      <p className="mt-1 text-sm text-slate-800">{formatOrderLabel(order)}</p>
-      <p className="mt-1 text-xs text-slate-500">
+    <DashboardToastShell
+      toastInstance={toastInstance}
+      theme="order"
+      icon={<Package size={16} strokeWidth={2.25} />}
+      eyebrow="Live order"
+      title="New confirmed order"
+      actionHref="/store/orders"
+      actionLabel="View order"
+    >
+      <p className="text-sm font-medium text-slate-800">{formatOrderLabel(order)}</p>
+      <p className="text-xs text-slate-500">
         {order.customerName || 'Customer'}
         {order.itemCount ? ` · ${order.itemCount} item${order.itemCount === 1 ? '' : 's'}` : ''}
       </p>
-    </OrderToastShell>
+    </DashboardToastShell>
   ), {
     id: STORE_ORDER_TOAST_ID,
     duration: 8000,
@@ -138,19 +193,47 @@ function showBatchOrderToast(orders) {
   const extra = orders.length > 3 ? ` +${orders.length - 3} more` : '';
 
   toast.custom((toastInstance) => (
-    <OrderToastShell
+    <DashboardToastShell
       toastInstance={toastInstance}
+      theme="order"
+      icon={<Package size={16} strokeWidth={2.25} />}
+      eyebrow="Live orders"
       title={`${orders.length} new confirmed orders`}
+      actionHref="/store/orders"
+      actionLabel="View orders"
       onDismissAll
     >
-      <p className="mt-1 text-sm text-slate-800">
+      <p className="text-sm font-medium text-slate-800">
         {preview}
         {extra}
       </p>
-      <p className="mt-1 text-xs text-slate-500">Imported or live orders are grouped into one alert.</p>
-    </OrderToastShell>
+      <p className="text-xs text-slate-500">Grouped into one alert.</p>
+    </DashboardToastShell>
   ), {
     id: STORE_ORDER_TOAST_ID,
+    duration: 10000,
+    position: 'top-right',
+  });
+}
+
+function showPickupOverdueToast(count) {
+  toast.custom((toastInstance) => (
+    <DashboardToastShell
+      toastInstance={toastInstance}
+      theme="pickup"
+      icon={<Truck size={16} strokeWidth={2.25} />}
+      eyebrow="Courier pickup"
+      title="Pickup waiting 24h+"
+      actionHref="/store/todays-pickup"
+      actionLabel="Open pickup list"
+    >
+      <p className="text-sm font-medium text-slate-800">
+        {count} order{count === 1 ? '' : 's'} still awaiting courier pickup.
+      </p>
+      <p className="text-xs text-slate-500">Check labels and EMX pickup status.</p>
+    </DashboardToastShell>
+  ), {
+    id: 'store-pickup-overdue',
     duration: 10000,
     position: 'top-right',
   });
@@ -165,11 +248,15 @@ export default function StoreOrderNotificationProvider({
 }) {
   const pathname = usePathname();
   const canViewOrders = canAccessDashboardArea(permissions, 'orders', { isOwner });
+  const canViewPickups = canViewOrders
+    || canAccessDashboardArea(permissions, 'todaysPickup', { isOwner });
   const [recentOrders, setRecentOrders] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [overduePickupCount, setOverduePickupCount] = useState(0);
   const checkpointRef = useRef('');
   const pollingRef = useRef(null);
   const suppressRef = useRef(false);
+  const lastOverdueToastAtRef = useRef(0);
 
   const markAllRead = useCallback(() => {
     if (!storeId) return;
@@ -227,34 +314,61 @@ export default function StoreOrderNotificationProvider({
   }, [storeId, pathname]);
 
   const refreshNotifications = useCallback(async () => {
-    if (!canViewOrders || !storeId) return;
+    if ((!canViewOrders && !canViewPickups) || !storeId) return;
     if (suppressRef.current || isOrderNotificationsSuppressed()) return;
 
     try {
       const token = await getToken();
       if (!token) return;
 
-      if (!checkpointRef.current) {
-        checkpointRef.current = getOrderNotificationCheckpoint(storeId);
+      const headers = { Authorization: `Bearer ${token}` };
+
+      if (canViewOrders) {
+        if (!checkpointRef.current) {
+          checkpointRef.current = getOrderNotificationCheckpoint(storeId);
+        }
+
+        const { data } = await axios.get('/api/store/orders/notifications', {
+          headers,
+          params: { since: checkpointRef.current },
+          timeout: 15000,
+        });
+        handleNewOrders(Array.isArray(data?.orders) ? data.orders : []);
       }
 
-      const { data } = await axios.get('/api/store/orders/notifications', {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { since: checkpointRef.current },
-        timeout: 15000,
-      });
+      if (canViewPickups) {
+        const overdueRes = await axios.get('/api/store/pickups', {
+          headers,
+          params: { view: 'overdue', limit: 50 },
+          timeout: 15000,
+        }).catch(() => ({ data: { count: 0 } }));
 
-      handleNewOrders(Array.isArray(data?.orders) ? data.orders : []);
+        const overdue = Number(overdueRes?.data?.count || 0);
+        setOverduePickupCount(overdue);
+        if (
+          overdue > 0
+          && pathname !== '/store/todays-pickup'
+          && Date.now() - lastOverdueToastAtRef.current > 30 * 60 * 1000
+        ) {
+          lastOverdueToastAtRef.current = Date.now();
+          // Defer toast so Toaster / layout subscribers are mounted.
+          window.setTimeout(() => {
+            showPickupOverdueToast(overdue);
+          }, 0);
+        }
+      }
     } catch (error) {
       if (axios.isCancel?.(error)) return;
     }
-  }, [canViewOrders, storeId, getToken, handleNewOrders]);
+  }, [canViewOrders, canViewPickups, storeId, getToken, handleNewOrders, pathname]);
 
   useEffect(() => {
-    if (!canViewOrders || !storeId) return undefined;
+    if ((!canViewOrders && !canViewPickups) || !storeId) return undefined;
 
     preloadStoreAlertSound();
-    checkpointRef.current = getOrderNotificationCheckpoint(storeId);
+    if (canViewOrders) {
+      checkpointRef.current = getOrderNotificationCheckpoint(storeId);
+    }
 
     const poll = () => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
@@ -276,7 +390,7 @@ export default function StoreOrderNotificationProvider({
       if (pollingRef.current) window.clearInterval(pollingRef.current);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [canViewOrders, storeId, refreshNotifications]);
+  }, [canViewOrders, canViewPickups, storeId, refreshNotifications]);
 
   useEffect(() => {
     if (pathname === '/store/orders') {
@@ -325,9 +439,10 @@ export default function StoreOrderNotificationProvider({
     unreadCount,
     recentOrders,
     canViewOrders,
+    overduePickupCount,
     markAllRead,
     refreshNotifications,
-  }), [unreadCount, recentOrders, canViewOrders, markAllRead, refreshNotifications]);
+  }), [unreadCount, recentOrders, canViewOrders, overduePickupCount, markAllRead, refreshNotifications]);
 
   return (
     <StoreOrderNotificationContext.Provider value={value}>

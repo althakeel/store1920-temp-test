@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 
-import { HomeIcon, LayoutListIcon, SquarePenIcon, SquarePlusIcon, StarIcon, FolderIcon, TicketIcon, TruckIcon, RefreshCw, User as UserIcon, Users as UsersIcon, MessageSquare, Sparkles, BellIcon, MailIcon, Image as ImageIcon, ShoppingCart, Wallet, BarChart3, Target, Gift, Palette, CircleDashed, PackagePlus, Package, Activity, Layers, LineChart, Warehouse, MousePointerClick, ShieldAlert, Zap, Trash2, Smartphone, FileText } from "lucide-react"
+import { HomeIcon, LayoutListIcon, SquarePenIcon, SquarePlusIcon, StarIcon, FolderIcon, TicketIcon, TruckIcon, RefreshCw, Users as UsersIcon, MessageSquare, Sparkles, BellIcon, MailIcon, Image as ImageIcon, ShoppingCart, Wallet, BarChart3, Target, Gift, Palette, CircleDashed, PackagePlus, Package, Activity, Layers, LineChart, Warehouse, MousePointerClick, ShieldAlert, Zap, Trash2, Smartphone, FileText, CalendarClock, MessageCircle } from "lucide-react"
 
 import StoreNavLink from "@/components/store/StoreNavLink"
 
@@ -14,7 +14,7 @@ import { useStoreOrderNotifications } from "./StoreOrderNotificationProvider"
 const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
 
     const pathname = usePathname()
-    const { unreadCount, canViewOrders } = useStoreOrderNotifications()
+    const { unreadCount, canViewOrders, overduePickupCount } = useStoreOrderNotifications()
 
 
 
@@ -43,6 +43,8 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
         { name: 'Database Import', href: '/store/settings/database-import', icon: RefreshCw },
 
         { name: 'Customize', href: '/store/customize', icon: Palette },
+
+        { name: 'WhatsApp Widget', href: '/store/customize/whatsapp-widget', icon: MessageCircle },
 
         { name: 'Mobile Features', href: '/store/mobile-features', icon: Smartphone },
 
@@ -84,9 +86,9 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
 
         { name: 'Marketing Stack', href: '/store/marketing-stack', icon: Layers },
 
-        { name: 'Manage Users', href: '/store/settings/users', icon: UserIcon },
-
         { name: 'Orders', href: '/store/orders', icon: LayoutListIcon },
+
+        { name: 'Pickup list', href: '/store/todays-pickup', icon: CalendarClock },
 
         { name: 'Orders by Product', href: '/store/orders-by-product', icon: Package },
 
@@ -98,7 +100,7 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
 
         { name: 'Marketing Expenses', href: '/store/marketing-expenses', icon: Target },
 
-        { name: 'Return Requests', href: '/store/return-requests', icon: RefreshCw },
+        { name: 'Returns & Replacements', href: '/store/return-requests', icon: RefreshCw },
 
         { name: 'Reviews', href: '/store/reviews', icon: StarIcon },
 
@@ -145,6 +147,8 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
             links: [
 
                 '/store/customize',
+
+                '/store/customize/whatsapp-widget',
 
                 '/store/mobile-features',
 
@@ -206,6 +210,8 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
 
                 '/store/orders',
 
+                '/store/todays-pickup',
+
                 '/store/orders-by-product',
 
                 '/store/trash',
@@ -245,8 +251,6 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
             links: [
 
                 '/store/customers',
-
-                '/store/settings/users',
 
                 '/store/reviews',
 
@@ -611,6 +615,9 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
                                                         {link.href === '/store/orders' && canViewOrders && unreadCount > 0 ? (
                                                             <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-600 lg:hidden" />
                                                         ) : null}
+                                                        {link.href === '/store/todays-pickup' && overduePickupCount > 0 ? (
+                                                            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 lg:hidden" />
+                                                        ) : null}
 
                                                     </div>
 
@@ -619,6 +626,11 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
                                                     {link.href === '/store/orders' && canViewOrders && unreadCount > 0 ? (
                                                         <span className="hidden rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white lg:inline">
                                                             {unreadCount > 9 ? '9+' : unreadCount}
+                                                        </span>
+                                                    ) : null}
+                                                    {link.href === '/store/todays-pickup' && overduePickupCount > 0 ? (
+                                                        <span className="hidden rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white lg:inline">
+                                                            {overduePickupCount > 9 ? '9+' : overduePickupCount}
                                                         </span>
                                                     ) : null}
 

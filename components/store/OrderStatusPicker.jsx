@@ -54,14 +54,30 @@ const STATUS_GROUPS = [
   },
 ];
 
-export function getStoreOrderStatusMeta(status, { packed = false } = {}) {
+export function getStoreOrderStatusMeta(status, { packed = false, fulfillmentKind = '' } = {}) {
   const normalized = String(status || '').toUpperCase();
+  const kind = String(fulfillmentKind || '').toUpperCase();
   const packedDisplayStatuses = new Set([
     'ORDER_PLACED',
     'PROCESSING',
     'WAITING_FOR_PICKUP',
     'PICKUP_REQUESTED',
   ]);
+
+  if (kind === 'RETURN' && ['RETURN', 'RETURN_APPROVED', 'RETURN_INITIATED', 'RETURN_REQUESTED'].includes(normalized)) {
+    return {
+      value: status,
+      label: 'Return pickup',
+      color: 'bg-orange-100 text-orange-900',
+    };
+  }
+  if (kind === 'REPLACEMENT' && ['REPLACEMENT', 'RETURN'].includes(normalized)) {
+    return {
+      value: status,
+      label: 'Replacement order',
+      color: 'bg-sky-100 text-sky-800',
+    };
+  }
 
   // After warehouse pack API: show Packed until courier advances past pickup.
   if (packed && packedDisplayStatuses.has(normalized)) {
@@ -98,6 +114,7 @@ export default function OrderStatusPicker({
   size = 'md',
   className = '',
   packed = false,
+  fulfillmentKind = '',
   placeholder = '',
 }) {
   const [open, setOpen] = useState(false);
@@ -106,7 +123,7 @@ export default function OrderStatusPicker({
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const current = value
-    ? getStoreOrderStatusMeta(value, { packed })
+    ? getStoreOrderStatusMeta(value, { packed, fulfillmentKind })
     : {
         value: '',
         label: placeholder || 'Change status',

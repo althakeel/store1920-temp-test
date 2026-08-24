@@ -1485,6 +1485,15 @@ export async function GET(request) {
                 
                 order = await ensurePersistedShortOrderNumber(order);
                 
+                try {
+                    const ReturnRequest = (await import('@/models/ReturnRequest')).default;
+                    const { serializeReturnCase } = await import('@/lib/storeReturnWorkflow');
+                    const cases = await ReturnRequest.find({ orderId: String(order._id) }).sort({ createdAt: -1 }).lean();
+                    order.returnRequests = cases.map((row) => serializeReturnCase(row, order));
+                } catch {
+                    order.returnRequests = [];
+                }
+
                 console.log('GET /api/orders: Order found, isGuest:', order.isGuest);
                 return NextResponse.json({ order });
             } catch (err) {
@@ -1564,7 +1573,29 @@ export async function GET(request) {
             return order;
         }));
 
-        return NextResponse.json({ orders: enrichedOrders });
+        try {
+            const ReturnRequest = (await import('@/models/ReturnRequest')).default;
+            const { serializeReturnCase } = await import('@/lib/storeReturnWorkflow');
+            const ids = enrichedOrders.map((order) => String(order._id));
+            const cases = ids.length
+                ? await ReturnRequest.find({ orderId: { $in: ids }, userId }).sort({ createdAt: -1 }).lean()
+                : [];
+            const byOrder = new Map();
+            for (const row of cases) {
+                const key = String(row.orderId);
+                const list = byOrder.get(key) || [];
+                list.push(serializeReturnCase(row));
+                byOrder.set(key, list);
+            }
+            for (const order of enrichedOrders) {
+                order.returnRequests = byOrder.get(String(order._id)) || [];
+            }
+        } catch (attachError) {
+            console.error('Failed to attach return requests', attachError?.message || attachError);
+        }
+
+        const { excludeReturnPickupCloneOrders } = await import('@/lib/storeReturnLabels');
+        return NextResponse.json({ orders: excludeReturnPickupCloneOrders(enrichedOrders) });
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: error.message }, { status: 400 });

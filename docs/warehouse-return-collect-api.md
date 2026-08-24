@@ -100,6 +100,7 @@ x-warehouse-key: <WAREHOUSE_SCANNER_API_KEY>
 
 `q` may be:
 
+- Return ID (`RET-1920-000123`) — preferred for customer returns
 - EMX Door To Door AWB (`1000…`)
 - Order number (`618821`)
 - Legacy reference (`S1920-618821`)
@@ -255,7 +256,7 @@ On successful collect with `restock: true` (default):
 - Runs **once** per order (`stockRestockedAt` guard)
 - Clears fulfillment reservation markers so a future reship can reserve again
 
-Open store return requests (`REQUESTED` / `APPROVED`) are marked **COMPLETED** when status is `RETURNED`.
+Open store return requests (`REQUESTED` / `APPROVED`) are marked **COMPLETED** when status is `RETURNED`, unless a Return / Replacement case (`RET-1920-…`) is in progress. Those cases move to **Received at Warehouse** → **Quality Check Pending**. Stock is restocked after QC passes, not at the first warehouse scan.
 
 ---
 

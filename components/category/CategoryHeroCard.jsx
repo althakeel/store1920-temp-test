@@ -29,6 +29,7 @@ export default function CategoryHeroCard({
   name,
   image,
   description = '',
+  descriptionRtl = false,
   stats = {},
   t,
   isArabic = false,
@@ -109,7 +110,10 @@ export default function CategoryHeroCard({
             </div>
 
             {fullDescription ? (
-              <div className="mt-4 text-sm leading-6 text-slate-600">
+              <div
+                className={`mt-4 text-sm leading-6 text-slate-600 ${descriptionRtl ? 'text-right' : ''}`}
+                dir={descriptionRtl ? 'rtl' : 'ltr'}
+              >
                 <p>{visibleDescription}</p>
                 {canCollapse ? (
                   <button

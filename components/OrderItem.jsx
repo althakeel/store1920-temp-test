@@ -86,17 +86,28 @@ const OrderItem = ({ order: initialOrder }) => {
         return () => clearInterval(interval);
     }, [expanded, order.trackingId, order?.waslah?.trackingNumber]);
     
-    // Check if order is delivered and within 7 days
     const isDelivered = order.status === 'DELIVERED';
-    const deliveredDate = order.updatedAt ? new Date(order.updatedAt) : null;
+    const deliveredDate = order.orderDelivered || order.whatsappSentAt?.orderDelivered || order.updatedAt
+      ? new Date(order.orderDelivered || order.whatsappSentAt?.orderDelivered || order.updatedAt)
+      : null;
     const daysSinceDelivery = deliveredDate ? Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24)) : 999;
-    const withinReturnWindow = isDelivered && daysSinceDelivery <= 7;
-    
-    // Check if any product in the order allows return or replacement
     const orderMongoId = getOrderMongoId(order);
     const hasReturnableProduct = order.orderItems?.some((item) => getOrderLineProduct(item).allowReturn !== false);
     const hasReplaceableProduct = order.orderItems?.some((item) => getOrderLineProduct(item).allowReplacement !== false);
-    const canReturnReplace = withinReturnWindow && (hasReturnableProduct || hasReplaceableProduct);
+    const returnRequests = Array.isArray(order.returnRequests) && order.returnRequests.length
+      ? order.returnRequests
+      : (order.returns || []).map((row) => ({
+          returnNumber: row.returnNumber,
+          type: row.type,
+          status: row.workflowStatus || row.status,
+          statusLabel: row.workflowStatus || row.status,
+          eligibilityReason: row.eligibilityReason || row.rejectionReason || '',
+        }));
+    const canReturnReplace = isDelivered && (
+      (hasReturnableProduct && daysSinceDelivery <= 7)
+      || (hasReplaceableProduct && daysSinceDelivery <= 15)
+      || returnRequests.some((req) => String(req.status || '').toUpperCase() === 'INFO_REQUIRED')
+    );
 
     return (
         <>
@@ -498,8 +509,21 @@ const OrderItem = ({ order: initialOrder }) => {
                                     className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
                                 >
                                     <RefreshCw size={16} />
-                                    Return/Replace
+                                    Return / Replace
                                 </Link>
+                            )}
+                            {returnRequests.length > 0 && (
+                                <div className="w-full text-sm text-slate-700 space-y-1">
+                                    {returnRequests.map((req, idx) => (
+                                        <p key={req.id || req.returnNumber || idx}>
+                                            {req.returnNumber || 'Return'} · {req.statusLabel || req.status}
+                                            {req.pickup?.scheduledFor ? ` · Pickup ${req.pickup.scheduledFor}` : ''}
+                                            {req.pickup?.riderName ? ` · Rider: ${req.pickup.riderName}` : ''}
+                                            {req.refund?.customerMessage ? ` · ${req.refund.customerMessage}` : ''}
+                                            {req.eligibilityReason ? ` — ${req.eligibilityReason}` : ''}
+                                        </p>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>

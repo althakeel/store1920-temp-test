@@ -190,6 +190,12 @@ export async function POST(request) {
         const shortDescriptionRaw = formData.get("shortDescription");
         const shortDescriptionArRaw = formData.get("shortDescriptionAr");
         const shortDescription2Raw = formData.get("shortDescription2") || '';
+        const aPlusDesktop = formData.get("aPlusDesktop") || '';
+        const aPlusMobile = formData.get("aPlusMobile") || '';
+        const aPlusDesktopAr = formData.get("aPlusDesktopAr") || '';
+        const aPlusMobileAr = formData.get("aPlusMobileAr") || '';
+        const aPlusDesktopImages = parseCsvOrJsonList(formData.get("aPlusDesktopImages"));
+        const aPlusMobileImages = parseCsvOrJsonList(formData.get("aPlusMobileImages"));
         const specTableEnabled = String(formData.get("specTableEnabled") || "false").toLowerCase() === "true";
         const specTableColumnsRaw = formData.get("specTableColumns");
         const specTableRowsRaw = formData.get("specTableRows");
@@ -353,6 +359,12 @@ export async function POST(request) {
             shortDescription,
             shortDescriptionAr,
             shortDescription2: shortDescription2Raw,
+            aPlusDesktop,
+            aPlusMobile,
+            aPlusDesktopAr,
+            aPlusMobileAr,
+            aPlusDesktopImages,
+            aPlusMobileImages,
             specTableEnabled,
             specTableColumns,
             specTableRows,
@@ -680,6 +692,12 @@ export async function PUT(request) {
         const shortDescriptionRaw = formData.get("shortDescription");
         const shortDescriptionArRaw = formData.get("shortDescriptionAr");
         const shortDescription2Raw = formData.get("shortDescription2");
+        const aPlusDesktop = formData.get("aPlusDesktop");
+        const aPlusMobile = formData.get("aPlusMobile");
+        const aPlusDesktopAr = formData.get("aPlusDesktopAr");
+        const aPlusMobileAr = formData.get("aPlusMobileAr");
+        const aPlusDesktopImagesRaw = formData.get("aPlusDesktopImages");
+        const aPlusMobileImagesRaw = formData.get("aPlusMobileImages");
         const specTableEnabledRaw = formData.get("specTableEnabled");
         const specTableColumnsRaw = formData.get("specTableColumns");
         const specTableRowsRaw = formData.get("specTableRows");
@@ -856,6 +874,12 @@ export async function PUT(request) {
             shortDescription,
             shortDescriptionAr,
             shortDescription2,
+            ...(aPlusDesktop != null ? { aPlusDesktop } : {}),
+            ...(aPlusMobile != null ? { aPlusMobile } : {}),
+            ...(aPlusDesktopAr != null ? { aPlusDesktopAr } : {}),
+            ...(aPlusMobileAr != null ? { aPlusMobileAr } : {}),
+            ...(aPlusDesktopImagesRaw != null ? { aPlusDesktopImages: parseCsvOrJsonList(aPlusDesktopImagesRaw) } : {}),
+            ...(aPlusMobileImagesRaw != null ? { aPlusMobileImages: parseCsvOrJsonList(aPlusMobileImagesRaw) } : {}),
             specTableEnabled,
             specTableColumns,
             specTableRows,

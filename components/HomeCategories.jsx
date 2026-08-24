@@ -9,6 +9,7 @@ import { HomeCategoryRowSkeleton } from '@/components/home/HomeSectionSkeletons'
 import { cleanDisplayText } from '@/lib/displayText';
 import { normalizeMediaUrl } from '@/lib/mediaUrls';
 import { useHorizontalCarouselDrag } from '@/lib/useHorizontalCarouselDrag';
+import { normalizeStorefrontCategoryHref, toPublicCategoryPath } from '@/lib/categorySlug';
 
 export default function HomeCategories() {
   const {
@@ -134,11 +135,10 @@ export default function HomeCategories() {
 
   // Determine the link for each category
   const getCategoryLink = (cat) => {
-    // If custom URL is provided, use it
-    if (cat.url) return cat.url;
-    // If category ID is provided, navigate to shop with category
-    if (cat.categoryId) return `/shop?category=${cat.categoryId}`;
-    // Default fallback
+    const customUrl = normalizeStorefrontCategoryHref(cat.url);
+    if (customUrl && customUrl !== '/shop') return customUrl;
+    if (cat.slug) return toPublicCategoryPath(cat.slug);
+    if (cat.categoryId) return toPublicCategoryPath(cat.categoryId);
     return '/shop';
   };
 

@@ -207,13 +207,13 @@ Authorization: Bearer {WABA_TOKEN_CART_REMINDER}
 
 | Template | Button | URL |
 |----------|--------|-----|
-| Add to Cart Reminder | View Cart | `https://store1920.store/cart` |
-| Abandoned Checkout Reminder | Complete Order | `https://store1920.store/checkout` |
-| COD Confirmation | Track Order | `https://store1920.store/orders` |
-| Order Delivered | Shop Again | `https://store1920.store/product/{{1}}` |
-| Promotional Offer / Coupon | Shop Now | `https://store1920.store/product/{{1}}` |
+| Add to Cart Reminder | View Cart | `https://store1920.com/cart` |
+| Abandoned Checkout Reminder | Complete Order | `https://store1920.com/checkout` |
+| COD Confirmation | Track Order | `https://store1920.com/orders` |
+| Order Delivered | Shop Again | `https://store1920.com/product/{{1}}` |
+| Promotional Offer / Coupon | Shop Now | `https://store1920.com/product/{{1}}` |
 
-`{{1}}` = product slug from Product API (`product.slug`)
+`{{1}}` = product slug only (example: `neck-face-massager`). Do not send `/product/...` or `/products`.
 
 ### Product card header link
 

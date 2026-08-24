@@ -56,7 +56,10 @@ function mapSettingToForm(setting) {
           fee: parseSettingNumber(entry?.fee, 0),
         })).filter((entry) => entry.state)
       : [],
-    enableCOD: Boolean(setting.enableCOD),
+    enableCOD: setting.enableCOD !== false,
+    enableCard: setting.enableCard !== false,
+    enableTabby: setting.enableTabby !== false,
+    enableTamara: setting.enableTamara !== false,
     codFee: parseSettingNumber(setting.codFee, 0),
     maxCODAmount: parseSettingNumber(setting.maxCODAmount, 0),
     maxCardAmount: parseSettingNumber(setting.maxCardAmount, 0),
@@ -143,6 +146,9 @@ export default function StoreShippingSettings() {
     regionalDeliveryFee: '',
     stateCharges: [],
     enableCOD: true,
+    enableCard: true,
+    enableTabby: true,
+    enableTamara: true,
     codFee: 0,
     maxCODAmount: 0,
     maxCardAmount: 0,
@@ -981,16 +987,61 @@ export default function StoreShippingSettings() {
               )}
             </ShippingSection>
 
-            {/* Online payment limits */}
+            {/* Online payment methods + limits */}
             <ShippingSection
-              title='Online Payment Limits'
-              description='Card, Tabby, and Tamara checkout limits'
+              title='Online Payment Methods'
+              description={
+                [
+                  form.enableCard !== false ? 'Card' : null,
+                  form.enableTabby !== false ? 'Tabby' : null,
+                  form.enableTamara !== false ? 'Tamara' : null,
+                ].filter(Boolean).join(' · ') || 'All disabled'
+              }
               isOpen={isSectionOpen('payment-limits')}
               onToggle={() => toggleSection('payment-limits')}
             >
               <p className='text-sm text-slate-500 mb-4'>
-                Hide payment methods at checkout when the order total is above the limit. Use 0 for unlimited.
+                Enable or disable methods on the storefront, and set optional order-total limits. Use 0 for unlimited.
+                You can also manage these toggles under Settings → Payments.
               </p>
+              <div className='mb-5 space-y-3'>
+                <label className='flex items-center gap-3 cursor-pointer'>
+                  <input
+                    type='checkbox'
+                    checked={form.enableCard !== false}
+                    onChange={(e) => {
+                      markDirty()
+                      setForm((s) => ({ ...s, enableCard: e.target.checked }))
+                    }}
+                    className='w-5 h-5 accent-slate-700'
+                  />
+                  <span className='text-slate-700'>Enable Card payment</span>
+                </label>
+                <label className='flex items-center gap-3 cursor-pointer'>
+                  <input
+                    type='checkbox'
+                    checked={form.enableTabby !== false}
+                    onChange={(e) => {
+                      markDirty()
+                      setForm((s) => ({ ...s, enableTabby: e.target.checked }))
+                    }}
+                    className='w-5 h-5 accent-slate-700'
+                  />
+                  <span className='text-slate-700'>Enable Tabby</span>
+                </label>
+                <label className='flex items-center gap-3 cursor-pointer'>
+                  <input
+                    type='checkbox'
+                    checked={form.enableTamara !== false}
+                    onChange={(e) => {
+                      markDirty()
+                      setForm((s) => ({ ...s, enableTamara: e.target.checked }))
+                    }}
+                    className='w-5 h-5 accent-slate-700'
+                  />
+                  <span className='text-slate-700'>Enable Tamara</span>
+                </label>
+              </div>
               <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
                 <div>
                   <label className='block text-sm font-medium text-slate-700 mb-2'>Maximum Card Amount</label>

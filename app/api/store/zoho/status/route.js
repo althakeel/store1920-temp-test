@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuth } from '@/lib/firebase-admin';
 import authSeller from '@/middlewares/authSeller';
-import { isZohoConfigured, getZohoAccessToken } from '@/lib/zoho';
+import { isZohoConfigured, probeZohoProductAccess } from '@/lib/zoho';
 import { getZohoCrmPublicConfig } from '@/lib/zohoCrm';
 import { getZohoInventoryPublicConfig } from '@/lib/zohoInventory';
 
 export const dynamic = 'force-dynamic';
 
-/** GET /api/store/zoho/status — seller dashboard Zoho + CRM config */
+/** GET /api/store/zoho/status — seller dashboard Zoho Inventory + optional CRM */
 export async function GET(request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -36,15 +36,17 @@ export async function GET(request) {
         crm,
         inventory,
         message: 'Missing ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET or ZOHO_REFRESH_TOKEN.',
+        requiredScope: 'ZohoInventory.FullAccess.all',
       });
     }
 
-    const token = await getZohoAccessToken({ force: true });
+    const probe = await probeZohoProductAccess();
     return NextResponse.json({
       configured: true,
-      tokenAcquired: Boolean(token),
+      product: 'Zoho Inventory',
       crm,
-      inventory,
+      inventory: { ...inventory, ...probe.inventory },
+      ...probe,
     });
   } catch (err) {
     return NextResponse.json(

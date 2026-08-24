@@ -9,7 +9,7 @@ import PageSkeleton from "@/components/PageSkeleton";
 import { readPageCache, writePageCache, clearPageCache } from "@/lib/storePageCache";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { Package, Truck, X, Download, Printer, RefreshCw, MapPin, Trash2, CalendarClock, AlertTriangle, Search, Plus, ArrowUp, ArrowDown, ArrowUpDown, History, Pencil, Filter, Phone, Undo2, CheckCircle2 } from "lucide-react";
+import { Package, Truck, X, Download, Printer, RefreshCw, MapPin, Trash2, CalendarClock, AlertTriangle, Search, Plus, ArrowUp, ArrowDown, ArrowUpDown, History, Pencil, Filter, Phone, Undo2, CheckCircle2, FileText } from "lucide-react";
 import StoreCreateOrderModal from '@/components/store/StoreCreateOrderModal';
 import PaymentFailedCallCustomerModal from '@/components/store/PaymentFailedCallCustomerModal';
 import StoreEditOrderPanel from '@/components/store/StoreEditOrderPanel';
@@ -84,6 +84,7 @@ import {
     summarizeDeliveryBuckets,
     isDashboardConvertedOrder,
 } from '@/lib/storeOrderInsights';
+import { getOrderPickupWaitInfo } from '@/lib/storeOrderPickupWait';
 import { getDisplayOrderNumber, getOrderCustomerDisplayName, formatStoreOrderDateTime, formatStoreOrderDateParts, buildTrackOrderPageUrl } from '@/lib/orderDisplay';
 import { getOrderTrafficSourceDisplay, getOrderTrafficSourceKey, TRAFFIC_SOURCE_FILTER_OPTIONS } from '@/lib/orderAttributionDisplay';
 import {
@@ -113,7 +114,9 @@ import {
     resolveWaslahOrderStatusTransition,
     buildEmxTrackingUrl,
 } from '@/lib/waslahTracking';
-import { isWaslahLabelReadyOrder, isWaslahLabelNotPrinted, isWaslahLabelPrinted, getLabelDownloadCount } from '@/lib/waslahReceipts';
+import { isWaslahLabelReadyOrder, isWaslahLabelNotPrinted, isWaslahLabelPrinted, getLabelDownloadCount, preserveWaslahLabelDownloadState, mergeOrdersPreservingLabelDownloads } from '@/lib/waslahReceipts';
+import { downloadTodayOrdersProductPdf } from '@/lib/storeTodayOrdersPdf';
+import { getOrderFulfillmentBadge, getOriginalReturnRequestTag, isReturnFollowUpOrder, excludeReturnPickupCloneOrders } from '@/lib/storeReturnLabels';
 import TrackingTimeline from '@/components/TrackingTimeline';
 
 function formatPaymentRecheckReason(reason = '', paymentMethod = '') {
@@ -484,12 +487,18 @@ function isWaslahLiveTerminalOrder(order) {
 
 function getWaslahLiveStatusColor(order) {
     const liveStatus = getWaslahLiveAppStatus(order);
-    return getStoreOrderStatusMeta(liveStatus || String(order?.status || '').toUpperCase()).color;
+    return getStoreOrderStatusMeta(liveStatus || String(order?.status || '').toUpperCase(), {
+        packed: order?.warehousePacking?.packed === true,
+        fulfillmentKind: order?.fulfillmentKind,
+    }).color;
 }
 
 function getWaslahLiveStatusLabel(order) {
     if (isStaleWaslahCancellation(order)) {
-        return getStoreOrderStatusMeta(String(order?.status || '').toUpperCase()).label || 'AWB created';
+        return getStoreOrderStatusMeta(String(order?.status || '').toUpperCase(), {
+            packed: order?.warehousePacking?.packed === true,
+            fulfillmentKind: order?.fulfillmentKind,
+        }).label || 'AWB created';
     }
     return String(
         getWaslahCheckpointDisplay({
@@ -597,11 +606,19 @@ function mergeWaslahLiveStatusPatch(current, incoming) {
         trackingUrl: incoming.trackingUrl ?? current.trackingUrl,
         courier: incoming.courier ?? current.courier,
         updatedAt: incoming.updatedAt ?? current.updatedAt,
-        waslah: {
-            ...(current.waslah || {}),
-            ...(incoming.waslah || {}),
-        },
+        waslah: preserveWaslahLabelDownloadState(current.waslah, incoming.waslah),
     };
+}
+
+function readDownloadedOrderIdsFromResponse(response, fallbackIds = []) {
+    const raw = response?.headers?.['x-emx-downloaded-order-ids']
+        || response?.headers?.['X-Emx-Downloaded-Order-Ids']
+        || '';
+    const fromHeader = String(raw)
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean);
+    return fromHeader.length ? fromHeader : fallbackIds.map((id) => String(id || '').trim()).filter(Boolean);
 }
 
 export default function StoreOrders() {
@@ -630,6 +647,14 @@ export default function StoreOrders() {
     const [importingOrdersCsv, setImportingOrdersCsv] = useState(false);
     const [importProgress, setImportProgress] = useState({ current: 0, total: 0, phase: 'idle' });
     const [showImportExportPanel, setShowImportExportPanel] = useState(false);
+    const [showTodayOrdersPdfModal, setShowTodayOrdersPdfModal] = useState(false);
+    const [exportingTodayOrdersPdf, setExportingTodayOrdersPdf] = useState(false);
+    const [todayPdfFromDate, setTodayPdfFromDate] = useState('');
+    const [todayPdfToDate, setTodayPdfToDate] = useState('');
+    const [todayPdfFromTime, setTodayPdfFromTime] = useState(DEFAULT_ORDER_FILTER_TIME);
+    const [todayPdfToTime, setTodayPdfToTime] = useState(DEFAULT_ORDER_FILTER_TIME);
+    const [todayPdfIncludeCancelled, setTodayPdfIncludeCancelled] = useState(false);
+    const [todayPdfShowOption, setTodayPdfShowOption] = useState(true);
     const [showDeliverySchedule, setShowDeliverySchedule] = useState(false);
     const [showOrderFilters, setShowOrderFilters] = useState(false);
     const [paymentReconcileStatus, setPaymentReconcileStatus] = useState(null);
@@ -1115,7 +1140,11 @@ export default function StoreOrders() {
                 },
             };
         };
-        setOrders((prev) => prev.map(updater));
+        setOrders((prev) => {
+            const next = prev.map(updater);
+            writePageCache('store-orders', { orders: next, fetchedAt: Date.now() });
+            return next;
+        });
         setSelectedOrder((prev) => (prev && idSet.has(String(prev._id)) ? updater(prev) : prev));
     };
 
@@ -1182,7 +1211,7 @@ export default function StoreOrders() {
             link.remove();
             window.URL.revokeObjectURL(url);
             applyLabelPrintedToOrders([orderId], new Date().toISOString());
-            clearPageCache('store-orders');
+            void markOrdersLabelPrinted([orderId]);
             toast.success('Downloaded EMX carrier label · status set to Waiting for Pickup');
         } catch (error) {
             console.error('EMX carrier label download failed:', error);
@@ -1228,17 +1257,22 @@ export default function StoreOrders() {
             return;
         }
 
+        const downloadBatch = labelReadyOrders.slice(0, 25);
+        const remainingAfterBatch = labelReadyOrders.length - downloadBatch.length;
+
         setDownloadingWaslahReceipts(true);
         setCenterProgress({
             title: 'Downloading EMX labels…',
-            message: `Preparing ${labelReadyOrders.length} EMX carrier label(s). Waslah receipt pages are removed.`,
+            message: remainingAfterBatch > 0
+                ? `Preparing 25 of ${labelReadyOrders.length} EMX carrier labels. Click again for the rest.`
+                : `Preparing ${downloadBatch.length} EMX carrier label(s). Waslah receipt pages are removed.`,
         });
         try {
             const token = await getToken();
             // Same endpoint family as single-order "Download Carrier Label".
             const response = await axios.post(
                 '/api/store/waslah/carrier-label',
-                { orderIds: labelReadyOrders.map((order) => order._id) },
+                { orderIds: downloadBatch.map((order) => order._id) },
                 {
                     headers: { Authorization: `Bearer ${token}` },
                     responseType: 'blob',
@@ -1249,20 +1283,25 @@ export default function StoreOrders() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `emx-carrier-labels-${labelReadyOrders.length}-${new Date().toISOString().slice(0, 10)}.pdf`;
+            link.download = `emx-carrier-labels-${downloadBatch.length}-${new Date().toISOString().slice(0, 10)}.pdf`;
             document.body.appendChild(link);
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
 
             const printedAt = new Date().toISOString();
-            const downloadedIds = labelReadyOrders.map((order) => order._id);
+            const downloadedIds = readDownloadedOrderIdsFromResponse(
+                response,
+                downloadBatch.map((order) => order._id),
+            );
             applyLabelPrintedToOrders(downloadedIds, printedAt);
-            clearPageCache('store-orders');
+            void markOrdersLabelPrinted(downloadedIds);
             setCenterProgress(null);
             showCenterNotice({
                 title: 'EMX labels downloaded',
-                message: `Downloaded ${labelReadyOrders.length} EMX carrier label(s). Status updated to Packed / Awaiting Pickup.`,
+                message: remainingAfterBatch > 0
+                    ? `Downloaded ${downloadedIds.length} labels. ${remainingAfterBatch} still waiting — click Download again for the next batch.`
+                    : `Downloaded ${downloadedIds.length} EMX carrier label(s). Those orders are removed from the labels-ready list.`,
                 tone: 'success',
                 icon: 'check',
                 primaryLabel: 'OK',
@@ -1695,7 +1734,7 @@ export default function StoreOrders() {
                 });
             }
 
-            let syncedOrders = data.orders || [];
+            let syncedOrders = excludeReturnPickupCloneOrders(data.orders || []);
 
             // One-time client-side sync: if Delhivery says "out for delivery" / "delivered" etc.
             // but order.status is still ORDER_PLACED/PROCESSING/CANCELLED, bump status to match
@@ -1736,8 +1775,11 @@ export default function StoreOrders() {
                 }
             }
 
-            setOrders(syncedOrders);
-            writePageCache('store-orders', { orders: syncedOrders, fetchedAt: Date.now() });
+            setOrders((prev) => {
+                const merged = mergeOrdersPreservingLabelDownloads(syncedOrders, prev);
+                writePageCache('store-orders', { orders: merged, fetchedAt: Date.now() });
+                return merged;
+            });
             setSelectedOrderIds((prev) => prev.filter((id) => syncedOrders.some((order) => String(order._id) === id)));
         } catch (error) {
             toast.error(error?.response?.data?.error || error.message);
@@ -1885,7 +1927,7 @@ export default function StoreOrders() {
     useEffect(() => {
         const cached = readPageCache('store-orders');
         if (cached?.orders?.length) {
-            setOrders(cached.orders);
+            setOrders(excludeReturnPickupCloneOrders(cached.orders));
             setLoading(false);
         }
     }, []);
@@ -2089,10 +2131,16 @@ export default function StoreOrders() {
                     ...prev,
                     ...data.order,
                     delhivery: data.order.delhivery || prev.delhivery,
-                    waslah: data.order.waslah || prev.waslah,
+                    waslah: preserveWaslahLabelDownloadState(prev.waslah, data.order.waslah || prev.waslah),
                 }));
                 // Also update in orders list
-                setOrders(prev => prev.map(o => o._id === selectedOrder._id ? {...o, ...data.order} : o));
+                setOrders(prev => prev.map(o => o._id === selectedOrder._id
+                    ? {
+                        ...o,
+                        ...data.order,
+                        waslah: preserveWaslahLabelDownloadState(o.waslah, data.order.waslah || o.waslah),
+                    }
+                    : o));
             }
         } catch (error) {
             console.error('Failed to refresh tracking:', error);
@@ -2207,6 +2255,46 @@ export default function StoreOrders() {
         } catch (error) {
             console.error('CSV export failed:', error);
             toast.error('Failed to export CSV file');
+        }
+    };
+
+    const openTodayOrdersPdfModal = () => {
+        const bounds = getOrdersByProductBusinessDayBounds(DEFAULT_ORDER_FILTER_TIME);
+        const dubaiToday = getDubaiDateParts().date;
+        setTodayPdfFromDate(fromDate || bounds.startDate || dubaiToday);
+        setTodayPdfToDate(toDate || fromDate || bounds.startDate || dubaiToday);
+        setTodayPdfFromTime(fromTime || DEFAULT_ORDER_FILTER_TIME);
+        setTodayPdfToTime(toTime || DEFAULT_ORDER_FILTER_TIME);
+        setShowTodayOrdersPdfModal(true);
+    };
+
+    const exportTodayOrdersToPdf = async () => {
+        if (!todayPdfFromDate || !todayPdfToDate) {
+            toast.error('Choose a from and to date first');
+            return;
+        }
+
+        try {
+            setExportingTodayOrdersPdf(true);
+            const result = await downloadTodayOrdersProductPdf(orders, {
+                fromDate: todayPdfFromDate,
+                toDate: todayPdfToDate,
+                fromTime: todayPdfFromTime,
+                toTime: todayPdfToTime,
+                includeCancelled: todayPdfIncludeCancelled,
+                showOption: todayPdfShowOption,
+            });
+            setShowTodayOrdersPdfModal(false);
+            toast.success(
+                `Exported ${result.totalQuantity} item(s) from ${result.orderCount} order(s) to PDF`,
+            );
+        } catch (error) {
+            console.error('Today orders PDF export failed:', error);
+            toast.error(error?.code === 'EMPTY'
+                ? 'No products found in this date and time range'
+                : 'Failed to export today orders PDF');
+        } finally {
+            setExportingTodayOrdersPdf(false);
         }
     };
 
@@ -3072,16 +3160,20 @@ export default function StoreOrders() {
             clearPageCache('store-orders');
 
             if (manual && selectedOrderIdRef.current === targetOrderId) {
-                const liveAwb = getOrderAwb(liveOrder);
-                const liveLabel = getWaslahLiveStatusLabel(liveOrder);
-                if (liveAwb) {
-                    toast.success(data.changed
-                        ? `EMX tracking ${liveAwb} · ${liveLabel}`
-                        : `Tracking number ${liveAwb} · ${liveLabel}`);
+                if (data.pending || data.empty) {
+                    toast('EMX has no tracking events yet for this shipment');
                 } else {
-                    toast.success(data.changed
-                        ? `EMX status updated: ${liveLabel}`
-                        : `EMX status is up to date: ${liveLabel}`);
+                    const liveAwb = getOrderAwb(liveOrder);
+                    const liveLabel = getWaslahLiveStatusLabel(liveOrder);
+                    if (liveAwb) {
+                        toast.success(data.changed
+                            ? `EMX tracking ${liveAwb} · ${liveLabel}`
+                            : `Tracking number ${liveAwb} · ${liveLabel}`);
+                    } else {
+                        toast.success(data.changed
+                            ? `EMX status updated: ${liveLabel}`
+                            : `EMX status is up to date: ${liveLabel}`);
+                    }
                 }
             }
 
@@ -3090,10 +3182,21 @@ export default function StoreOrders() {
             if (axios.isCancel(error) || error?.name === 'CanceledError' || error?.name === 'AbortError') {
                 return null;
             }
+            const detail = String(
+                error?.response?.data?.detail
+                || error?.response?.data?.error
+                || error?.message
+                || '',
+            );
+            const isPendingTracking = /no tracking status|no tracking events/i.test(detail);
             if (manual) {
-                toast.error(error?.response?.data?.error || error?.message || 'Failed to refresh EMX status');
-            } else {
-                console.error('Live EMX status refresh failed:', error?.response?.data?.detail || error?.message || error);
+                toast.error(
+                    isPendingTracking
+                        ? 'EMX has no tracking events yet for this shipment'
+                        : (error?.response?.data?.error || error?.message || 'Failed to refresh EMX status'),
+                );
+            } else if (!isPendingTracking) {
+                console.warn('Live EMX status refresh failed:', detail || error);
             }
             return null;
         } finally {
@@ -3727,7 +3830,7 @@ export default function StoreOrders() {
                     <div>
                         <p className="text-sm font-semibold text-violet-900">EMX labels ready</p>
                         <p className="mt-0.5 text-xs text-violet-700">
-                            {stats.LABEL_READY} order(s) sent to EMX — labels not downloaded yet
+                            {stats.LABEL_READY} order(s) still waiting for a first label download in this list
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -4014,6 +4117,14 @@ export default function StoreOrders() {
                         <Download size={16} />
                         {showImportExportPanel || importingOrdersCsv ? 'Hide Import / Export' : 'Import / Export'}
                     </button>
+                    <button
+                        type="button"
+                        onClick={openTodayOrdersPdfModal}
+                        className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-900 transition hover:border-rose-300 hover:bg-rose-100"
+                    >
+                        <FileText size={16} />
+                        Export today orders (PDF)
+                    </button>
                 </div>
 
                 <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
@@ -4180,6 +4291,14 @@ export default function StoreOrders() {
                                 >
                                     <Download size={14} />
                                     {hasSelectedOrders ? 'Export Selected Excel' : 'Export Excel'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={openTodayOrdersPdfModal}
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition"
+                                >
+                                    <FileText size={14} />
+                                    Export today orders PDF
                                 </button>
                             </div>
                             {hasSelectedOrders ? (
@@ -4565,10 +4684,14 @@ export default function StoreOrders() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {paginatedOrders.map((order, index) => (
+                            {paginatedOrders.map((order, index) => {
+                                const pickupWait = getOrderPickupWaitInfo(order);
+                                return (
                                 <tr
                                     key={order._id}
-                                    className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                                    className={`hover:bg-gray-50 transition-colors duration-150 cursor-pointer ${
+                                        pickupWait?.overdue ? 'bg-amber-50/70' : ''
+                                    }`}
                                     onClick={() => openModal(order)}
                                 >
                                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -4581,7 +4704,22 @@ export default function StoreOrders() {
                                         />
                                     </td>
                                     <td className="pl-6 text-green-600 font-medium">{(safeCurrentPage - 1) * ordersPerPage + index + 1}</td>
-                                    <td className="px-4 py-3 font-mono text-xs text-slate-700">{getDisplayOrderNumber(order) || 'Pending'}</td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="font-mono text-xs text-slate-700">{getDisplayOrderNumber(order) || 'Pending'}</span>
+                                            {(() => {
+                                                const fulfillmentBadge = getOrderFulfillmentBadge(order);
+                                                const originalTag = getOriginalReturnRequestTag(order);
+                                                const badge = fulfillmentBadge || originalTag;
+                                                if (!badge) return null;
+                                                return (
+                                                    <span className={badge.className} title={badge.title}>
+                                                        {badge.label}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </div>
+                                    </td>
                                     <td className="px-4 py-3">
                                         <div className="flex flex-col gap-1">
                                             <span className="font-medium text-slate-800">
@@ -4696,6 +4834,7 @@ export default function StoreOrders() {
                                                 <OrderStatusPicker
                                                     value={order.status}
                                                     packed={order?.warehousePacking?.packed === true}
+                                                    fulfillmentKind={order?.fulfillmentKind}
                                                     size="sm"
                                                     className="min-w-[160px] flex-1"
                                                     onChange={(newStatus) => updateOrderStatus(order._id, newStatus, getToken, fetchOrders)}
@@ -4706,6 +4845,25 @@ export default function StoreOrders() {
                                                         title="Warehouse scanned this returning parcel"
                                                     >
                                                         Return collected
+                                                    </span>
+                                                ) : null}
+                                                {pickupWait?.overdue ? (
+                                                    <span
+                                                        className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-300"
+                                                        title={`Pickup requested ${pickupWait.hoursWaiting}h ago — still waiting`}
+                                                    >
+                                                        Pickup overdue · {pickupWait.hoursWaiting}h
+                                                    </span>
+                                                ) : pickupWait ? (
+                                                    <span
+                                                        className="shrink-0 rounded-full bg-yellow-50 px-2 py-0.5 text-[10px] font-semibold text-yellow-900 ring-1 ring-yellow-200"
+                                                        title={[
+                                                            'Pickup requested — waiting for courier',
+                                                            pickupWait.pickupDate,
+                                                            pickupWait.pickupTime,
+                                                        ].filter(Boolean).join(' · ')}
+                                                    >
+                                                        Pickup waiting · {pickupWait.hoursWaiting}h
                                                     </span>
                                                 ) : null}
                                                 {getDisplayAwb(order) && (
@@ -4817,7 +4975,8 @@ export default function StoreOrders() {
                                         })()}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                     {renderPaginationControls()}
@@ -4840,6 +4999,17 @@ export default function StoreOrders() {
                                 <div className="min-w-0 flex-1 pe-2">
                                     <h2 className="mb-1 text-xl font-bold sm:text-2xl">Order Details</h2>
                                     <p className="text-xs text-blue-100">Order No: <span className='font-mono text-white'>{getDisplayOrderNumber(selectedOrder) || 'Pending'}</span></p>
+                                    {(() => {
+                                        const fulfillmentBadge = getOrderFulfillmentBadge(selectedOrder);
+                                        const originalTag = getOriginalReturnRequestTag(selectedOrder);
+                                        const badge = fulfillmentBadge || originalTag;
+                                        if (!badge) return null;
+                                        return (
+                                            <p className="mt-2 inline-flex items-center rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold text-white ring-1 ring-white/40">
+                                                {badge.label}
+                                            </p>
+                                        );
+                                    })()}
                                     {selectedOrder?.warehousePacking?.packed ? (
                                         <p className="mt-2 inline-flex items-center rounded-full bg-teal-400/20 px-2.5 py-1 text-[11px] font-semibold text-teal-50 ring-1 ring-teal-200/40">
                                             Packed
@@ -4986,6 +5156,12 @@ export default function StoreOrders() {
                                                 downloadEmxCarrierLabel(selectedOrder);
                                             }}
                                         />
+
+                                        {(isReturnFollowUpOrder(selectedOrder) || selectedOrder?.waslahReturn?.orderId || getOriginalReturnRequestTag(selectedOrder)) ? (
+                                            <p className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-[11px] font-medium text-orange-950">
+                                                Return pickup stays on this order. EMX collects from the customer address (customer is sender, warehouse is receiver). No extra pickup order is created.
+                                            </p>
+                                        ) : null}
 
                                         {!isWaslahShipmentProcessed(selectedOrder) && !selectedOrder?.waslah?.orderId ? (
                                             <ol className="list-decimal space-y-1 pl-4 text-[11px] text-violet-900">
@@ -5687,7 +5863,10 @@ export default function StoreOrders() {
                             {/* Return/Replacement Request Section */}
                             {selectedOrder.returns && selectedOrder.returns.length > 0 && (
                                 <div className="bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200 rounded-xl p-5">
-                                    <h3 className="text-lg font-semibold text-pink-900 mb-4">Return/Replacement Requests</h3>
+                                    <h3 className="text-lg font-semibold text-pink-900 mb-1">Return/Replacement Requests</h3>
+                                    <p className="mb-4 text-xs text-pink-800">
+                                        Approve creates a reverse pickup order and sends it to EMX. Refunds and replacement shipments happen after warehouse QC.
+                                    </p>
                                     
                                     <div className="space-y-4">
                                         {selectedOrder.returns.map((returnRequest, idx) => (
@@ -5704,8 +5883,11 @@ export default function StoreOrders() {
                                                         returnRequest.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
                                                         'bg-slate-100 text-slate-700'
                                                     }`}>
-                                                        {returnRequest.status}
+                                                        {returnRequest.workflowStatus || returnRequest.status}
                                                     </span>
+                                                    {returnRequest.returnNumber ? (
+                                                        <span className="font-mono text-xs text-slate-600">{returnRequest.returnNumber}</span>
+                                                    ) : null}
                                                     <span className="text-xs text-slate-500 ml-auto">{new Date(returnRequest.requestedAt).toLocaleString()}</span>
                                                 </div>
 
@@ -5744,21 +5926,30 @@ export default function StoreOrders() {
                                                         </div>
                                                     )}
 
+                                                    {returnRequest.followUpOrderNumber ? (
+                                                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                                                            New {returnRequest.type === 'REPLACEMENT' ? 'replacement' : 'return'} order: <span className="font-mono font-semibold">#{returnRequest.followUpOrderNumber}</span>
+                                                            {returnRequest.returnPickupOrderNumber ? (
+                                                                <span className="mt-1 block">Return pickup order: <span className="font-mono font-semibold">#{returnRequest.returnPickupOrderNumber}</span></span>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : null}
+
                                                     {returnRequest.status === 'REQUESTED' && (
                                                         <div className="flex gap-2 pt-3">
                                                             <button
                                                                 onClick={async () => {
                                                                     try {
                                                                         const token = await getToken(true);
-                                                                        await axios.post('/api/store/return-requests', {
+                                                                        const { data } = await axios.post('/api/store/return-requests', {
                                                                             orderId: selectedOrder._id,
                                                                             returnIndex: idx,
                                                                             action: 'APPROVE'
                                                                         }, {
                                                                             headers: { Authorization: `Bearer ${token}` }
                                                                         });
-                                                                        toast.success('Approved!');
-                                                                        fetchOrders();
+                                                                        toast.success(data?.message || 'Approved — a new return/replacement order is in the list');
+                                                                        await fetchOrders();
                                                                         closeModal();
                                                                     } catch (error) {
                                                                         toast.error(error?.response?.data?.error || 'Failed');
@@ -6173,6 +6364,7 @@ export default function StoreOrders() {
                                     <OrderStatusPicker
                                         value={selectedOrder.status}
                                         packed={selectedOrder?.warehousePacking?.packed === true}
+                                        fulfillmentKind={selectedOrder?.fulfillmentKind}
                                         className="max-w-md"
                                         onChange={async (newStatus) => {
                                             try {
@@ -6592,6 +6784,111 @@ export default function StoreOrders() {
                         </div>
                     </>
                 ) : null}
+            </StoreCenterPopupShell>
+
+            <StoreCenterPopupShell
+                open={showTodayOrdersPdfModal}
+                zIndex={128}
+                maxWidthClass="max-w-lg"
+                onBackdropClick={() => {
+                    if (!exportingTodayOrdersPdf) setShowTodayOrdersPdfModal(false);
+                }}
+                labelledBy="today-orders-pdf-title"
+            >
+                <div className="relative p-6">
+                    <h3 id="today-orders-pdf-title" className="text-lg font-semibold text-slate-900">
+                        Export today orders (PDF)
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                        Choose the date and time range. The PDF lists product name, variant, option, and quantity only.
+                    </p>
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label htmlFor="today-pdf-from-date" className="text-xs font-medium text-slate-500">From date</label>
+                            <input
+                                id="today-pdf-from-date"
+                                type="date"
+                                value={todayPdfFromDate}
+                                max={todayPdfToDate || undefined}
+                                onChange={(event) => setTodayPdfFromDate(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="today-pdf-from-time" className="text-xs font-medium text-slate-500">From time</label>
+                            <input
+                                id="today-pdf-from-time"
+                                type="time"
+                                value={todayPdfFromTime}
+                                onChange={(event) => setTodayPdfFromTime(normalizeFilterTimeValue(event.target.value))}
+                                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="today-pdf-to-date" className="text-xs font-medium text-slate-500">To date</label>
+                            <input
+                                id="today-pdf-to-date"
+                                type="date"
+                                value={todayPdfToDate}
+                                min={todayPdfFromDate || undefined}
+                                onChange={(event) => setTodayPdfToDate(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="today-pdf-to-time" className="text-xs font-medium text-slate-500">To time</label>
+                            <input
+                                id="today-pdf-to-time"
+                                type="time"
+                                value={todayPdfToTime}
+                                onChange={(event) => setTodayPdfToTime(normalizeFilterTimeValue(event.target.value))}
+                                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                        <label className="flex items-start gap-2 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={todayPdfShowOption}
+                                onChange={(event) => setTodayPdfShowOption(event.target.checked)}
+                                className="mt-0.5 rounded border-gray-300"
+                            />
+                            <span>Include option column (color / size / selected option)</span>
+                        </label>
+                        <label className="flex items-start gap-2 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={todayPdfIncludeCancelled}
+                                onChange={(event) => setTodayPdfIncludeCancelled(event.target.checked)}
+                                className="mt-0.5 rounded border-gray-300"
+                            />
+                            <span>Include cancelled and failed orders</span>
+                        </label>
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">
+                        Dates use Dubai time. Same from/to date and time means one business day through the next cutover.
+                    </p>
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            disabled={exportingTodayOrdersPdf}
+                            onClick={() => setShowTodayOrdersPdfModal(false)}
+                            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={exportingTodayOrdersPdf}
+                            onClick={exportTodayOrdersToPdf}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-700 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60"
+                        >
+                            <FileText size={16} />
+                            {exportingTodayOrdersPdf ? 'Preparing PDF…' : 'Download PDF'}
+                        </button>
+                    </div>
+                </div>
             </StoreCenterPopupShell>
 
             <StoreCenterPopupShell

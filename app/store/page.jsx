@@ -107,7 +107,7 @@ export default function Dashboard() {
               <span>Bulk Import</span>
             </Link>
             <Link
-              href="/store/settings/users"
+              href="/store/settings?tab=team"
               className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white transition hover:bg-blue-700"
             >
               <UserPlusIcon size={15} />

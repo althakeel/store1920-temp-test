@@ -125,7 +125,7 @@ export default function SitemapSettingsPage() {
             text: formData.text,
             categoryId: formData.existingCategoryId,
             image: imageUrl || '',
-            url: `/shop?category=${formData.existingCategoryId}`,
+            url: `/category/${formData.existingCategoryId}`,
             isExisting: true
           }
         : {
@@ -379,7 +379,7 @@ export default function SitemapSettingsPage() {
                       type="text"
                       value={formData.url}
                       onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                      placeholder="/shop?category=custom"
+                      placeholder="/category/custom"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>

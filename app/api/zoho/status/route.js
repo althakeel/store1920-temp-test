@@ -1,31 +1,38 @@
 import { NextResponse } from 'next/server';
-import { isZohoConfigured, getZohoAccessToken, getZohoAccountsDomain, getZohoApiDomain } from '@/lib/zoho';
+import {
+  isZohoConfigured,
+  probeZohoProductAccess,
+} from '@/lib/zoho';
 import { getZohoCrmPublicConfig } from '@/lib/zohoCrm';
 import { getZohoInventoryPublicConfig } from '@/lib/zohoInventory';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/zoho/status — verifies the Zoho OAuth connection is working.
+// GET /api/zoho/status — verifies Zoho OAuth and whether Inventory (not only CRM) works.
 export async function GET() {
   if (!isZohoConfigured()) {
     return NextResponse.json(
       {
         configured: false,
         message: 'Missing ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET or ZOHO_REFRESH_TOKEN.',
+        requiredScope: 'ZohoInventory.FullAccess.all',
+        docs: 'https://www.zoho.com/inventory/api/v1/oauth/#overview',
       },
       { status: 200 },
     );
   }
 
   try {
-    const token = await getZohoAccessToken({ force: true });
+    const probe = await probeZohoProductAccess();
     return NextResponse.json({
       configured: true,
-      tokenAcquired: Boolean(token),
-      accountsDomain: getZohoAccountsDomain(),
-      apiDomain: getZohoApiDomain(),
+      product: 'Zoho Inventory',
       crm: getZohoCrmPublicConfig(),
-      inventory: getZohoInventoryPublicConfig(),
+      inventory: {
+        ...getZohoInventoryPublicConfig(),
+        ...probe.inventory,
+      },
+      ...probe,
     });
   } catch (err) {
     return NextResponse.json(

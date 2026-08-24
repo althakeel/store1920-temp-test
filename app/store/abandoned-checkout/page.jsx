@@ -8,15 +8,18 @@ import {
   ChevronUp,
   Copy,
   CreditCard,
+  CalendarRange,
   Mail,
   MapPin,
   MessageCircle,
+  Package,
   Phone,
   Search,
   ShoppingCart,
   Trash2,
   X,
 } from 'lucide-react';
+import Image from '@/components/SafeNextImage';
 import { useAuth } from '@/lib/useAuth';
 import Loading from '@/components/Loading';
 import { getAbandonedCartDisplayName, getAbandonedCartTotal, isAnonymousAbandonedCart } from '@/lib/abandonedCartUtils';
@@ -26,7 +29,7 @@ import { buildRecoveryLink } from '@/lib/abandonedCartRecoveryOffer';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
 import { formatWhatsAppErrorMessage } from '@/lib/whatsapp/formatWhatsAppError';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 const SOURCE_META = {
   cart: { label: 'Added to cart', className: 'bg-blue-50 text-blue-700' },
@@ -100,51 +103,67 @@ function normalizePhoneForWhatsApp(phone) {
   return digits.startsWith('971') ? digits : `971${digits.replace(/^0+/, '')}`;
 }
 
-function normalizePhoneSearch(value) {
-  return String(value || '').replace(/\D/g, '');
+function toDatetimeLocalValue(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return [
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  ].join('T');
 }
 
-function abandonedCartMatchesSearch(cart, rawQuery) {
-  const query = String(rawQuery || '').trim().toLowerCase();
-  if (!query) return true;
+function startOfLocalDay(daysAgo = 0) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  if (daysAgo) date.setDate(date.getDate() - daysAgo);
+  return date;
+}
 
-  const phoneQuery = normalizePhoneSearch(rawQuery);
+function endOfLocalDay() {
+  const date = new Date();
+  date.setHours(23, 59, 0, 0);
+  return date;
+}
 
-  const textParts = [
-    cart.name,
-    cart.resolvedCustomerName,
-    cart.email,
-    cart.conversionCustomerEmail,
-    cart.recoveryLinkSentTo,
-    cart.phone,
-    cart.anonymousId,
-    cart.conversionNote,
-    cart.linkedOrderId,
-    getLocationLabel(cart.address),
-    cart.address?.street,
-    cart.address?.city,
-    cart.address?.district,
-    cart.address?.state,
-    cart.address?.country,
-    cart.address?.pincode,
-    cart.address?.zip,
-    ...(Array.isArray(cart.items)
-      ? cart.items.flatMap((item) => [item?.name, item?.productName, item?.sku])
-      : []),
-  ]
-    .filter(Boolean)
-    .map((value) => String(value).toLowerCase());
+function ListPagination({
+  page,
+  totalPages,
+  totalItems,
+  pageSize = PAGE_SIZE,
+  onPageChange,
+  label = 'items',
+}) {
+  if (totalItems <= pageSize) return null;
 
-  if (textParts.some((part) => part.includes(query))) return true;
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const from = (safePage - 1) * pageSize + 1;
+  const to = Math.min(safePage * pageSize, totalItems);
 
-  if (phoneQuery.length >= 3) {
-    const phoneParts = [cart.phone, cart.address?.phone]
-      .filter(Boolean)
-      .map(normalizePhoneSearch);
-    if (phoneParts.some((part) => part.includes(phoneQuery))) return true;
-  }
-
-  return false;
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-slate-600">
+        Showing {from}-{to} of {totalItems} {label}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, safePage - 1))}
+          disabled={safePage <= 1}
+          className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <span className="text-xs text-slate-500">Page {safePage} of {totalPages}</span>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(totalPages, safePage + 1))}
+          disabled={safePage >= totalPages}
+          className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function PaymentLinkShare({ cart, link, amount, currency = 'AED', title = 'Payment link for customer' }) {
@@ -1199,11 +1218,34 @@ function CartRow({
 export default function AbandonedCheckoutPage() {
   const { user, getToken } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
   const [carts, setCarts] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [stats, setStats] = useState({
+    active: 0,
+    identified: 0,
+    guest: 0,
+    pendingPayment: 0,
+    cart: 0,
+    checkout: 0,
+    converted: 0,
+    emailSent: 0,
+    activeValue: 0,
+    productCount: 0,
+  });
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState('');
   const [whatsappSuccess, setWhatsappSuccess] = useState('');
   const [filter, setFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('products');
+  const [selectedProductKey, setSelectedProductKey] = useState('');
+  const [selectedProductLabel, setSelectedProductLabel] = useState('');
+  const [selectedProductAbandonCount, setSelectedProductAbandonCount] = useState(0);
+  const [fromDateTime, setFromDateTime] = useState('');
+  const [toDateTime, setToDateTime] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState(null);
   const [convertCart, setConvertCart] = useState(null);
@@ -1216,114 +1258,170 @@ export default function AbandonedCheckoutPage() {
   const [confirmingPaymentId, setConfirmingPaymentId] = useState(null);
   const [dashboardUsers, setDashboardUsers] = useState([]);
   const [canDeleteAbandonedCarts, setCanDeleteAbandonedCarts] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const token = await getToken();
-        const [cartsResult, usersResult] = await Promise.allSettled([
-          axios.get('/api/store/abandoned-checkout', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get('/api/store/users', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-
-        if (cartsResult.status === 'fulfilled') {
-          setCarts(Array.isArray(cartsResult.value.data.carts) ? cartsResult.value.data.carts : []);
-          setCanDeleteAbandonedCarts(Boolean(cartsResult.value.data?.canDeleteAbandonedCarts));
-        } else {
-          const cartsError = cartsResult.reason;
-          setError(cartsError?.response?.data?.error || cartsError?.message || 'Failed to fetch abandoned carts');
-        }
-
-        if (usersResult.status === 'fulfilled') {
-          setDashboardUsers(Array.isArray(usersResult.value.data.dashboardAccessUsers)
-            ? usersResult.value.data.dashboardAccessUsers
-            : []);
-        }
-      } catch (err) {
-        setError(err?.response?.data?.error || err.message || 'Failed to fetch abandoned carts');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [getToken]);
-
-  const activeCarts = useMemo(
-    () => carts.filter((cart) => cart.status !== 'converted'),
-    [carts]
-  );
-
-  const identifiedActiveCarts = useMemo(
-    () => activeCarts.filter((cart) => !(cart.isAnonymousGuest || isAnonymousAbandonedCart(cart))),
-    [activeCarts]
-  );
-
-  const guestActiveCarts = useMemo(
-    () => activeCarts.filter((cart) => cart.isAnonymousGuest || isAnonymousAbandonedCart(cart)),
-    [activeCarts]
-  );
-
-  const convertedCarts = useMemo(
-    () => carts.filter((cart) => cart.status === 'converted'),
-    [carts]
-  );
-
-  const emailSentCarts = useMemo(
-    () => carts.filter(hasCustomerEmailSent),
-    [carts]
-  );
-
-  const pendingPaymentCarts = useMemo(
-    () => activeCarts.filter((cart) => cart.status === 'pending_payment'),
-    [activeCarts]
-  );
-
-  const stats = useMemo(() => {
-    const convertedValue = convertedCarts.reduce((sum, cart) => sum + getCartTotal(cart), 0);
-
-    return {
-      active: activeCarts.length,
-      identified: identifiedActiveCarts.length,
-      guest: guestActiveCarts.length,
-      pendingPayment: pendingPaymentCarts.length,
-      cart: activeCarts.filter((cart) => cart.source === 'cart' || cart.source === 'guest-cart').length,
-      checkout: activeCarts.filter((cart) => cart.source === 'checkout').length,
-      converted: convertedCarts.length,
-      emailSent: emailSentCarts.length,
-      activeValue: activeCarts.reduce((sum, cart) => sum + getCartTotal(cart), 0),
-      convertedValue,
-    };
-  }, [activeCarts, identifiedActiveCarts, guestActiveCarts, pendingPaymentCarts, convertedCarts, emailSentCarts]);
-
-  const filteredCarts = useMemo(() => {
-    let list;
-    if (filter === 'converted') list = convertedCarts;
-    else if (filter === 'email_sent') list = emailSentCarts;
-    else if (filter === 'guest') list = guestActiveCarts;
-    else if (filter === 'pending_payment') list = pendingPaymentCarts;
-    else if (filter === 'all') list = activeCarts;
-    else if (filter === 'cart') {
-      list = activeCarts.filter((cart) => cart.source === 'cart' || cart.source === 'guest-cart');
-    } else {
-      list = activeCarts.filter((cart) => cart.source === filter);
-    }
-
-    const query = searchQuery.trim();
-    if (!query) return list;
-    return list.filter((cart) => abandonedCartMatchesSearch(cart, query));
-  }, [activeCarts, guestActiveCarts, convertedCarts, emailSentCarts, pendingPaymentCarts, filter, searchQuery]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredCarts.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const paginatedCarts = filteredCarts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     setPage(1);
     setExpandedId(null);
-  }, [filter, searchQuery]);
+  }, [filter, debouncedSearch, selectedProductKey, viewMode, fromDateTime, toDateTime]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token || cancelled) return;
+
+        const usersResult = await axios.get('/api/store/users', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => null);
+
+        if (!cancelled && usersResult?.data) {
+          setDashboardUsers(Array.isArray(usersResult.data.dashboardAccessUsers)
+            ? usersResult.data.dashboardAccessUsers
+            : []);
+        }
+      } catch {
+        // Team list is optional for convert modal.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setListLoading(true);
+        setError('');
+
+        const token = await getToken();
+        if (!token || cancelled) return;
+
+        const params = {
+          view: viewMode,
+          page,
+          limit: PAGE_SIZE,
+          filter: viewMode === 'carts' ? filter : 'all',
+          search: debouncedSearch || undefined,
+          productKey: viewMode === 'carts' && selectedProductKey ? selectedProductKey : undefined,
+          from: fromDateTime || undefined,
+          to: toDateTime || undefined,
+        };
+
+        const { data } = await axios.get('/api/store/abandoned-checkout', {
+          headers: { Authorization: `Bearer ${token}` },
+          params,
+        });
+
+        if (cancelled) return;
+
+        setStats(data?.stats || {
+          active: 0,
+          identified: 0,
+          guest: 0,
+          pendingPayment: 0,
+          cart: 0,
+          checkout: 0,
+          converted: 0,
+          emailSent: 0,
+          activeValue: 0,
+          productCount: 0,
+        });
+        setProducts(Array.isArray(data?.products) ? data.products : []);
+        setCarts(Array.isArray(data?.carts) ? data.carts : []);
+        setTotalItems(Number(data?.total || 0));
+        setTotalPages(Math.max(1, Number(data?.totalPages || 1)));
+        setCanDeleteAbandonedCarts(Boolean(data?.canDeleteAbandonedCarts));
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.response?.data?.error || err.message || 'Failed to fetch abandoned carts');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setListLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    getToken,
+    viewMode,
+    page,
+    filter,
+    debouncedSearch,
+    selectedProductKey,
+    fromDateTime,
+    toDateTime,
+    reloadToken,
+  ]);
+
+  const hasDateTimeFilter = Boolean(fromDateTime || toDateTime);
+  const safePage = Math.min(page, totalPages);
+  const selectedProduct = selectedProductKey
+    ? {
+        key: selectedProductKey,
+        name: selectedProductLabel || 'Selected product',
+        abandonCount: selectedProductAbandonCount,
+      }
+    : null;
+
+  const refreshList = () => setReloadToken((value) => value + 1);
+
+  const applyDatePreset = (preset) => {
+    if (preset === 'clear') {
+      setFromDateTime('');
+      setToDateTime('');
+      return;
+    }
+
+    const end = endOfLocalDay();
+    if (preset === 'today') {
+      setFromDateTime(toDatetimeLocalValue(startOfLocalDay(0)));
+      setToDateTime(toDatetimeLocalValue(end));
+      return;
+    }
+    if (preset === '7d') {
+      setFromDateTime(toDatetimeLocalValue(startOfLocalDay(6)));
+      setToDateTime(toDatetimeLocalValue(end));
+      return;
+    }
+    if (preset === '30d') {
+      setFromDateTime(toDatetimeLocalValue(startOfLocalDay(29)));
+      setToDateTime(toDatetimeLocalValue(end));
+    }
+  };
+
+  const openCartsForProduct = (product) => {
+    setSelectedProductKey(product.key);
+    setSelectedProductLabel(product.name || 'Product');
+    setSelectedProductAbandonCount(Number(product.abandonCount || 0));
+    setViewMode('carts');
+    setFilter('all');
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setPage(1);
+  };
+
+  const clearSelectedProduct = () => {
+    setSelectedProductKey('');
+    setSelectedProductLabel('');
+    setSelectedProductAbandonCount(0);
+  };
 
   const handleSendRecoveryLink = async ({
     recoveryDiscountType,
@@ -1587,6 +1685,7 @@ export default function AbandonedCheckoutPage() {
       if (convertCart?._id === cart._id) {
         setConvertCart(null);
       }
+      refreshList();
     } catch (err) {
       setError(err?.response?.data?.error || err.message || 'Failed to move cart to trash');
     } finally {
@@ -1611,7 +1710,7 @@ export default function AbandonedCheckoutPage() {
       <div>
         <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Abandoned Checkout</h1>
         <p className="mt-1 text-xs text-slate-600 sm:text-sm">
-          Tracks checkout sessions, cart abandons, and awaiting-payment orders. Meta purchases are separate — this list fills as customers browse checkout (including guests before they enter email).
+          See which products customers leave behind, then open those carts to recover the sale.
         </p>
       </div>
 
@@ -1625,11 +1724,16 @@ export default function AbandonedCheckoutPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Active abandons</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">{stats.active}</p>
           <p className="mt-0.5 text-[10px] text-slate-500">{stats.identified} with contact · {stats.guest} guest</p>
+        </div>
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-700">Products left behind</p>
+          <p className="mt-1 text-2xl font-bold text-indigo-900">{stats.productCount || 0}</p>
+          <p className="mt-0.5 text-[10px] text-indigo-700/80">Across active carts</p>
         </div>
         <div className="rounded-xl border border-violet-100 bg-violet-50 p-3 shadow-sm">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700">Guest</p>
@@ -1643,10 +1747,107 @@ export default function AbandonedCheckoutPage() {
           <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Converted</p>
           <p className="mt-1 text-2xl font-bold text-emerald-800">{stats.converted}</p>
         </div>
-        <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 shadow-sm">
+        <div className="col-span-2 rounded-xl border border-blue-100 bg-blue-50 p-3 shadow-sm lg:col-span-5">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Potential value</p>
           <p className="mt-1 text-lg font-bold text-blue-800 sm:text-xl">{formatMoney(stats.activeValue)}</p>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CalendarRange size={16} className="text-slate-500" />
+            <p className="text-sm font-semibold text-slate-900">From / to date & time</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { id: 'today', label: 'Today' },
+              { id: '7d', label: 'Last 7 days' },
+              { id: '30d', label: 'Last 30 days' },
+              { id: 'clear', label: 'All time' },
+            ].map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyDatePreset(preset.id)}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-slate-600">From</span>
+            <input
+              type="datetime-local"
+              value={fromDateTime}
+              onChange={(event) => setFromDateTime(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-200"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-slate-600">To</span>
+            <input
+              type="datetime-local"
+              value={toDateTime}
+              min={fromDateTime || undefined}
+              onChange={(event) => setToDateTime(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-200"
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          {hasDateTimeFilter
+            ? `Showing stats for the selected date range. Lists load ${PAGE_SIZE} at a time for speed.`
+            : `Lists load ${PAGE_SIZE} at a time. Use From / To to narrow abandons and product counts.`}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setViewMode('products')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+              viewMode === 'products'
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Package size={15} />
+            By product
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('carts')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+              viewMode === 'carts'
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <ShoppingCart size={15} />
+            By cart
+          </button>
+        </div>
+        {selectedProduct ? (
+          <div className="inline-flex max-w-full items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-900 sm:text-sm">
+            <span className="truncate">
+              Showing carts with <span className="font-semibold">{selectedProduct.name}</span>
+              {' '}({selectedProduct.abandonCount} abandon{selectedProduct.abandonCount === 1 ? '' : 's'})
+            </span>
+            <button
+              type="button"
+              onClick={clearSelectedProduct}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white px-2 py-1 font-semibold text-indigo-700 hover:bg-indigo-100"
+            >
+              <X size={14} />
+              Clear
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="relative">
@@ -1655,7 +1856,11 @@ export default function AbandonedCheckoutPage() {
           type="search"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search by name, email, phone, address, or product..."
+          placeholder={
+            viewMode === 'products'
+              ? 'Search products left in abandoned checkouts...'
+              : 'Search by name, email, phone, address, or product...'
+          }
           className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
         />
         {searchQuery ? (
@@ -1670,6 +1875,90 @@ export default function AbandonedCheckoutPage() {
         ) : null}
       </div>
 
+      {viewMode === 'products' ? (
+        products.length === 0 && !listLoading ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
+            <Package className="mx-auto mb-2 text-slate-300" size={28} />
+            <p className="text-sm font-semibold text-slate-700">
+              {searchQuery.trim()
+                ? `No products match "${searchQuery.trim()}"`
+                : 'No products in abandoned checkouts yet'}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {hasDateTimeFilter
+                ? 'No products match this date range. Try widening From / To, or clear the filter.'
+                : 'When customers leave items at cart or checkout, each product appears here with an abandon count.'}
+            </p>
+          </div>
+        ) : (
+          <div className={`overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${listLoading ? 'opacity-70' : ''}`}>
+            <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-900">Products by abandoned checkout count</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Ranked by how many active abandoned carts include each product
+                {hasDateTimeFilter ? ' in the selected date range' : ''}. Click a row to open those carts.
+              </p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {products.map((product, index) => (
+                <button
+                  key={product.key}
+                  type="button"
+                  onClick={() => openCartsForProduct(product)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                    {(safePage - 1) * PAGE_SIZE + index + 1}
+                  </span>
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                    {product.imageUrl ? (
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        fill
+                        sizes="48px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-slate-400">
+                        <Package size={18} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{product.name}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {product.totalQuantity} unit{product.totalQuantity === 1 ? '' : 's'} left behind
+                      {' · '}
+                      {formatMoney(product.totalValue, product.currency)}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-sm font-bold text-indigo-800">
+                      {product.abandonCount}
+                    </p>
+                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                      abandon{product.abandonCount === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            {totalItems > PAGE_SIZE ? (
+              <div className="border-t border-slate-100 p-3">
+                <ListPagination
+                  page={safePage}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  onPageChange={setPage}
+                  label="products"
+                />
+              </div>
+            ) : null}
+          </div>
+        )
+      ) : (
+        <>
       <div className="flex flex-wrap gap-2">
         {filters.map((item) => (
           <button
@@ -1687,12 +1976,14 @@ export default function AbandonedCheckoutPage() {
         ))}
       </div>
 
-      {filteredCarts.length === 0 ? (
+      {carts.length === 0 && !listLoading ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
           <ShoppingCart className="mx-auto mb-2 text-slate-300" size={28} />
           <p className="text-sm font-semibold text-slate-700">
             {searchQuery.trim()
               ? `No results for "${searchQuery.trim()}"`
+              : selectedProduct
+              ? `No carts found for "${selectedProduct.name}"`
               : filter === 'converted'
               ? 'No converted carts yet'
               : filter === 'guest'
@@ -1706,6 +1997,8 @@ export default function AbandonedCheckoutPage() {
           <p className="mt-1 text-xs text-slate-500">
             {searchQuery.trim()
               ? 'Try another name, email, phone number, city, or product name.'
+              : selectedProduct
+              ? 'Clear the product filter or switch to By product to pick another item.'
               : filter === 'converted'
               ? 'When you convert a recovered cart, it will appear here.'
               : filter === 'guest'
@@ -1719,8 +2012,8 @@ export default function AbandonedCheckoutPage() {
         </div>
       ) : (
         <>
-          <div className="space-y-2">
-            {paginatedCarts.map((cart) => (
+          <div className={`space-y-2 ${listLoading ? 'opacity-70' : ''}`}>
+            {carts.map((cart) => (
               <CartRow
                 key={cart._id}
                 cart={cart}
@@ -1741,32 +2034,17 @@ export default function AbandonedCheckoutPage() {
             ))}
           </div>
 
-          {filteredCarts.length > PAGE_SIZE ? (
-            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-slate-600">
-                Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, filteredCarts.length)} of {filteredCarts.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  disabled={safePage <= 1}
-                  className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <span className="text-xs text-slate-500">Page {safePage} of {totalPages}</span>
-                <button
-                  type="button"
-                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                  disabled={safePage >= totalPages}
-                  className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+          {totalItems > PAGE_SIZE ? (
+            <ListPagination
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              onPageChange={setPage}
+              label="carts"
+            />
           ) : null}
+        </>
+      )}
         </>
       )}
 

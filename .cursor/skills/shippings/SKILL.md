@@ -22,6 +22,21 @@ description: Maintains Store1920 shipping settings at /store/shipping, payment m
 - English-only, LTR (see `store` skill)
 - Currency label from `NEXT_PUBLIC_CURRENCY_SYMBOL` (default AED)
 
+## Payment method enable/disable
+
+Stored on `ShippingSetting`:
+
+| Field | Checkout method | Behavior |
+|-------|-----------------|----------|
+| `enableCOD` | `cod` | Hidden when `false` |
+| `enableCard` | `card` | Hidden when `false` |
+| `enableTabby` | `tabby` | Hidden when `false` |
+| `enableTamara` | `tamara` | Hidden when `false` |
+
+Defaults are **enabled** (`undefined` treated as on). Dashboard toggles live under **Settings → Payments** and also under **Shipping → Online Payment Methods**.
+
+Use `isPaymentMethodEnabled(setting, method)` from `lib/paymentMethodLimits.js`.
+
 ## Payment method limits
 
 Stored on `ShippingSetting`:
@@ -39,6 +54,7 @@ Limits apply to **order total after wallet** at checkout (`totalAfterWallet`).
 
 ### Shared helper (`lib/paymentMethodLimits.js`)
 
+- `isPaymentMethodEnabled(setting, method)`
 - `getPaymentMethodMaxAmount(setting, method)`
 - `isPaymentMethodOverLimit(setting, method, orderAmount)`
 - `getPaymentMethodLimitError(setting, paymentMethod, orderAmount, options)`
@@ -48,9 +64,9 @@ Use these helpers in checkout UI and order API — do not duplicate limit logic.
 ### Adding a new payment limit
 
 1. Add field to `models/ShippingSetting.js`
-2. Map in `PAYMENT_LIMIT_FIELDS` in `lib/paymentMethodLimits.js`
+2. Map in `PAYMENT_LIMIT_FIELDS` / `PAYMENT_ENABLE_FIELDS` in `lib/paymentMethodLimits.js`
 3. Save/load in `app/api/shipping/route.js` GET defaults + PUT
-4. Add input on `app/store/shipping/page.jsx` under **Online Payment Limits**
+4. Add toggle on `app/store/settings/page.jsx` (Payments) and input on `app/store/shipping/page.jsx`
 5. Hide/disable in `CheckoutPageUI.jsx` and validate in `app/api/orders/route.js`
 
 ## COD section (existing)

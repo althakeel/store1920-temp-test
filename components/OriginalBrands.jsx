@@ -13,16 +13,16 @@ import Img9 from '../assets/section/kidsfashion.png';
 import Img10 from '../assets/section/womensfashion.png';
 
 const brands = [
-  { name: "Bags", image: Img1, path: "/shop?category=bags-backpacks-wallets" },
-  { name: "Books", image: Img2, path: "/shop?category=books" },
-  { name: "Electronics", image: Img3, path: "/shop?category=electronics" },
-  { name: "Footwear", image: Img4, path: "/shop?category=men-s-footwear" },
-  { name: "Makeup", image: Img5, path: "/shop?category=beauty-personal-care" },
-  { name: "Men Perfume", image: Img6, path: "/shop?category=perfumes-deodorants" },
-  { name: "Personal Care", image: Img7, path: "/shop?category=skin-body-care" },
-  { name: "Tshirt", image: Img8, path: "/shop?category=men-s-t-shirts" },
-  { name: "Kids Fashion", image: Img9, path: "/shop?category=kids-fashion" },
-  { name: "Womens Fashion", image: Img10, path: "/shop?category=womens-fashion" },
+  { name: "Bags", image: Img1, path: "/category/bags-backpacks-wallets" },
+  { name: "Books", image: Img2, path: "/category/books" },
+  { name: "Electronics", image: Img3, path: "/category/electronics" },
+  { name: "Footwear", image: Img4, path: "/category/men-s-footwear" },
+  { name: "Makeup", image: Img5, path: "/category/beauty-personal-care" },
+  { name: "Men Perfume", image: Img6, path: "/category/perfumes-deodorants" },
+  { name: "Personal Care", image: Img7, path: "/category/skin-body-care" },
+  { name: "Tshirt", image: Img8, path: "/category/men-s-t-shirts" },
+  { name: "Kids Fashion", image: Img9, path: "/category/kids-fashion" },
+  { name: "Womens Fashion", image: Img10, path: "/category/womens-fashion" },
 ];
 
 

@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { cleanDisplayText, sanitizeCategoryTree } from '@/lib/displayText';
 import { resolveStoreAccess } from '@/lib/storeAccess';
 import { sanitizeCategoryMenuTree } from '@/lib/categoryMenuImages';
+import { toPublicCategoryPath, normalizeStorefrontCategoryHref } from '@/lib/categorySlug';
 
 function slugify(text = '') {
   return text
@@ -15,8 +16,7 @@ function slugify(text = '') {
 }
 
 function buildCategoryUrl(name = '') {
-  const slug = slugify(name);
-  return slug ? `/${slug}` : '/';
+  return toPublicCategoryPath(name);
 }
 
 function normalizeMenuCategory(category, fallbackIndex = 0) {
@@ -32,7 +32,7 @@ function normalizeMenuCategory(category, fallbackIndex = 0) {
     parentName: cleanDisplayText(category?.parentName || ''),
     name: cleanDisplayText(category?.name || ''),
     image: String(category?.image || ''),
-    url: category?.url || buildCategoryUrl(cleanDisplayText(category?.name || '')),
+    url: normalizeStorefrontCategoryHref(category?.url || '') || buildCategoryUrl(cleanDisplayText(category?.name || '')),
     children: normalizedChildren,
   };
 }

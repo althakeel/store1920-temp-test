@@ -15,7 +15,22 @@ const OPTIMIZED_HOSTS = [
   'lh3.googleusercontent.com',
 ];
 
+/** Resolve next/image StaticImport objects to a usable URL string. */
+export function resolveImageSrc(src) {
+  if (src == null || src === '') return '';
+  if (typeof src === 'string') return src;
+  if (typeof src === 'object') {
+    if (typeof src.src === 'string') return src.src;
+    if (src.default && typeof src.default.src === 'string') return src.default.src;
+    if (typeof src.default === 'string') return src.default;
+  }
+  return '';
+}
+
 export function shouldBypassNextImageOptimizer(src) {
+  // Local webpack/static imports must go through next/image — never stringify to "[object Object]".
+  if (src && typeof src === 'object') return false;
+
   const value = String(src || '').trim();
   if (!value) return false;
   if (value.startsWith('/') || value.startsWith('data:') || value.startsWith('blob:')) {
@@ -73,10 +88,12 @@ export default function SafeNextImage({
         }
       : style;
 
+    const resolvedSrc = resolveImageSrc(src) || (typeof src === 'string' ? src : '');
+
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={String(src || '')}
+        src={resolvedSrc}
         alt={alt}
         width={fill ? undefined : width}
         height={fill ? undefined : height}

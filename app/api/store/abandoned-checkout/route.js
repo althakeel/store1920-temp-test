@@ -11,6 +11,17 @@ import { ACTIVE_RECORD_FILTER, buildTrashMeta } from '@/lib/storeTrash';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
 import { enrichAbandonedCarts, getAbandonedCartTotal, isPlaceholderName } from '@/lib/abandonedCartUtils';
+import {
+  buildAbandonedCheckoutBaseMatch,
+  buildAbandonedCheckoutFilterMatch,
+  buildAbandonedCheckoutSearchMatch,
+  buildProductCartMatch,
+  loadAbandonedCheckoutProducts,
+  loadAbandonedCheckoutStats,
+  parseDashboardDateTime,
+  parseDashboardLimit,
+  parseDashboardPage,
+} from '@/lib/abandonedCheckoutDashboard';
 import { getConversionPaymentMethodLabel, resolveConversionPaymentLink, conversionRequiresPaymentConfirmation, normalizeConversionPaymentMethod } from '@/lib/abandonedCartRecoveryPayment';
 import { sendAbandonedCartConversionEmail, sendAbandonedCartRecoveryLinkEmail } from '@/lib/email';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
@@ -80,52 +91,107 @@ export async function GET(request) {
 
     await dbConnect();
 
-    const [carts, recentOrders] = await Promise.all([
-      AbandonedCart.find({ storeId, ...ACTIVE_RECORD_FILTER })
-        .sort({ lastSeenAt: -1, updatedAt: -1 })
-        .lean(),
-      Order.find({
+    const { searchParams } = new URL(request.url);
+    const view = String(searchParams.get('view') || 'products').toLowerCase() === 'carts'
+      ? 'carts'
+      : 'products';
+    const page = parseDashboardPage(searchParams.get('page'));
+    const limit = parseDashboardLimit(searchParams.get('limit'));
+    const filter = String(searchParams.get('filter') || 'all').trim().toLowerCase() || 'all';
+    const search = String(searchParams.get('search') || '').trim();
+    const productKey = String(searchParams.get('productKey') || '').trim();
+    const fromDate = parseDashboardDateTime(searchParams.get('from'));
+    const toDate = parseDashboardDateTime(searchParams.get('to'));
+
+    const baseMatch = buildAbandonedCheckoutBaseMatch({ storeId, fromDate, toDate });
+
+    // Light auto-convert: only recent active carts (avoid scanning 5k+ docs on every load).
+    const recentActiveCarts = await AbandonedCart.find({
+      storeId,
+      ...ACTIVE_RECORD_FILTER,
+      status: { $in: ['active', 'pending_payment'] },
+      lastSeenAt: { $gte: getPlacedOrderLookbackDate(7 * 24 * 60 * 60 * 1000) },
+    })
+      .sort({ lastSeenAt: -1 })
+      .limit(250)
+      .select('_id storeId userId email phone phoneCode address items status source anonymousId')
+      .lean();
+
+    if (recentActiveCarts.length) {
+      const recentOrders = await Order.find({
         storeId,
         ...ACTIVE_RECORD_FILTER,
-        createdAt: { $gte: getPlacedOrderLookbackDate() },
+        createdAt: { $gte: getPlacedOrderLookbackDate(7 * 24 * 60 * 60 * 1000) },
         status: { $nin: ['PAYMENT_FAILED', 'CANCELLED', 'AWAITING_PAYMENT'] },
       })
         .select('storeId status paymentMethod paymentStatus isPaid guestEmail guestPhone alternatePhone shippingAddress userId orderItems items createdAt')
-        .lean(),
+        .limit(500)
+        .lean();
+
+      await autoConvertAbandonedCartsWithPlacedOrders(
+        recentActiveCarts,
+        recentOrders,
+        AbandonedCart,
+      );
+    }
+
+    const [stats, listPayload] = await Promise.all([
+      loadAbandonedCheckoutStats(AbandonedCart, baseMatch),
+      (async () => {
+        if (view === 'products') {
+          return loadAbandonedCheckoutProducts(AbandonedCart, {
+            baseMatch,
+            search,
+            page,
+            limit,
+          });
+        }
+
+        const andClauses = [baseMatch, buildAbandonedCheckoutFilterMatch(filter)];
+        const searchMatch = buildAbandonedCheckoutSearchMatch(search);
+        if (searchMatch) andClauses.push(searchMatch);
+        const productMatch = buildProductCartMatch(productKey);
+        if (productMatch) andClauses.push(productMatch);
+
+        const cartQuery = andClauses.length === 1 ? andClauses[0] : { $and: andClauses };
+        const skip = (page - 1) * limit;
+
+        const [carts, total] = await Promise.all([
+          AbandonedCart.find(cartQuery)
+            .sort({ lastSeenAt: -1, updatedAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+          AbandonedCart.countDocuments(cartQuery),
+        ]);
+
+        const userIds = [
+          ...new Set(carts.map((cart) => cart.userId).filter(Boolean).map(String)),
+        ];
+
+        const users = userIds.length
+          ? await User.find({
+            $or: [
+              { _id: { $in: userIds } },
+              { firebaseUid: { $in: userIds } },
+            ],
+          })
+            .select('_id firebaseUid name email phone')
+            .lean()
+          : [];
+
+        const enrichedCarts = enrichAbandonedCarts(carts, users);
+
+        return {
+          carts: enrichedCarts.map((cart) => ({
+            ...cart,
+            _id: String(cart._id),
+            status: cart.status || 'active',
+          })),
+          total,
+        };
+      })(),
     ]);
-
-    const { convertedCartIds } = await autoConvertAbandonedCartsWithPlacedOrders(
-      carts,
-      recentOrders,
-      AbandonedCart,
-    );
-
-    const convertedCartIdSet = new Set(convertedCartIds);
-    const visibleCarts = carts.map((cart) => {
-      if (!convertedCartIdSet.has(String(cart._id))) return cart;
-      return {
-        ...cart,
-        status: 'converted',
-        convertedAt: cart.convertedAt || new Date(),
-      };
-    });
-
-    const userIds = [
-      ...new Set(visibleCarts.map((cart) => cart.userId).filter(Boolean).map(String)),
-    ];
-
-    const users = userIds.length
-      ? await User.find({
-        $or: [
-          { _id: { $in: userIds } },
-          { firebaseUid: { $in: userIds } },
-        ],
-      })
-        .select('_id firebaseUid name email phone')
-        .lean()
-      : [];
-
-    const enrichedCarts = enrichAbandonedCarts(visibleCarts, users);
 
     const access = await resolveDashboardAccess(userId, decodedToken);
     const isPlatformAdmin = Boolean(
@@ -133,12 +199,24 @@ export async function GET(request) {
     );
 
     return NextResponse.json({
-      carts: enrichedCarts.map((cart) => ({
-        ...cart,
-        _id: String(cart._id),
-        status: cart.status || 'active',
-      })),
+      view,
+      page,
+      limit,
+      filter,
+      search,
+      productKey,
+      from: fromDate ? fromDate.toISOString() : null,
+      to: toDate ? toDate.toISOString() : null,
+      stats,
+      products: listPayload.products || [],
+      carts: listPayload.carts || [],
+      total: Number(listPayload.total || 0),
+      totalPages: Math.max(1, Math.ceil(Number(listPayload.total || 0) / limit)),
       canDeleteAbandonedCarts: Boolean(access.isOwner || isPlatformAdmin),
+    }, {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
     });
   } catch (error) {
     return NextResponse.json({ error: error.message || 'Failed' }, { status: 500 });
@@ -438,7 +516,18 @@ export async function PATCH(request) {
             },
           },
         );
-      } else if (!whatsapp?.skipped) {
+      } else if (whatsapp?.skipped) {
+        const errorText = formatWhatsAppErrorMessage(whatsapp?.reason || 'WhatsApp skipped');
+        await AbandonedCart.updateOne(
+          { _id: cartId, storeId },
+          {
+            $set: {
+              whatsappCheckoutReminderStatus: 'skipped',
+              whatsappCheckoutReminderError: errorText,
+            },
+          },
+        );
+      } else {
         const errorText = formatWhatsAppErrorMessage(whatsapp?.reason || whatsapp?.error);
         await AbandonedCart.updateOne(
           { _id: cartId, storeId },

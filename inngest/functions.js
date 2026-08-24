@@ -100,6 +100,19 @@ export const recoverWaslahAutoShipments = inngest.createFunction(
     }),
 )
 
+export const sendAbandonedCartWhatsAppReminders = inngest.createFunction(
+    {
+        id: 'send-abandoned-cart-whatsapp-reminders',
+        retries: 2,
+        concurrency: { limit: 1 },
+    },
+    { cron: '*/2 * * * *' },
+    async ({ step }) => step.run('send-due-abandoned-cart-whatsapp', async () => {
+        const { processDueAbandonedCartWhatsAppReminders } = await import('@/lib/abandonedCheckoutWhatsAppReminder');
+        return processDueAbandonedCartWhatsAppReminders({ limit: 20 });
+    }),
+)
+
 // Repair the narrow crash window where provider capture and atomic stock/paid
 // state committed, but trusted payment proof was not persisted before the
 // process stopped. Only newly enrolled, active, reservation-backed orders are

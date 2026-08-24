@@ -10,6 +10,7 @@ import { MdCategory, MdOutlineCheckCircleOutline, MdAutoAwesome } from 'react-ic
 import Loading from '@/components/Loading';
 import { cleanDisplayText } from '@/lib/displayText';
 import { suggestUaeArabicCategory } from '@/lib/categoryLocalization';
+import { toPublicCategoryPath } from '@/lib/categorySlug';
 
 const DEFAULT_CATEGORY_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23eff6ff'/%3E%3Cstop offset='100%25' stop-color='%23e2e8f0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='160' height='160' rx='28' fill='url(%23g)'/%3E%3Ccircle cx='80' cy='64' r='24' fill='%23bfdbfe'/%3E%3Cpath d='M38 124c10-22 29-34 42-34s32 12 42 34' fill='%2394a3b8'/%3E%3C/svg%3E";
 
@@ -30,8 +31,7 @@ function slugify(text = '') {
 }
 
 function buildCategoryUrl(name = '') {
-  const slug = slugify(name);
-  return slug ? `/${slug}` : '/';
+  return toPublicCategoryPath(name);
 }
 
 const LARGE_DATA_URL_MAX = 4096;
@@ -121,9 +121,9 @@ async function syncStoreMenuFromSystemCategories(categories, token) {
 
 function buildSystemCategoryMenuUrl(category = {}) {
   if (category?.slug) {
-    return `/shop?category=${category.slug}`;
+    return toPublicCategoryPath(category.slug);
   }
-  return category?.url || buildCategoryUrl(category?.name || '');
+  return toPublicCategoryPath(category?.url || category?.name || '');
 }
 
 function buildCategoryTree(categories = [], parentId = null) {
@@ -246,6 +246,7 @@ export default function StoreCategoryMenu() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [categoryProductCounts, setCategoryProductCounts] = useState({});
+  const [categoryDirectProductCounts, setCategoryDirectProductCounts] = useState({});
   const [totalStoreProducts, setTotalStoreProducts] = useState(0);
 
   const fetchCategoryProductCounts = async (token) => {
@@ -253,6 +254,7 @@ export default function StoreCategoryMenu() {
       headers: { Authorization: `Bearer ${token}` },
     });
     setCategoryProductCounts(data?.counts || {});
+    setCategoryDirectProductCounts(data?.directCounts || {});
     setTotalStoreProducts(Number(data?.totalProducts) || 0);
   };
 
@@ -847,6 +849,8 @@ export default function StoreCategoryMenu() {
       : (Array.isArray(category.children) ? category.children.length : 0);
     const hasChildren = childCount > 0;
     const productCount = categoryProductCounts[categoryId] || 0;
+    const directProductCount = categoryDirectProductCounts[categoryId] || 0;
+    const showsSubcategoryRollup = productCount > directProductCount;
 
     return (
       <div key={String(category._id)} className={`rounded-xl border shadow-md ${meta.cardClassName} ${isSelected ? 'border-blue-500 ring-2 ring-blue-100' : ''}`}>
@@ -902,8 +906,10 @@ export default function StoreCategoryMenu() {
                       Slug: {category.slug}
                     </p>
                   )}
-                  {category.description && (
-                    <p className="mt-1 text-xs text-slate-600 sm:text-sm">{category.description}</p>
+                  {(category.description || category.descriptionAr) && (
+                    <p className="mt-1 text-xs text-slate-600 sm:text-sm">
+                      {category.description || category.descriptionAr}
+                    </p>
                   )}
                   {(category.metaTitle || category.metaDescription) && (
                     <p className="mt-1 text-[11px] text-slate-500">
@@ -917,9 +923,20 @@ export default function StoreCategoryMenu() {
                   </p>
                   <Link
                     href={`/store/manage-product?category=${encodeURIComponent(categoryId)}`}
-                    className="mt-1 inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700 transition hover:bg-blue-50 hover:text-blue-800 sm:text-xs"
+                    className="mt-1 inline-flex flex-col items-start gap-0.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700 transition hover:bg-blue-50 hover:text-blue-800 sm:text-xs"
+                    title={showsSubcategoryRollup
+                      ? `${directProductCount} tagged on this category · ${productCount} including subcategories (same as storefront)`
+                      : undefined}
                   >
-                    {productCount} {productCount === 1 ? 'product' : 'products'}
+                    <span>
+                      {productCount} {productCount === 1 ? 'product' : 'products'}
+                      {showsSubcategoryRollup ? ' (incl. subcategories)' : ''}
+                    </span>
+                    {showsSubcategoryRollup ? (
+                      <span className="text-[10px] font-medium text-slate-500">
+                        {directProductCount} direct
+                      </span>
+                    ) : null}
                   </Link>
                 </div>
 
@@ -1233,7 +1250,7 @@ export default function StoreCategoryMenu() {
                       <div className="space-y-4">
                         <div>
                           <label className="mb-2 block text-xs font-semibold text-slate-600 sm:text-sm">
-                            Category Description
+                            Category Description (English)
                           </label>
                           <textarea
                             value={formData.description}
@@ -1244,7 +1261,7 @@ export default function StoreCategoryMenu() {
                             className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 sm:px-4 sm:py-2.5"
                           />
                           <p className="mt-1.5 text-xs text-slate-500">
-                            {(formData.description || '').length}/2000 · This is the public page text, not the SEO meta description.
+                            {(formData.description || '').length}/2000 · Public page text for English. If empty, Arabic is shown instead. Not the SEO meta description.
                           </p>
                         </div>
                         <div>
@@ -1268,9 +1285,12 @@ export default function StoreCategoryMenu() {
                             rows={3}
                             dir="rtl"
                             onChange={(e) => setFormData((prev) => ({ ...prev, descriptionAr: e.target.value }))}
-                            placeholder="وصف الفئة في الواجهة العربية"
+                            placeholder="Arabic storefront description"
                             className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 sm:px-4 sm:py-2.5"
                           />
+                          <p className="mt-1.5 text-xs text-slate-500">
+                            {(formData.descriptionAr || '').length}/2000 · Shown when the storefront language is Arabic.
+                          </p>
                         </div>
                       </div>
                     </div>

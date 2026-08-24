@@ -4,6 +4,7 @@ import { ArrowRightIcon } from 'lucide-react'
 import Image from 'next/image'
 import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { toPublicCategoryPath } from '@/lib/categorySlug'
 
 // Local fallback images
 import Mainslider1 from '../assets/herobanner/BannerA5.webp'
@@ -212,7 +213,7 @@ const Hero = () => {
   const slide = dataSlides[currentSlide]
 
   const buttonHref = adminSlides
-    ? (mainSel?.bannerCtaLink || `/products?category=${encodeURIComponent(mainSel?.title || '')}`)
+    ? (mainSel?.bannerCtaLink || toPublicCategoryPath(mainSel?.title || ''))
     : (slide.buttonLink || '/products')
 
   /* ---------------------------------------------------
@@ -244,7 +245,7 @@ const Hero = () => {
         <div className="hidden xl:flex flex-col gap-5 w-full xl:max-w-sm text-sm text-slate-600">
           {/* BOX 1 */}
           <Link
-            href={right1Sel?.bannerCtaLink || `/products?category=${encodeURIComponent(right1Sel?.title || '')}`}
+            href={right1Sel?.bannerCtaLink || toPublicCategoryPath(right1Sel?.title || '')}
             className="relative flex-1 w-full rounded-3xl p-6 px-8 group overflow-hidden min-h-36"
           >
             <Image
@@ -262,7 +263,7 @@ const Hero = () => {
           </Link>
           {/* BOX 2 */}
           <Link
-            href={right2Sel?.bannerCtaLink || `/products?category=${encodeURIComponent(right2Sel?.title || '')}`}
+            href={right2Sel?.bannerCtaLink || toPublicCategoryPath(right2Sel?.title || '')}
             className="relative flex-1 w-full rounded-3xl p-6 px-8 group overflow-hidden min-h-36"
           >
             <Image

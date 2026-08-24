@@ -11,6 +11,7 @@ import { invalidateCategoryCaches } from '@/lib/categoryCache';
 
 import { getS3PublicBaseUrl, isHostedMediaUrl, mirrorRemoteImageToS3 } from '@/lib/storage';
 import { normalizeRemoteProductImageUrl } from '@/lib/productImageSource';
+import { toPublicCategoryPath } from '@/lib/categorySlug';
 
 const S3_PUBLIC_URL = getS3PublicBaseUrl();
 
@@ -29,10 +30,7 @@ const normalizeLookupValue = (value = '') => String(value || '').trim().toLowerC
 
 const buildNameParentKey = (name = '', parentId = null) => `${normalizeLookupValue(name)}::${String(parentId || '')}`;
 
-const buildCategoryUrl = (name = '', slug = '') => {
-  const resolvedSlug = slugify(slug || name);
-  return resolvedSlug ? `/${resolvedSlug}` : '/';
-};
+const buildCategoryUrl = (name = '', slug = '') => toPublicCategoryPath(slug || name);
 
 const parseBoolean = (value, fallback = false) => {
   if (value === null || value === undefined || value === '') return fallback;

@@ -4,6 +4,7 @@ import Product from '@/models/Product';
 import AbandonedCart from '@/models/AbandonedCart';
 import {
   scheduleAbandonedCartWhatsAppReminder,
+  queueAbandonedCartWhatsAppDrain,
 } from '@/lib/abandonedCheckoutWhatsAppReminder';
 import { getProductThumbnailUrl } from '@/lib/productMedia';
 import {
@@ -138,6 +139,7 @@ export async function POST(request) {
       }
     }
 
+    queueAbandonedCartWhatsAppDrain();
     return NextResponse.json({ ok: true, saved: savedCount });
   } catch (error) {
     console.error('[abandoned-checkout] error:', error);

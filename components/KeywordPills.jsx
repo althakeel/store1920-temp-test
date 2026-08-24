@@ -51,8 +51,7 @@ export default function FlipkartStyleBottom() {
 
   const handleClick = (keyword) => {
     const slug = getSlug(keyword);
-    // Navigate to shop page with category filter
-    router.push(`/shop?category=${slug}`);
+    router.push(`/category/${slug}`);
   };
 
   return (

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { META_PIXEL_ID } from "@/lib/metaPixelConfig";
 import { trackPageView } from "@/lib/metaPixelTracking";
+import { ensureMetaClickId } from "@/lib/metaBrowserAttribution";
 
 export default function MetaPixel() {
   const pathname = usePathname();
@@ -11,21 +12,19 @@ export default function MetaPixel() {
   useEffect(() => {
     if (typeof window === "undefined" || !pathname) return;
 
+    if (window.fbq) {
+      window.fbq('set', 'autoConfig', false, META_PIXEL_ID);
+    }
+
     const pathOnly = pathname.split('?')[0];
     if (pathOnly === '/order-success') return;
+    if (
+      pathOnly.startsWith('/store')
+      || pathOnly.startsWith('/admin')
+      || pathOnly.startsWith('/dashboard')
+    ) return;
 
-    import('@/lib/metaBrowserAttribution').then(({ ensureMetaClickId }) => {
-      ensureMetaClickId();
-    });
-
-    const applyAutoConfig = () => {
-      if (window.fbq) {
-        window.fbq('set', 'autoConfig', false, META_PIXEL_ID);
-      }
-    };
-    applyAutoConfig();
-
-    // Path only — query-string identity changes must not create a 2nd PageView.
+    ensureMetaClickId();
     trackPageView({ pagePath: pathOnly });
   }, [pathname]);
 

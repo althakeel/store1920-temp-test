@@ -27,6 +27,9 @@ function getPublicShippingFallback() {
     regionalDeliveryFee: null,
     estimatedDays: "2-5",
     enableCOD: true,
+    enableCard: true,
+    enableTabby: true,
+    enableTamara: true,
     codFee: 0,
     maxCODAmount: 0,
     maxCardAmount: 0,
@@ -150,6 +153,25 @@ export async function PUT(request) {
     if (!storeId) return NextResponse.json({ error: "not authorized" }, { status: 401 });
 
     const body = await request.json();
+
+    await dbConnect();
+
+    // Settings → Payments tab: patch enable flags only (do not reset shipping config).
+    if (body.paymentMethodsOnly) {
+      const patch = {
+        enableCOD: body.enableCOD !== false,
+        enableCard: body.enableCard !== false,
+        enableTabby: body.enableTabby !== false,
+        enableTamara: body.enableTamara !== false,
+      };
+      const setting = await ShippingSetting.findOneAndUpdate(
+        { storeId },
+        { $set: { storeId, ...patch } },
+        { upsert: true, new: true },
+      );
+      return NextResponse.json({ setting });
+    }
+
     const shippingOptions = sanitizeShippingOptionsPayload(body.shippingOptions);
     const legacyFromOptions = syncLegacyFieldsFromOptions(shippingOptions);
     
@@ -186,8 +208,11 @@ export async function PUT(request) {
       regionalDeliveryFee: body.regionalDeliveryFee ? Number(body.regionalDeliveryFee) : null,
       // Delivery Time
       estimatedDays: legacyFromOptions.estimatedDays || body.estimatedDays || "2-5",
-      // COD
-      enableCOD: Boolean(body.enableCOD ?? true),
+      // Payment methods (storefront checkout)
+      enableCOD: body.enableCOD !== false,
+      enableCard: body.enableCard !== false,
+      enableTabby: body.enableTabby !== false,
+      enableTamara: body.enableTamara !== false,
       codFee: Number(body.codFee ?? 0),
       maxCODAmount: Number(body.maxCODAmount ?? 0),
       maxCardAmount: Number(body.maxCardAmount ?? 0),
@@ -215,7 +240,6 @@ export async function PUT(request) {
     
     console.log('Data to save - maxCODAmount:', data.maxCODAmount, 'codFee:', data.codFee);
 
-    await dbConnect();
     const setting = await ShippingSetting.findOneAndUpdate(
       { storeId },  // Find by storeId (one setting per store)
       data,

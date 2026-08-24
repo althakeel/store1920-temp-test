@@ -28,6 +28,8 @@ import { formatStorefrontMoney } from '@/lib/storefrontMarket';
 import { getProductImageAspectRatioClass } from '@/lib/productMedia';
 import { compressImageForUpload, getUploadErrorMessage } from '@/lib/compressImageForUpload';
 import { uploadStoreImage } from '@/lib/uploadStoreImage';
+import APlusContentEditor from '@/components/store/APlusContentEditor';
+import { resolveAPlusImageList } from '@/lib/aPlusContent';
 import { sanitizeRichTextMedia } from '@/lib/sanitizeRichTextMedia';
 import { getVariantCardLabel, formatMatrixPackSizeLabel, normalizeSellerVariantOptions } from '@/lib/productVariantOptions';
 
@@ -735,7 +737,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
         const [draggingMediaKey, setDraggingMediaKey] = useState(null);
         const [dragOverMediaKey, setDragOverMediaKey] = useState(null);
         const [productInfo, setProductInfo] = useState({
-            name: '', nameAr: '', slug: '', brand: '', brandAr: '', shortDescription: '', shortDescriptionAr: '', shortDescription2: '', shortDescription2Ar: '', specTableEnabled: false, specTableTitle: 'Product information', specTableTitleAr: 'مواصفات المنتج', specTableColumns: ['Property', 'Value'], specTableColumnsAr: ['الخاصية', 'القيمة'], specTableRows: [['', '']], specTableRowsAr: [['', '']], description: '', descriptionAr: '', aPlusDesktop: '', aPlusMobile: '', aPlusDesktopAr: '', aPlusMobileAr: '', AED: '', price: '', priceAr: '', AEDAr: '', category: '', sku: '', stockQuantity: 50, soldCount: 0, colors: [], sizes: [], fastDelivery: false, freeShippingEligible: false, useProductsPath: false, allowReturn: true, allowReplacement: true, reviews: [], badges: [], imageAspectRatio: '1:1', cardVideoPreviewEnabled: true, cardVideoPreviewDelaySec: 24, tags: [], seoTitle: '', seoDescription: '', seoKeywords: [], deliveredBy: '', soldBy: '', paymentInfo: '', hsCode: '', originCountry: '', shippingWeightKg: ''
+            name: '', nameAr: '', slug: '', brand: '', brandAr: '', shortDescription: '', shortDescriptionAr: '', shortDescription2: '', shortDescription2Ar: '', specTableEnabled: false, specTableTitle: 'Product information', specTableTitleAr: 'مواصفات المنتج', specTableColumns: ['Property', 'Value'], specTableColumnsAr: ['الخاصية', 'القيمة'], specTableRows: [['', '']], specTableRowsAr: [['', '']], description: '', descriptionAr: '', aPlusDesktop: '', aPlusMobile: '', aPlusDesktopAr: '', aPlusMobileAr: '', aPlusDesktopImages: [], aPlusMobileImages: [], AED: '', price: '', priceAr: '', AEDAr: '', category: '', sku: '', stockQuantity: 50, soldCount: 0, colors: [], sizes: [], fastDelivery: false, freeShippingEligible: false, useProductsPath: false, allowReturn: true, allowReplacement: true, reviews: [], badges: [], imageAspectRatio: '1:1', cardVideoPreviewEnabled: true, cardVideoPreviewDelaySec: 24, tags: [], seoTitle: '', seoDescription: '', seoKeywords: [], deliveredBy: '', soldBy: '', paymentInfo: '', hsCode: '', originCountry: '', shippingWeightKg: ''
         });
         const [tagInput, setTagInput] = useState('');
         const [seoKeywordInput, setSeoKeywordInput] = useState('');
@@ -1052,6 +1054,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 aPlusMobile: product.aPlusMobile || "",
                 aPlusDesktopAr: product.aPlusDesktopAr || "",
                 aPlusMobileAr: product.aPlusMobileAr || "",
+                aPlusDesktopImages: resolveAPlusImageList(product.aPlusDesktopImages, product.aPlusDesktop),
+                aPlusMobileImages: resolveAPlusImageList(product.aPlusMobileImages, product.aPlusMobile),
                 AED: product.AED || "",
                 price: product.price || "",
                 priceAr: product.attributes?.priceAr || "",
@@ -2257,6 +2261,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 aPlusMobile,
                 aPlusDesktopAr,
                 aPlusMobileAr,
+                aPlusDesktopImages: productInfo.aPlusDesktopImages || [],
+                aPlusMobileImages: productInfo.aPlusMobileImages || [],
                 price: Number(productInfo.price)
                     || (variantsToSend.length > 0 ? Number(variantsToSend[0].price) : 0)
                     || 0,
@@ -2369,6 +2375,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
         { id: 'section-media', label: 'Media' },
         { id: 'section-basic', label: 'Basics' },
         { id: 'section-content', label: 'Content' },
+        { id: 'section-aplus', label: 'A+ Content' },
         { id: 'section-advanced', label: 'Advanced' },
         { id: 'section-variants', label: 'Variants' },
     ]
@@ -2994,11 +3001,21 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                   </div>
                 </FormSection>
 
-                <FormSection id="section-aplus" title="A+ Content" icon="✨" subtitle="Rich modules shown below the description — separate layouts for desktop and mobile" defaultOpen={isEditing}>
+                <FormSection id="section-aplus" title="A+ Content" icon="✨" subtitle="Upload different image modules for desktop and mobile" defaultOpen>
                   <div className="space-y-5">
                     <p className="text-xs text-slate-500">
-                      Use this for Amazon-style A+ / enhanced brand content. Upload images with the green bar or the Image button, then save the product. Desktop content shows on large screens; mobile content shows on phone layout and the mobile app product API.
+                      Amazon-style A+ modules below the product description. Upload a wide set for desktop and a separate taller set for phones. Save the product after uploading.
                     </p>
+                    <APlusContentEditor
+                      desktopImages={productInfo.aPlusDesktopImages || []}
+                      mobileImages={productInfo.aPlusMobileImages || []}
+                      onDesktopChange={(nextImages) => setProductInfo((prev) => ({ ...prev, aPlusDesktopImages: nextImages }))}
+                      onMobileChange={(nextImages) => setProductInfo((prev) => ({ ...prev, aPlusMobileImages: nextImages }))}
+                      getAuthTokenOrThrow={getAuthTokenOrThrow}
+                    />
+                    <details className="rounded-xl border border-slate-200 bg-white p-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-slate-700">Optional extra HTML (headings, tables, text)</summary>
+                      <div className="mt-4 space-y-5">
                     <div>
                       <label className="block text-xs font-semibold mb-2 text-gray-500 uppercase tracking-wide">Desktop A+ Content</label>
                       <RichTextDescriptionEditor
@@ -3053,6 +3070,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                         </div>
                       </>
                     ) : null}
+                      </div>
+                    </details>
                   </div>
                 </FormSection>
 

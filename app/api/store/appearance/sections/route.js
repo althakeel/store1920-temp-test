@@ -4,6 +4,10 @@ import StorePreference from '@/models/StorePreference'
 import authSeller from '@/middlewares/authSeller'
 import { deleteCacheKey } from '@/lib/cache'
 import { DEFAULT_FAST_DELIVERY_PAGE, normalizeFastDeliveryPage } from '@/lib/fastDeliveryPageSettings'
+import {
+  DEFAULT_WHATSAPP_PRODUCT_WIDGET,
+  normalizeWhatsAppProductWidget,
+} from '@/lib/whatsappProductWidget'
 
 const DEFAULT_APPEARANCE = {
   categorySliders: { enabled: true, title: 'Featured Collections', description: 'Browse our curated collections' },
@@ -14,6 +18,7 @@ const DEFAULT_APPEARANCE = {
   navbarMenu: { enabled: true, position: 'top', style: 'horizontal' },
   exploreYourInterests: { enabled: true, productIds: [] },
   fastDeliveryPage: DEFAULT_FAST_DELIVERY_PAGE,
+  whatsappProductWidget: DEFAULT_WHATSAPP_PRODUCT_WIDGET,
   productPageInfo: {
     returnsText: 'FREE Returns',
     vatText: 'All prices include VAT.',
@@ -210,6 +215,9 @@ function normalizeAppearance(data = {}) {
         : DEFAULT_APPEARANCE.exploreYourInterests.productIds
     },
     fastDeliveryPage: normalizeFastDeliveryPage(fastDeliveryPage),
+    whatsappProductWidget: normalizeWhatsAppProductWidget(
+      data.whatsappProductWidget || DEFAULT_APPEARANCE.whatsappProductWidget,
+    ),
     productPageInfo: {
       returnsText: (productPageInfo.returnsText || DEFAULT_APPEARANCE.productPageInfo.returnsText).toString().trim(),
       vatText: (productPageInfo.vatText || DEFAULT_APPEARANCE.productPageInfo.vatText).toString().trim(),
@@ -279,6 +287,7 @@ export async function POST(request) {
     )
 
     deleteCacheKey('public:appearance-sections:v1')
+    deleteCacheKey('public:appearance-sections:v2')
 
     return NextResponse.json({ message: 'Appearance settings saved', ...appearanceSections })
   } catch (error) {

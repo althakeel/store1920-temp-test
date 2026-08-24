@@ -51,15 +51,22 @@ async function main() {
   const token = await getZohoAccessToken({ force: true });
   console.log('Zoho token connected:', Boolean(token));
 
-  const result = await testZohoInventoryConnection();
-  console.log(JSON.stringify(result, null, 2));
+  try {
+    const result = await testZohoInventoryConnection();
+    console.log(JSON.stringify(result, null, 2));
 
-  if (!result.configuredOrganizationId) {
-    console.log('\nNext step: copy organization_id from the list above into .env as ZOHO_ORGANIZATION_ID');
-  } else if (!result.configuredOrganizationMatched) {
-    console.log('\nWarning: ZOHO_ORGANIZATION_ID does not match any organization returned by Zoho.');
-  } else {
-    console.log(`\nOrganization matched: ${result.configuredOrganizationName} (${result.configuredOrganizationId})`);
+    if (!result.configuredOrganizationId) {
+      console.log('\nNext step: copy organization_id from the list above into .env as ZOHO_ORGANIZATION_ID');
+    } else if (!result.configuredOrganizationMatched) {
+      console.log('\nWarning: ZOHO_ORGANIZATION_ID does not match any organization returned by Zoho.');
+    } else {
+      console.log(`\nOrganization matched: ${result.configuredOrganizationName} (${result.configuredOrganizationId})`);
+    }
+  } catch (err) {
+    console.error('\nInventory API failed. If this token was created for Zoho CRM, reconnect with:');
+    console.error('  ZohoInventory.FullAccess.all');
+    console.error('Docs: https://www.zoho.com/inventory/api/v1/oauth/#overview');
+    throw err;
   }
 }
 

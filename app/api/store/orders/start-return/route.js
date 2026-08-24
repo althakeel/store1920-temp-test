@@ -3,7 +3,6 @@ import dbConnect from '@/lib/mongodb';
 import Order from '@/models/Order';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
-import { notifyCustomerOfOrderStatusChange } from '@/lib/orderStatusCustomerNotify';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +61,7 @@ export async function POST(request) {
 
     await dbConnect();
     const order = await Order.findOne({ _id: orderId, storeId: String(storeId) })
-      .populate({ path: 'userId', select: 'email name' })
+      .populate({ path: 'orderItems.productId', model: 'Product' })
       .exec();
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -83,53 +82,43 @@ export async function POST(request) {
     }
 
     const previousStatus = String(order.status || '').toUpperCase();
-    const nextStatus = type === 'REPLACEMENT' ? 'REPLACEMENT' : 'RETURN';
     const defaultReason = type === 'REPLACEMENT'
       ? 'Replacement started by store after delivery'
       : 'Return started by store after delivery';
 
-    order.returns = Array.isArray(order.returns) ? order.returns : [];
-    order.returns.push({
-      itemIndex: 0,
-      reason: reason || defaultReason,
-      type,
-      status: 'APPROVED',
-      description: reason || defaultReason,
-      images: [],
-      requestedAt: new Date(),
-      approvedAt: new Date(),
-      sellerNotes: 'Started by store staff',
-    });
-    order.status = nextStatus;
-    await order.save();
+    const { createReturnCase, applyReturnAction, serializeReturnCase } = await import('@/lib/storeReturnWorkflow');
 
-    const plainOrder = typeof order.toObject === 'function' ? order.toObject() : order;
-    try {
-      await notifyCustomerOfOrderStatusChange(plainOrder, nextStatus, {
-        previousStatus,
-        source: type === 'REPLACEMENT' ? 'store_replacement' : 'store_return',
-        force: true,
-        actor: {
-          uid: decodedToken.uid,
-          name: decodedToken.name || decodedToken.email || 'Store staff',
-          email: decodedToken.email || '',
-        },
-      });
-    } catch (emailError) {
-      console.error('[store/orders/start-return] customer email failed', emailError?.message || emailError);
-    }
+    const created = await createReturnCase({
+      order,
+      userId: order.userId,
+      type,
+      reason: reason || defaultReason,
+      description: reason || defaultReason,
+      source: 'store',
+      skipEligibility: true,
+      actor: {
+        uid: decodedToken.uid,
+        name: decodedToken.name || decodedToken.email || 'Store staff',
+      },
+    });
+
+    const result = await applyReturnAction(created.request, {
+      action: 'APPROVE',
+      actor: {
+        uid: decodedToken.uid,
+        name: decodedToken.name || decodedToken.email || 'Store staff',
+        email: decodedToken.email || '',
+      },
+    });
 
     return NextResponse.json({
       success: true,
-      message: type === 'REPLACEMENT'
-        ? 'Replacement started. The customer has been emailed.'
-        : 'Return started. The customer has been emailed.',
-      order: {
-        _id: order._id,
-        status: order.status,
-        returns: order.returns,
-        updatedAt: order.updatedAt,
-      },
+      message: result.message || (type === 'REPLACEMENT'
+        ? 'Replacement started. Pickup is scheduled; replacement ships after QC.'
+        : 'Return started. Pickup is scheduled from the new return order.'),
+      previousStatus,
+      request: serializeReturnCase(result.request || created.request, order),
+      followUp: result.followUp || null,
     });
   } catch (error) {
     console.error('[store/orders/start-return]', error);

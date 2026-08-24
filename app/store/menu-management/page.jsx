@@ -11,6 +11,7 @@ import {
   getCategoryDisplayName,
   resolveStoreNavMenuItems,
 } from '@/lib/categoryNavigation';
+import { toPublicCategoryPath } from '@/lib/categorySlug';
 import {
   Eye,
   Loader2,
@@ -155,6 +156,10 @@ const safeDecode = (value) => {
 
 const readLinkChoice = (link) => {
   const normalized = String(link || '').trim() || '#';
+  if (normalized.startsWith('/category/')) {
+    return { type: 'category', value: normalized.replace(/^\/category\//, '').trim() };
+  }
+
   if (normalized.startsWith('/shop?')) {
     const query = normalized.split('?')[1] || '';
     const params = new URLSearchParams(query);
@@ -184,7 +189,7 @@ const createLinkFromChoice = (type, rawValue) => {
   if (!value) return '#';
 
   if (type === 'category') {
-    return `/shop?category=${encodeURIComponent(value)}`;
+    return toPublicCategoryPath(value);
   }
 
   if (type === 'product') {

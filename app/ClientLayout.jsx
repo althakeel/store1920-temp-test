@@ -16,6 +16,7 @@ import { Toaster } from "react-hot-toast";
 const SpinWheelWidget = dynamic(() => import("@/components/SpinWheelWidget"), { ssr: false });
 const GiveawayCartManager = dynamic(() => import("@/components/GiveawayCartManager"), { ssr: false });
 const AuthSessionGuard = dynamic(() => import("@/components/AuthSessionGuard"), { ssr: false });
+const GoogleOneTap = dynamic(() => import("@/components/GoogleOneTap"), { ssr: false });
 
 function DeferredWidgets() {
   const [ready, setReady] = useState(false);
@@ -85,6 +86,7 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
       />
       <DynamicMetaTags />
       <AuthSessionGuard />
+      {!hideStorefrontChrome ? <GoogleOneTap /> : null}
       {children}
       {!hideStorefrontChrome && (
         <>

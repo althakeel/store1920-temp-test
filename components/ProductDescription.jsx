@@ -9,9 +9,11 @@ import toast from "react-hot-toast"
 import ProductCard from "./ProductCard"
 import { useSelector } from "react-redux"
 import { PRODUCT_RICH_CONTENT_CLASS, sanitizeProductRichHtml } from "@/lib/productRichContent"
+import { pickAPlusModules } from "@/lib/aPlusContent"
 import { useStorefrontI18n } from "@/lib/useStorefrontI18n"
 import { useProductWishlist } from "@/lib/useProductWishlist"
 import { getProductAbsoluteUrl } from "@/lib/productUrl"
+import { toPublicCategoryPath } from "@/lib/categorySlug"
 
 const formatReviewDate = (dateString) => {
     if (!dateString) return ''
@@ -296,26 +298,20 @@ const ProductDescription = ({
     const resolvedAPlusViewport = aPlusViewport === 'auto'
         ? (compactMobile ? 'mobile' : 'desktop')
         : aPlusViewport
-    const rawAPlus = useMemo(() => {
-        if (resolvedAPlusViewport === 'mobile') {
-            return isArabic
-                ? (product?.aPlusMobileAr || product?.aPlusMobile || '')
-                : (product?.aPlusMobile || '')
-        }
-        return isArabic
-            ? (product?.aPlusDesktopAr || product?.aPlusDesktop || '')
-            : (product?.aPlusDesktop || '')
-    }, [
-        resolvedAPlusViewport,
-        isArabic,
-        product?.aPlusDesktop,
-        product?.aPlusMobile,
-        product?.aPlusDesktopAr,
-        product?.aPlusMobileAr,
-    ])
-    const aPlusHtml = useMemo(() => sanitizeProductRichHtml(rawAPlus), [rawAPlus])
-    const aPlusPlainText = aPlusHtml.replace(/<[^>]*>/g, '').trim()
-    const hasAPlusContent = aPlusPlainText.length > 0
+    const aPlusModules = useMemo(
+        () => pickAPlusModules({
+            product,
+            viewport: resolvedAPlusViewport,
+            isArabic,
+        }),
+        [
+            product,
+            resolvedAPlusViewport,
+            isArabic,
+        ],
+    )
+    const aPlusHtml = useMemo(() => sanitizeProductRichHtml(aPlusModules.html), [aPlusModules.html])
+    const hasAPlusContent = aPlusModules.hasContent || Boolean(aPlusHtml)
 
     useEffect(() => {
         if (!showSuggestedProducts) return
@@ -471,17 +467,29 @@ const ProductDescription = ({
 
             {showMainDescription && hasAPlusContent ? (
                 <div
-                    className={`${compactMobile ? 'order-1' : 'order-3'} bg-white ${compactMobile ? 'border-t border-gray-100 px-4 py-3' : 'border-t border-gray-200 pt-6 mt-2'}`}
+                    className={`${compactMobile ? 'order-1' : 'order-3'} bg-white ${compactMobile ? 'border-t border-gray-100 py-3' : 'border-t border-gray-200 pt-6 mt-2'}`}
                     dir={isArabic ? 'rtl' : 'ltr'}
                 >
-                    <h2 className={`${compactMobile ? 'mb-2 text-[15px] font-bold' : 'mb-3 text-[18px] font-semibold'} leading-none text-gray-900`}>
-                        {t('product.aPlusContent')}
-                    </h2>
-                    <div
-                        className={PRODUCT_RICH_CONTENT_CLASS}
-                        dir={isArabic ? 'rtl' : 'ltr'}
-                        dangerouslySetInnerHTML={{ __html: aPlusHtml }}
-                    />
+                    {aPlusModules.images.length > 0 ? (
+                        <div className={compactMobile ? '' : 'space-y-0'}>
+                            {aPlusModules.images.map((src, index) => (
+                                <img
+                                    key={`${src}-${index}`}
+                                    src={src}
+                                    alt=""
+                                    className="block h-auto w-full"
+                                    loading="lazy"
+                                />
+                            ))}
+                        </div>
+                    ) : null}
+                    {aPlusHtml ? (
+                        <div
+                            className={`${PRODUCT_RICH_CONTENT_CLASS} ${compactMobile ? 'px-4 pt-3' : aPlusModules.images.length ? 'pt-4' : ''}`}
+                            dir={isArabic ? 'rtl' : 'ltr'}
+                            dangerouslySetInnerHTML={{ __html: aPlusHtml }}
+                        />
+                    ) : null}
                 </div>
             ) : null}
 
@@ -492,7 +500,7 @@ const ProductDescription = ({
                         <h2 className="text-xl font-bold text-gray-900">{t('product.youMayAlsoLike')}</h2>
                         {product.category && (
                             <Link 
-                                href={`/shop?category=${product.category}`}
+                                href={toPublicCategoryPath(product.category)}
                                 className="text-sm text-orange-500 hover:text-orange-600 font-medium flex items-center gap-1"
                             >
                                 {t('product.viewAllLink')} <ArrowRight size={16} className={isArabic ? 'rotate-180' : ''} />

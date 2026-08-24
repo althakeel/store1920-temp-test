@@ -290,7 +290,7 @@ export default function CategoriesManager() {
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50"
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    URL: /shop?category={formData.slug}
+                    URL: /category/{formData.slug}
                   </p>
                 </div>
 
@@ -303,7 +303,7 @@ export default function CategoriesManager() {
                     type="text"
                     value={formData.url}
                     onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
-                    placeholder="e.g., /shop?category=women-s-fashion"
+                    placeholder="e.g., /category/womens-fashion"
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>

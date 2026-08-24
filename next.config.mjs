@@ -145,6 +145,26 @@ const nextConfig = {
         // Fallback for unknown product/category URLs that only differ by trailing slash.
         const trailingSlashRedirects = [
             {
+                source: '/product/products',
+                destination: '/shop',
+                permanent: false,
+            },
+            {
+                source: '/product/products/',
+                destination: '/shop',
+                permanent: false,
+            },
+            {
+                source: '/product/shop',
+                destination: '/shop',
+                permanent: false,
+            },
+            {
+                source: '/product/shop/',
+                destination: '/shop',
+                permanent: false,
+            },
+            {
                 source: '/product/:slug+/',
                 destination: '/product/:slug+',
                 permanent: true,

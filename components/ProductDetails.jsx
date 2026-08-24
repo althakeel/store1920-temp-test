@@ -28,6 +28,7 @@ import {
 import { decrementCartItem, incrementCartItem } from "@/lib/bundleCartActions";
 import MobileProductActions from "./MobileProductActions";
 import ProductShareButton from "./ProductShareButton";
+import ProductWhatsAppWidget from "./ProductWhatsAppWidget";
 import ProductCard from "./ProductCard";
 import ProductCarousel from "./ProductCarousel";
 import ProductDescription from "./ProductDescription";
@@ -408,6 +409,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       badges: DEFAULT_BADGE_STYLES
     }
   });
+  const [whatsappProductWidget, setWhatsappProductWidget] = useState(null);
   const [timeNow, setTimeNow] = useState(() => new Date());
   const [cartUiReady, setCartUiReady] = useState(false);
   const [shippingPreview, setShippingPreview] = useState({
@@ -488,6 +490,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
           ...prev,
           ...(data?.productPageInfo || {})
         }));
+        if (data?.whatsappProductWidget) {
+          setWhatsappProductWidget(data.whatsappProductWidget);
+        }
       } catch {
         // keep defaults
       }
@@ -3957,6 +3962,11 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
           }
         }
       `}</style>
+      <ProductWhatsAppWidget
+        productId={product?._id}
+        productName={isArabic ? (product?.nameAr || product?.name) : product?.name}
+        widget={whatsappProductWidget}
+      />
     </div>
   );
 };

@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Product from '@/models/Product';
+import Category from '@/models/Category';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
-import { buildCategoryProductCounts } from '@/lib/categoryProductStats';
+import {
+  buildCategoryProductCounts,
+  buildInclusiveCategoryProductCounts,
+} from '@/lib/categoryProductStats';
 
 async function verifyStoreSeller(request) {
   const authHeader = request.headers.get('authorization');
@@ -34,12 +38,18 @@ export async function GET(request) {
 
     await connectDB();
 
-    const products = await Product.find({ storeId: auth.storeId })
-      .select('category categories')
-      .lean();
+    const [products, categories] = await Promise.all([
+      Product.find({ storeId: auth.storeId }).select('category categories').lean(),
+      Category.find({}).select('_id parentId').lean(),
+    ]);
+
+    const directCounts = buildCategoryProductCounts(products);
+    // Align with storefront: include products in nested subcategories
+    const counts = buildInclusiveCategoryProductCounts(products, categories);
 
     return NextResponse.json({
-      counts: buildCategoryProductCounts(products),
+      counts,
+      directCounts,
       totalProducts: products.length,
     }, {
       headers: { 'Cache-Control': 'private, no-cache, no-store, must-revalidate' },

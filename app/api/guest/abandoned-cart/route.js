@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
 import AbandonedCart from '@/models/AbandonedCart';
-import { scheduleAbandonedCartWhatsAppReminder } from '@/lib/abandonedCheckoutWhatsAppReminder';
+import { scheduleAbandonedCartWhatsAppReminder, queueAbandonedCartWhatsAppDrain } from '@/lib/abandonedCheckoutWhatsAppReminder';
 import { getProductThumbnailUrl } from '@/lib/productMedia';
 import {
   normalizeAbandonedCartItemFromClient,
@@ -119,6 +119,7 @@ export async function POST(request) {
       }
     }
 
+    queueAbandonedCartWhatsAppDrain();
     return NextResponse.json({ ok: true, message: 'Guest cart tracked' });
   } catch (error) {
     console.error('[guest-abandoned-cart] error:', error);

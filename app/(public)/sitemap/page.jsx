@@ -11,18 +11,18 @@ export default function SitemapPage() {
   const [loading, setLoading] = useState(true);
 
   const defaultCategories = [
-    { id: 'fast-delivery', text: 'Fast Delivery', path: '/shop?category=fast-delivery' },
-    { id: 'trending-featured', text: 'Trending & Featured', path: '/shop?category=trending-featured' },
-    { id: 'men-s-fashion', text: "Men's Fashion", path: '/shop?category=men-s-fashion' },
-    { id: 'women-s-fashion', text: "Women's Fashion", path: '/shop?category=women-s-fashion' },
-    { id: 'kids', text: 'Kids', path: '/shop?category=kids' },
-    { id: 'electronics', text: 'Electronics', path: '/shop?category=electronics' },
-    { id: 'mobile-accessories', text: 'Mobile Accessories', path: '/shop?category=mobile-accessories' },
-    { id: 'home-kitchen', text: 'Home & Kitchen', path: '/shop?category=home-kitchen' },
-    { id: 'beauty', text: 'Beauty', path: '/shop?category=beauty' },
-    { id: 'car-essentials', text: 'Car Essentials', path: '/shop?category=car-essentials' },
-    { id: 'sports-fitness', text: 'Sports & Fitness', path: '/shop?category=sports-fitness' },
-    { id: 'groceries', text: 'Groceries', path: '/shop?category=groceries' },
+    { id: 'fast-delivery', text: 'Fast Delivery', path: '/category/fast-delivery' },
+    { id: 'trending-featured', text: 'Trending & Featured', path: '/category/trending-featured' },
+    { id: 'men-s-fashion', text: "Men's Fashion", path: '/category/men-s-fashion' },
+    { id: 'women-s-fashion', text: "Women's Fashion", path: '/category/womens-fashion' },
+    { id: 'kids', text: 'Kids', path: '/category/kids' },
+    { id: 'electronics', text: 'Electronics', path: '/category/electronics' },
+    { id: 'mobile-accessories', text: 'Mobile Accessories', path: '/category/mobile-accessories' },
+    { id: 'home-kitchen', text: 'Home & Kitchen', path: '/category/home-kitchen' },
+    { id: 'beauty', text: 'Beauty', path: '/category/beauty' },
+    { id: 'car-essentials', text: 'Car Essentials', path: '/category/car-essentials' },
+    { id: 'sports-fitness', text: 'Sports & Fitness', path: '/category/sports-fitness' },
+    { id: 'groceries', text: 'Groceries', path: '/category/groceries' },
   ];
 
   useEffect(() => {

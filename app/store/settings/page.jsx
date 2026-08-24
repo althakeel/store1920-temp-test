@@ -8,6 +8,7 @@ import {
   Building2,
   Camera,
   ChevronRight,
+  CreditCard,
   Database,
   Mail,
   Save,
@@ -41,6 +42,11 @@ const TAB_META = {
     label: "Preferences",
     icon: Sparkles,
     description: "Currency, alerts, and SMTP",
+  },
+  payments: {
+    label: "Payments",
+    icon: CreditCard,
+    description: "Show or hide checkout methods",
   },
   dashboardAccess: {
     label: "Team Access",
@@ -165,6 +171,15 @@ export default function SettingsPage() {
     fromName: "",
   });
 
+  const [paymentMethods, setPaymentMethods] = useState({
+    enableCOD: true,
+    enableCard: true,
+    enableTabby: true,
+    enableTamara: true,
+  });
+  const [paymentMethodsLoaded, setPaymentMethodsLoaded] = useState(false);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState("");
@@ -175,12 +190,12 @@ export default function SettingsPage() {
   const [canManageTeamAccess, setCanManageTeamAccess] = useState(false);
 
   const settingsTabs = useMemo(() => {
-    const tabs = ["profile", "store", "preferences", "dataImport"];
-    if (canManageTeamAccess) tabs.splice(3, 0, "dashboardAccess");
+    const tabs = ["profile", "store", "preferences", "payments", "dataImport"];
+    if (canManageTeamAccess) tabs.splice(4, 0, "dashboardAccess");
     return tabs;
   }, [canManageTeamAccess]);
 
-  const isFormTab = ["profile", "store", "preferences"].includes(activeTab);
+  const isFormTab = ["profile", "store", "preferences", "payments"].includes(activeTab);
   const activeMeta = TAB_META[activeTab] || TAB_META.profile;
 
   const loadSettings = async () => {
@@ -247,6 +262,35 @@ export default function SettingsPage() {
     if (user?.uid) loadSettings();
   }, [user?.uid]);
 
+  const loadPaymentMethods = async () => {
+    try {
+      setLoadingPayments(true);
+      const token = await getToken();
+      if (!token) return;
+      const { data } = await axios.get("/api/shipping", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const setting = data?.setting || {};
+      setPaymentMethods({
+        enableCOD: setting.enableCOD !== false,
+        enableCard: setting.enableCard !== false,
+        enableTabby: setting.enableTabby !== false,
+        enableTamara: setting.enableTamara !== false,
+      });
+      setPaymentMethodsLoaded(true);
+    } catch {
+      toast.error("Could not load payment method settings");
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && activeTab === "payments" && !paymentMethodsLoaded) {
+      loadPaymentMethods();
+    }
+  }, [user, activeTab, paymentMethodsLoaded, getToken]);
+
   useEffect(() => {
     const loadAccessRole = async () => {
       try {
@@ -270,6 +314,14 @@ export default function SettingsPage() {
       setActiveTab("profile");
     }
   }, [canManageTeamAccess, activeTab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !canManageTeamAccess) return;
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "team" || tab === "users" || tab === "dashboardAccess") {
+      setActiveTab("dashboardAccess");
+    }
+  }, [canManageTeamAccess]);
 
   const fetchTeamMembers = async () => {
     setLoadingTeam(true);
@@ -450,6 +502,20 @@ export default function SettingsPage() {
       const token = await getToken(true);
       if (!token) {
         throw new Error("Your session expired. Please sign in again.");
+      }
+
+      if (activeTab === "payments") {
+        await axios.put(
+          "/api/shipping",
+          {
+            paymentMethodsOnly: true,
+            ...paymentMethods,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setMessage("Payment methods updated.");
+        toast.success("Checkout payment methods saved");
+        return;
       }
 
       let imageUrl = image?.trim() || "";
@@ -754,6 +820,61 @@ export default function SettingsPage() {
           </SettingsCard>
         </div>
       )}
+
+      {activeTab === "payments" && (
+        <div className="space-y-5">
+          <SettingsCard
+            title="Checkout payment methods"
+            description="Turn methods on or off for the storefront checkout. Disabled methods are hidden from customers."
+          >
+            {loadingPayments ? (
+              <p className="text-sm text-slate-500">Loading payment settings…</p>
+            ) : (
+              <div className="space-y-3">
+                <ToggleRow
+                  title="Cash on Delivery (COD)"
+                  description="Show COD as a payment option at checkout"
+                  checked={paymentMethods.enableCOD}
+                  onChange={(e) =>
+                    setPaymentMethods((prev) => ({ ...prev, enableCOD: e.target.checked }))
+                  }
+                />
+                <ToggleRow
+                  title="Card payment"
+                  description="Credit / debit card (Visa, Mastercard, Amex, Google Pay)"
+                  checked={paymentMethods.enableCard}
+                  onChange={(e) =>
+                    setPaymentMethods((prev) => ({ ...prev, enableCard: e.target.checked }))
+                  }
+                />
+                <ToggleRow
+                  title="Tabby"
+                  description="Buy now, pay later with Tabby"
+                  checked={paymentMethods.enableTabby}
+                  onChange={(e) =>
+                    setPaymentMethods((prev) => ({ ...prev, enableTabby: e.target.checked }))
+                  }
+                />
+                <ToggleRow
+                  title="Tamara"
+                  description="Buy now, pay later with Tamara"
+                  checked={paymentMethods.enableTamara}
+                  onChange={(e) =>
+                    setPaymentMethods((prev) => ({ ...prev, enableTamara: e.target.checked }))
+                  }
+                />
+                <p className="pt-1 text-xs text-slate-500">
+                  Order-total limits for these methods are managed under{" "}
+                  <Link href="/store/shipping" className="font-medium text-indigo-600 hover:underline">
+                    Shipping settings
+                  </Link>
+                  .
+                </p>
+              </div>
+            )}
+          </SettingsCard>
+        </div>
+      )}
     </>
   );
 
@@ -1006,7 +1127,11 @@ export default function SettingsPage() {
                       {message}
                     </p>
                   ) : (
-                    <p className="text-sm text-slate-500">Changes apply to your store profile and preferences.</p>
+                    <p className="text-sm text-slate-500">
+                      {activeTab === "payments"
+                        ? "Changes apply to checkout payment methods on the storefront."
+                        : "Changes apply to your store profile and preferences."}
+                    </p>
                   )}
                 </div>
                 <button

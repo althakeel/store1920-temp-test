@@ -67,14 +67,27 @@ export async function POST(request) {
     for (const order of printableOrders) {
       const previousStatus = String(order.status || '').toUpperCase();
       const nextStatus = getStatusAfterLabelDownload(order);
-      const saved = await Order.findByIdAndUpdate(
-        order._id,
-        buildLabelDownloadedMongoUpdate(order, printedAt),
-        { new: true },
-      ).lean();
+      const alreadyDownloaded = Number(order.waslah?.labelDownloadCount) > 0
+        || Boolean(order.waslah?.labelPrintedAt);
+      const saved = alreadyDownloaded
+        ? {
+            ...order,
+            waslah: {
+              ...(order.waslah || {}),
+              labelPrintedAt: order.waslah?.labelPrintedAt || printedAt,
+              labelDownloadCount: Number(order.waslah?.labelDownloadCount) > 0
+                ? Number(order.waslah.labelDownloadCount)
+                : 1,
+            },
+          }
+        : await Order.findByIdAndUpdate(
+            order._id,
+            buildLabelDownloadedMongoUpdate(order, printedAt),
+            { new: true },
+          ).lean();
       if (saved) updatedOrders.push(saved);
 
-      if (nextStatus && nextStatus !== previousStatus) {
+      if (!alreadyDownloaded && nextStatus && nextStatus !== previousStatus) {
         try {
           const { notifyCustomerOfOrderStatusChange } = await import('@/lib/orderStatusCustomerNotify');
           await notifyCustomerOfOrderStatusChange(saved || order, nextStatus, {

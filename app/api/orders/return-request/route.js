@@ -1,7 +1,11 @@
 import { getAuth } from '@/lib/firebase-admin';
-import Order from '@/models/Order';
 import connectDB from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
+import {
+  createReturnCase,
+  loadOrderForReturn,
+  serializeReturnCase,
+} from '@/lib/storeReturnWorkflow';
 
 export async function POST(req) {
   try {
@@ -13,45 +17,45 @@ export async function POST(req) {
     const userId = decoded.uid;
 
     await connectDB();
+    const { orderId, itemIndex, reason, type, description, images, quantity, items, pickupAddress, refundMethod } = await req.json();
 
-    const { orderId, itemIndex, reason, type, description, images } = await req.json();
-
-    // Validate order belongs to user
-    const order = await Order.findById(orderId);
+    const order = await loadOrderForReturn(orderId);
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    
+
     if (order.userId !== userId && order.guestEmail !== decoded.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Check if order is delivered
-    if (order.status !== 'DELIVERED') {
-      return NextResponse.json({ error: 'Order must be delivered to request return/replacement' }, { status: 400 });
-    }
+    const requestedItems = Array.isArray(items) && items.length
+      ? items
+      : [{ itemIndex: Number(itemIndex || 0), quantity: Number(quantity || 1) }];
 
-    // Add return request
-    const returnRequest = {
-      itemIndex,
-      reason,
+    const result = await createReturnCase({
+      order,
+      userId,
       type: type || 'RETURN',
-      status: 'REQUESTED',
+      reason,
       description,
       images: images || [],
-      requestedAt: new Date(),
-    };
-
-    order.returns = order.returns || [];
-    order.returns.push(returnRequest);
-    await order.save();
+      items: requestedItems,
+      pickupAddress,
+      refundMethod: refundMethod || 'ORIGINAL',
+      source: 'customer',
+      actor: { uid: userId, name: decoded.name || decoded.email || 'Customer' },
+    });
 
     return NextResponse.json({
       success: true,
-      message: `${type || 'Return'} request submitted successfully`,
-      returns: order.returns
+      message: result.eligible
+        ? `${type || 'Return'} request submitted successfully`
+        : result.eligibility.reason,
+      eligible: result.eligible,
+      request: serializeReturnCase(result.request, order),
+      returns: order.returns,
     }, { status: 200 });
   } catch (error) {
     console.error('Return request error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: error.statusCode || 500 });
   }
 }
 
@@ -60,22 +64,15 @@ export async function GET(req) {
     const token = req.headers.get('authorization')?.split(' ')[1];
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const auth = getAuth();
-    const decoded = await auth.verifyIdToken(token);
-    const userId = decoded.uid;
-
+    const decoded = await getAuth().verifyIdToken(token);
+    const { default: ReturnRequest } = await import('@/models/ReturnRequest');
     await connectDB();
-
-    // Get all returns for this user
-    const orders = await Order.find({
-      $or: [{ userId }, { guestEmail: decoded.email }],
-      returns: { $exists: true, $ne: [] }
-    }).select('_id shortOrderNumber returns status createdAt orderItems');
-
+    const { serializeReturnCase: serialize } = await import('@/lib/storeReturnWorkflow');
+    const requests = await ReturnRequest.find({ userId: decoded.uid }).sort({ createdAt: -1 }).lean();
     return NextResponse.json({
       success: true,
-      returns: orders
-    }, { status: 200 });
+      returns: requests.map((row) => serialize(row)),
+    });
   } catch (error) {
     console.error('Get returns error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

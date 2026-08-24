@@ -1,10 +1,14 @@
 # Store1920 API & Zoho CRM Integration Guide
 
-**Document purpose:** Share with Zoho CRM / integration partners.  
+**Document purpose:** Share with Zoho Inventory / CRM integration partners.  
 **Product:** Store1920 e‑commerce platform  
 **Base URL (production):** `https://store1920.com`  
 **API root:** `https://store1920.com/api/...`  
-**Last updated:** 2026-07-08
+**Last updated:** 2026-08-18
+
+> **Orders sync to Zoho Inventory, not Zoho CRM.**  
+> CRM Contacts/Deals are optional. If OAuth was generated with `ZohoCRM.*` scopes only, Inventory sales orders will not create. Reconnect with `ZohoInventory.FullAccess.all`.  
+> Official OAuth: https://www.zoho.com/inventory/api/v1/oauth/#overview
 
 ---
 
@@ -90,44 +94,93 @@ Possible `syncStatus` values: `syncing` | `synced` | `failed`
 
 ---
 
-## 2. Zoho OAuth setup (Self Client)
+## 2. Zoho OAuth setup (Zoho Inventory — required for orders)
 
-Store1920 uses **server-to-server OAuth** (self client + refresh token). Access tokens are refreshed automatically.
+Store1920 uses **OAuth 2.0** as documented by Zoho Inventory:
 
-### Required scopes (CRM)
+https://www.zoho.com/inventory/api/v1/oauth/#overview
 
-Recommended when generating the grant code:
+- Access token header: `Authorization: Zoho-oauthtoken {access_token}`
+- Refresh tokens via `POST https://accounts.zoho.{dc}/oauth/v2/token` (`grant_type=refresh_token`)
+- Data centers: `.com` `.eu` `.in` `.com.au` `.ca` (plus `.sa` / `.jp` if that is the account DC)
+
+### Required scopes (Inventory)
+
+**Required for order sync (sales orders, customers, items):**
+
+```
+ZohoInventory.FullAccess.all
+```
+
+Equivalent minimum if you prefer granular scopes:
+
+```
+ZohoInventory.contacts.CREATE,ZohoInventory.contacts.READ,ZohoInventory.contacts.UPDATE,ZohoInventory.items.CREATE,ZohoInventory.items.READ,ZohoInventory.items.UPDATE,ZohoInventory.salesorders.CREATE,ZohoInventory.salesorders.READ,ZohoInventory.salesorders.UPDATE,ZohoInventory.settings.READ
+```
+
+Do **not** generate the token with only:
 
 ```
 ZohoCRM.modules.ALL,ZohoCRM.settings.ALL
 ```
 
-(If Inventory is also used, add Inventory scopes as required by Zoho.)
+A CRM-only token will refresh successfully and still fail `/inventory/v1/*`.
+
+### Optional CRM scopes (same token)
+
+Only if you also want Contacts + Deals:
+
+```
+ZohoInventory.FullAccess.all,ZohoCRM.modules.ALL,ZohoCRM.settings.ALL
+```
 
 ### Environment variables
 
 | Variable | Description |
 |----------|-------------|
-| `ZOHO_CLIENT_ID` | Self-client client ID |
-| `ZOHO_CLIENT_SECRET` | Self-client secret |
-| `ZOHO_REFRESH_TOKEN` | Long-lived refresh token |
-| `ZOHO_REGION` | `com` \| `eu` \| `in` \| `com.au` \| `jp` \| `sa` (default `com`) |
+| `ZOHO_CLIENT_ID` | API client ID |
+| `ZOHO_CLIENT_SECRET` | API client secret |
+| `ZOHO_REFRESH_TOKEN` | Long-lived refresh token **with Inventory scopes** |
+| `ZOHO_REGION` | `com` \| `eu` \| `in` \| `com.au` \| `jp` \| `sa` \| `ca` (default `com`) |
+| `ZOHO_REDIRECT_URI` | Browser OAuth callback, e.g. `https://store1920.com/api/zoho/callback` |
 | `ZOHO_API_DOMAIN` | Optional override (e.g. `www.zohoapis.com`) |
 | `ZOHO_ACCOUNTS_DOMAIN` | Optional override |
-| `ZOHO_CRM_ENABLED` | `true` to enable CRM sync |
+| `ZOHO_ORGANIZATION_ID` | Inventory organization id (`GET /inventory/v1/organizations`) |
+| `ZOHO_INVENTORY_ENABLED` | `true` (default) to push sales orders |
+| `ZOHO_CRM_ENABLED` | `true` only if the token also has CRM scopes |
 | `ZOHO_CRM_DEAL_STAGE` | Deal stage name (default `Qualification`) |
 | `ZOHO_CRM_DEAL_LAYOUT_ID` | Optional deal layout ID |
 
-### One-time refresh token exchange
+### Option A — Self Client (Generate Code)
 
-1. In Zoho API Console → Self Client → Generate Code (with CRM scopes).  
-2. Within ~10 minutes, call:
+1. Zoho API Console → Self Client → Generate Code.  
+2. Scope: `ZohoInventory.FullAccess.all`  
+3. Within the code lifetime, call:
 
 ```http
 GET https://store1920.com/api/zoho/exchange?code={GRANT_CODE}
 ```
 
-3. Copy `refresh_token` from the JSON response into `ZOHO_REFRESH_TOKEN` and restart the app.
+4. Copy `refresh_token` into `ZOHO_REFRESH_TOKEN`.  
+5. Open `GET /api/zoho/status` and copy an Inventory `organization_id` into `ZOHO_ORGANIZATION_ID`. Restart.
+
+The JSON warns if the exchanged token is CRM-only.
+
+### Option B — Browser OAuth (official authorize URL)
+
+1. Register redirect URI `{origin}/api/zoho/callback` on the client.  
+2. Set `ZOHO_REDIRECT_URI` to that URL.  
+3. Open:
+
+```http
+GET https://store1920.com/api/zoho/authorize
+```
+
+This redirects to:
+
+`https://accounts.zoho.com/oauth/v2/auth?scope=ZohoInventory.FullAccess.all&client_id=...&response_type=code&redirect_uri=...&access_type=offline&prompt=consent`
+
+4. After Accept, `/api/zoho/callback` returns the `refresh_token`.
 
 ### Connection health checks
 
@@ -135,13 +188,20 @@ GET https://store1920.com/api/zoho/exchange?code={GRANT_CODE}
 GET https://store1920.com/api/zoho/status
 ```
 
-Returns whether OAuth is configured and whether an access token can be acquired (includes CRM + Inventory public flags).
+Reports `inventoryAccess` vs `crmAccess`. Orders need `inventoryAccess: true`.
 
 ```http
 GET https://store1920.com/api/zoho/diagnose
 ```
 
-Tries the refresh token against multiple Zoho data centers and reports the working region.
+Finds the working data center and probes Inventory vs CRM APIs.
+
+```http
+GET /api/store/zoho/inventory/test
+Authorization: Bearer <seller_token>
+```
+
+Lists Inventory organizations for the connected token.
 
 ---
 
@@ -198,14 +258,16 @@ GET /api/store/zoho/status
 Authorization: Bearer <seller_token>
 ```
 
-### 3.3 Inventory – related (optional for CRM-only partners)
+### 3.3 Inventory – order destination (required)
+
+Orders become **Zoho Inventory sales orders** (`POST /inventory/v1/salesorders`), with Inventory contacts/customers.
 
 | Method | Path | Purpose |
 |--------|------|---------|
+| `GET` | `/api/store/zoho/inventory/test` | Connectivity / list Inventory organizations |
 | `POST` | `/api/store/zoho/inventory/sync` | Sync one order to Zoho Inventory sales order |
-| `POST` | `/api/store/zoho/inventory/test` | Connectivity / org test |
 
-Inventory uses Contacts/Customers + Sales Orders in **Zoho Inventory**, not CRM Deals.
+CRM Deals are optional and use a different API (`/crm/v6`).
 
 ---
 
@@ -369,26 +431,30 @@ Store1920 orderConfirmationNotifications
         │
         ├─► Email / WhatsApp (optional)
         │
-        └─► syncOrderToZohoCrmOnce(order)
+        └─► syncOrderToZohoInventoryOnce(order)
                  │
-                 ├─► Zoho POST /crm/v6/Contacts/upsert
-                 └─► Zoho POST /crm/v6/Deals
+                 ├─► Zoho POST /inventory/v1/contacts
+                 └─► Zoho POST /inventory/v1/salesorders
                           │
                           ▼
-                 Store zohoCrm.contactId + dealId on Order
+                 Store zohoInventory.salesOrderId on Order
+
+        (optional) syncOrderToZohoCrmOnce(order) → CRM Contacts + Deals
 ```
 
 ## Appendix B – Full Zoho-related route list
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/api/zoho/status` | Public | OAuth health |
+| GET | `/api/zoho/status` | Public | OAuth + Inventory vs CRM probe |
+| GET | `/api/zoho/authorize` | Public (ops) | Start Inventory OAuth consent |
+| GET | `/api/zoho/callback` | Public (ops) | Inventory OAuth redirect |
 | GET | `/api/zoho/exchange` | Public (ops only) | Grant → refresh token |
-| GET | `/api/zoho/diagnose` | Public (ops only) | Region probe |
+| GET | `/api/zoho/diagnose` | Public (ops only) | Region + Inventory probe |
 | GET | `/api/store/zoho/status` | Seller Bearer | Dashboard Zoho status |
-| POST | `/api/store/zoho/crm/sync` | Seller Bearer | Manual CRM sync |
-| POST | `/api/store/zoho/inventory/sync` | Seller Bearer | Manual Inventory sync |
-| POST | `/api/store/zoho/inventory/test` | Seller Bearer | Inventory test |
+| POST | `/api/store/zoho/crm/sync` | Seller Bearer | Manual CRM sync (optional) |
+| POST | `/api/store/zoho/inventory/sync` | Seller Bearer | Manual Inventory sales-order sync |
+| GET | `/api/store/zoho/inventory/test` | Seller Bearer | Inventory org test |
 
 ---
 

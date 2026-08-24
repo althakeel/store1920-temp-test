@@ -1,20 +1,19 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
+import { isAuthorizedCronRequest } from '@/lib/cronAuth';
 import { processDueAbandonedCartWhatsAppReminders } from '@/lib/abandonedCheckoutWhatsAppReminder';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET(request) {
   try {
-    const authHeader = request.headers.get('authorization') || '';
-    const cronSecret = process.env.CRON_SECRET || '';
-
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    if (!isAuthorizedCronRequest(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     await connectDB();
-    const result = await processDueAbandonedCartWhatsAppReminders();
+    const result = await processDueAbandonedCartWhatsAppReminders({ limit: 25 });
 
     return NextResponse.json({
       success: true,

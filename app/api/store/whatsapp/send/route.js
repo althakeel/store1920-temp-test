@@ -96,7 +96,7 @@ export async function POST(request) {
     }
 
     const order = await Order.findOne({ _id: orderId, storeId: String(storeId) })
-      .populate({ path: 'orderItems.productId', select: 'name' })
+      .populate({ path: 'orderItems.productId', select: 'name slug images image sku brand price AED' })
       .populate({ path: 'userId', select: 'name email' })
       .lean();
 

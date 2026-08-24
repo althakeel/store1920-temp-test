@@ -6,6 +6,7 @@ import {
   recoverWaslahAutoShipments,
   recoverWaslahPaymentProofs,
   reconcileFailedOnlinePayments,
+  sendAbandonedCartWhatsAppReminders,
   syncUserCreation,
   syncUserDeletion,
   syncUserUpdation,
@@ -23,5 +24,6 @@ export const { GET, POST, PUT } = serve({
     recoverWaslahAutoShipments,
     recoverWaslahPaymentProofs,
     reconcileFailedOnlinePayments,
+    sendAbandonedCartWhatsAppReminders,
   ],
 });

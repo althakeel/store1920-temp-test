@@ -116,6 +116,8 @@ export async function POST(request) {
       courierChanged: Boolean(result.courierChanged),
       fetched: Boolean(result.fetched),
       skipped: Boolean(result.skipped),
+      pending: Boolean(result.pending || result.empty),
+      empty: Boolean(result.empty),
       conflict: Boolean(result.conflict),
       stale: Boolean(result.stale),
       previousStatus: result.previousStatus || order.status,
@@ -126,6 +128,9 @@ export async function POST(request) {
         || null,
       refreshedAt: new Date().toISOString(),
       order: toLiveStatusPatch(result.order || order),
+      message: result.pending || result.empty
+        ? 'EMX has no tracking events yet for this shipment'
+        : undefined,
     });
   } catch (error) {
     console.error('[store/waslah/sync-status]', error);

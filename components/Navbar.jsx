@@ -3,7 +3,7 @@
 import { Search, ShoppingCart, Menu, X, HeartIcon, StarIcon, ArrowLeft, LogOut, User, MapPin, Package } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { auth } from '../lib/firebase';
 import { getAuth } from "firebase/auth";
@@ -17,7 +17,7 @@ import SignInModal from './SignInModal';
 import AddressModal from './AddressModal';
 import NavbarMenuBar from './NavbarMenuBar';
 import { clearCart, fetchCart, uploadCart } from '@/lib/features/cart/cartSlice';
-import { fetchAddress } from '@/lib/features/address/addressSlice';
+import { fetchAddress, clearAddresses } from '@/lib/features/address/addressSlice';
 import {
   STOREFRONT_LANGUAGE_EVENT,
   STOREFRONT_LANGUAGE_KEY,
@@ -132,7 +132,7 @@ const Navbar = () => {
   const [firebaseUser, setFirebaseUser] = useState(undefined);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const [signOutAllDevices, setSignOutAllDevices] = useState(false);
-  const [signOutContext, setSignOutContext] = useState('desktop');
+  const [signingOut, setSigningOut] = useState(false);
   const [walletCoins, setWalletCoins] = useState(0);
   const storefrontWalletEnabled = isStorefrontWalletEnabled();
   const [searchFocused, setSearchFocused] = useState(false);
@@ -447,8 +447,8 @@ const Navbar = () => {
     return () => window.removeEventListener('navActionsVisibilityUpdated', handleVisibilityUpdate);
   }, []);
 
-  useLayoutEffect(() => {
-    if (typeof window === 'undefined') return;
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
 
     try {
       const cached = window.localStorage.getItem(NAVBAR_APPEARANCE_CACHE_KEY);
@@ -457,12 +457,17 @@ const Navbar = () => {
         if (parsed && typeof parsed === 'object') {
           const normalized = normalizeNavbarAppearance({ ...DEFAULT_NAVBAR_APPEARANCE, ...parsed });
           setNavbarAppearance(normalized);
-          window.dispatchEvent(new CustomEvent('navbarAppearanceUpdated', { detail: normalized }));
+          // Defer so sibling listeners are mounted before they receive the event.
+          window.setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('navbarAppearanceUpdated', { detail: normalized }));
+          }, 0);
         }
       }
     } catch {
       // Ignore storage read failures
     }
+
+    return undefined;
   }, []);
 
   useEffect(() => {
@@ -588,58 +593,51 @@ const Navbar = () => {
   }, [addressList, firebaseUser, selectedAddressId]);
 
   const openSignOutConfirm = (context = 'desktop') => {
-    setSignOutContext(context);
     setSignOutAllDevices(false);
     setSignOutConfirmOpen(true);
+    setUserDropdownOpen(false);
+    if (context === 'mobile') {
+      setMobileMenuOpen(false);
+    }
   };
 
   const handleSignOut = async () => {
-    try {
-      // Store user info before signing out (for background email)
-      const userEmail = user?.email;
-      const userName = user?.displayName || 'Customer';
-      const allDevices = signOutAllDevices;
+    if (signingOut) return;
 
-      // Revoke server session(s) then Firebase sign-out
+    setSigningOut(true);
+    const allDevices = signOutAllDevices;
+    const userEmail = firebaseUser?.email;
+    const userName = firebaseUser?.displayName || 'Customer';
+
+    try {
       await secureSignOut(auth, { allDevices });
-      
-      // Update UI
+
       setUserDropdownOpen(false);
       setMobileMenuOpen(false);
       setSignOutConfirmOpen(false);
       setSignOutAllDevices(false);
       dispatch(clearCart());
+      dispatch(clearAddresses());
       if (typeof window !== 'undefined') {
         localStorage.removeItem('cartState');
       }
-      toast.success(allDevices ? 'Signed out of all devices' : 'Signed out successfully');
-      
-      // Send email in background (completely non-blocking, no auth required)
+
       if (userEmail) {
-        setTimeout(() => {
+        window.setTimeout(() => {
           axios.post('/api/send-signout-email', {
             email: userEmail,
             name: userName,
-            skipAuth: true
-          })
-          .then(() => {
-            // Email sent successfully
-          })
-          .catch((err) => {
+            skipAuth: true,
+          }).catch((err) => {
             console.error('[Sign Out] Email failed:', err.response?.data || err.message);
           });
         }, 100);
       }
-      
-      // Navigate
-      if (signOutContext === 'mobile') {
-        setTimeout(() => window.location.reload(), 100);
-      } else {
-        router.push('/');
-      }
+
+      toast.success(allDevices ? 'Signed out of all devices' : 'Signed out successfully');
+      window.location.assign('/');
     } catch (error) {
       console.error('Sign out error:', error);
-      // Force sign out even if there's an error
       try {
         await secureSignOut(auth, { allDevices: false });
         setUserDropdownOpen(false);
@@ -647,15 +645,18 @@ const Navbar = () => {
         setSignOutConfirmOpen(false);
         setSignOutAllDevices(false);
         dispatch(clearCart());
+        dispatch(clearAddresses());
         if (typeof window !== 'undefined') {
           localStorage.removeItem('cartState');
         }
-        router.push('/');
-        window.location.reload();
+        window.location.assign('/');
       } catch (finalError) {
+        console.error('Sign out fallback failed:', finalError);
         toast.error('Please refresh the page to complete sign out.');
-        setTimeout(() => window.location.reload(), 1000);
+        window.setTimeout(() => window.location.reload(), 1000);
       }
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -2059,10 +2060,14 @@ const Navbar = () => {
 
 
           {signOutConfirmOpen && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center px-4">
               <div
                 className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-                onClick={() => setSignOutConfirmOpen(false)}
+                onClick={() => {
+                  if (signingOut) return;
+                  setSignOutConfirmOpen(false);
+                  setSignOutAllDevices(false);
+                }}
               />
               <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
                 <div className="absolute -left-12 -top-16 h-48 w-48 bg-rose-400/25 blur-3xl" />
@@ -2078,6 +2083,7 @@ const Navbar = () => {
                       type="checkbox"
                       className="mt-0.5"
                       checked={signOutAllDevices}
+                      disabled={signingOut}
                       onChange={(e) => setSignOutAllDevices(e.target.checked)}
                     />
                     <span>
@@ -2089,7 +2095,9 @@ const Navbar = () => {
                   </label>
                   <div className="mt-6 grid grid-cols-2 gap-3">
                     <button
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
+                      type="button"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition disabled:opacity-60"
+                      disabled={signingOut}
                       onClick={() => {
                         setSignOutConfirmOpen(false);
                         setSignOutAllDevices(false);
@@ -2098,10 +2106,12 @@ const Navbar = () => {
                       {t('navbar.staySignedIn')}
                     </button>
                     <button
-                      className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-orange-400 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-200/50 hover:brightness-105 transition"
+                      type="button"
+                      className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-orange-400 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-200/50 hover:brightness-105 transition disabled:opacity-70"
+                      disabled={signingOut}
                       onClick={handleSignOut}
                     >
-                      {t('navbar.signOut')}
+                      {signingOut ? 'Signing out…' : t('navbar.signOut')}
                     </button>
                   </div>
                 </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { ZOHO_INVENTORY_FULL_SCOPE, ZOHO_INVENTORY_SCOPE_HINT } from '@/lib/zoho';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,10 +10,36 @@ const ACCOUNTS_DOMAINS = {
   in: 'accounts.zoho.in',
   'com.au': 'accounts.zoho.com.au',
   jp: 'accounts.zoho.jp',
+  ca: 'accounts.zohocloud.ca',
 };
 
-// GET /api/zoho/diagnose — tries the refresh token against every Zoho data
-// center and reports which region works. Helps find the right ZOHO_REGION.
+const API_DOMAINS = {
+  com: 'www.zohoapis.com',
+  sa: 'www.zohoapis.sa',
+  eu: 'www.zohoapis.eu',
+  in: 'www.zohoapis.in',
+  'com.au': 'www.zohoapis.com.au',
+  jp: 'www.zohoapis.jp',
+  ca: 'www.zohoapis.ca',
+};
+
+async function probePath(apiDomain, token, path) {
+  try {
+    const res = await fetch(`https://${apiDomain}${path}`, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    return {
+      ok: res.ok,
+      status: res.status,
+      error: res.ok ? null : (data?.message || data?.code || `HTTP ${res.status}`),
+    };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
+}
+
+// GET /api/zoho/diagnose — region + whether the token can call Inventory (not only CRM).
 export async function GET() {
   const clientId = process.env.ZOHO_CLIENT_ID;
   const clientSecret = process.env.ZOHO_CLIENT_SECRET;
@@ -27,6 +54,9 @@ export async function GET() {
 
   const results = {};
   let workingRegion = null;
+  let accessToken = null;
+  let tokenScope = null;
+  let apiDomainFromToken = null;
 
   for (const [region, domain] of Object.entries(ACCOUNTS_DOMAINS)) {
     try {
@@ -44,7 +74,12 @@ export async function GET() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.access_token) {
         results[region] = 'OK';
-        if (!workingRegion) workingRegion = region;
+        if (!workingRegion) {
+          workingRegion = region;
+          accessToken = data.access_token;
+          tokenScope = data.scope || null;
+          apiDomainFromToken = String(data.api_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '') || null;
+        }
       } else {
         results[region] = data.error || `HTTP ${res.status}`;
       }
@@ -53,12 +88,33 @@ export async function GET() {
     }
   }
 
+  let productProbe = null;
+  if (accessToken && workingRegion) {
+    const apiDomain = apiDomainFromToken || API_DOMAINS[workingRegion] || API_DOMAINS.com;
+    const inventory = await probePath(apiDomain, accessToken, '/inventory/v1/organizations');
+    const crm = await probePath(apiDomain, accessToken, '/crm/v6/org');
+    productProbe = {
+      apiDomain,
+      scope: tokenScope,
+      inventoryAccess: inventory.ok,
+      crmAccess: crm.ok,
+      inventoryError: inventory.error,
+      crmError: crm.error,
+      hint: inventory.ok ? null : ZOHO_INVENTORY_SCOPE_HINT,
+    };
+  }
+
   return NextResponse.json({
     ok: Boolean(workingRegion),
     workingRegion,
+    requiredScope: ZOHO_INVENTORY_FULL_SCOPE,
+    docs: 'https://www.zoho.com/inventory/api/v1/oauth/#overview',
     hint: workingRegion
-      ? `Set ZOHO_REGION=${workingRegion} in .env and restart the dev server.`
-      : 'No region accepted this refresh token. The token/client/secret likely do not match, or the token was revoked. Generate a fresh grant code from the SAME self client and exchange it.',
+      ? (productProbe?.inventoryAccess
+        ? `Set ZOHO_REGION=${workingRegion} in .env. Inventory OAuth is working.`
+        : `Set ZOHO_REGION=${workingRegion}. Token refreshes, but Inventory APIs failed — reconnect with ${ZOHO_INVENTORY_FULL_SCOPE} (not Zoho CRM).`)
+      : 'No region accepted this refresh token. Generate a fresh Inventory grant from the same client and exchange it.',
     resultsByRegion: results,
+    productProbe,
   });
 }

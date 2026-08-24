@@ -15,6 +15,7 @@ import {
   STOREFRONT_LANGUAGE_EVENT,
 } from '@/lib/storefrontLanguage';
 import { translateStaticText } from '@/lib/useStorefrontI18n';
+import { normalizeStorefrontCategoryHref } from '@/lib/categorySlug';
 
 const MENU_CACHE_KEY = 'nav:menu:v1';
 const CATEGORIES_CACHE_KEY = 'nav:categories:v2';
@@ -85,7 +86,7 @@ const sanitizeMenuItems = (items) => {
   return items
     .map((item) => {
       const name = String(item?.name || item?.label || '').trim();
-      const link = String(item?.link || item?.url || '').trim() || '#';
+      const link = normalizeStorefrontCategoryHref(String(item?.link || item?.url || '').trim() || '#');
       const icon = String(item?.icon || '').trim();
       const hasDropdown = Boolean(item?.hasDropdown);
       const categoryId = String(item?.categoryId || '').trim();
@@ -97,7 +98,7 @@ const sanitizeMenuItems = (items) => {
         ? megaMenu.links
             .map((entry) => ({
               name: String(entry?.name || '').trim(),
-              link: String(entry?.link || '').trim() || '#',
+              link: normalizeStorefrontCategoryHref(String(entry?.link || '').trim() || '#'),
             }))
             .filter((entry) => entry.name)
         : [];
@@ -107,7 +108,7 @@ const sanitizeMenuItems = (items) => {
             .map((entry) => ({
               url: String(entry?.url || '').trim(),
               label: String(entry?.label || '').trim(),
-              link: String(entry?.link || '').trim() || '#',
+              link: normalizeStorefrontCategoryHref(String(entry?.link || '').trim() || '#'),
             }))
             .filter((entry) => entry.url)
         : [];
