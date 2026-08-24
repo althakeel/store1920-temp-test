@@ -94,6 +94,8 @@ import {
     orderPaymentReferenceLabel,
 } from '@/lib/storeCreateOrder';
 import { getStoreOrderDisplayItems } from '@/lib/storeOrderLineItems';
+import { summarizeOrderLineStatuses } from '@/lib/storeOrderLineStatus';
+import OrderLineStatusPicker from '@/components/store/OrderLineStatusPicker';
 import {
   WOOCOMMERCE_ORDER_EXPORT_HEADERS,
   buildWooCommerceOrderExportRows,
@@ -727,6 +729,7 @@ export default function StoreOrders() {
         dropoff_location: {}
     });
     const [generatingAwb, setGeneratingAwb] = useState(false);
+    const [savingLineStatusIndex, setSavingLineStatusIndex] = useState(null);
     const refreshIntervalRef = useRef(null);
     const waslahStatusRefreshInFlightRef = useRef(new Set());
     const waslahBatchRefreshInFlightRef = useRef(false);
@@ -1410,6 +1413,40 @@ export default function StoreOrders() {
     };
 
     // Function to update tracking details (AWB), auto-set status and notify customer
+    const updateLineItemStatus = async (itemIndex, lineStatus) => {
+        if (!selectedOrder) return;
+
+        setSavingLineStatusIndex(itemIndex);
+        try {
+            const token = await getToken(true);
+            if (!token) {
+                toast.error('Authentication failed. Please sign in again.');
+                return;
+            }
+
+            const { data } = await axios.patch(
+                `/api/store/orders/${selectedOrder._id}/line-status`,
+                { itemIndex, lineStatus },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            const updatedItems = data?.orderItems || selectedOrder.orderItems;
+            toast.success('Item status updated');
+
+            setSelectedOrder((prev) => (prev ? { ...prev, orderItems: updatedItems } : prev));
+            setOrders((prev) => prev.map((order) => (
+                String(order._id) === String(selectedOrder._id)
+                    ? { ...order, orderItems: updatedItems }
+                    : order
+            )));
+        } catch (error) {
+            console.error('Update line status error:', error);
+            toast.error(error?.response?.data?.error || 'Failed to update item status');
+        } finally {
+            setSavingLineStatusIndex(null);
+        }
+    };
+
     const updateTrackingDetails = async () => {
         if (!selectedOrder) return;
 
@@ -6103,10 +6140,17 @@ export default function StoreOrders() {
 
                             {/* Products */}
                             <div>
-                                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                                    <div className="w-1 h-5 bg-green-600 rounded-full"></div>
-                                    Order Items
-                                </h3>
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                                        <div className="w-1 h-5 bg-green-600 rounded-full"></div>
+                                        Order Items
+                                    </h3>
+                                    {selectedOrder?.orderItems?.length > 0 ? (
+                                        <p className="text-xs text-slate-500">
+                                            {summarizeOrderLineStatuses(selectedOrder.orderItems) || 'Set status per item (shipped, out of stock, etc.)'}
+                                        </p>
+                                    ) : null}
+                                </div>
                                 <div className="space-y-3">
                                     {(() => {
                                         const displayItems = getStoreOrderDisplayItems(selectedOrder);
@@ -6119,6 +6163,7 @@ export default function StoreOrders() {
                                         }
 
                                         return displayItems.map((item, i) => {
+                                        const itemIndex = Number.isInteger(item.itemIndex) ? item.itemIndex : i;
                                         const itemName = item.name || item.productId?.name || item.product?.name || 'Product';
                                         const itemImage = item.image || item.productId?.images?.[0] || item.product?.images?.[0] || null;
                                         const unitPrice = Number(item.price || 0);
@@ -6128,8 +6173,8 @@ export default function StoreOrders() {
                                         const lineTotal = Number(item.lineTotal ?? unitPrice * packQuantity);
 
                                         return (
-                                        <div key={i} className="flex items-center gap-4 border border-slate-200 rounded-xl p-3 bg-white hover:shadow-md transition-shadow">
-                                            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
+                                        <div key={`${itemIndex}-${i}`} className="flex items-start gap-4 border border-slate-200 rounded-xl p-3 bg-white hover:shadow-md transition-shadow">
+                                            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
                                                 {itemImage ? (
                                                     <img
                                                         src={itemImage}
@@ -6142,7 +6187,7 @@ export default function StoreOrders() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex-1">
+                                            <div className="flex-1 min-w-0">
                                                 <p className="font-medium text-slate-900">{itemName}</p>
                                                 {!item.productId && !item.product?.name && item.name ? (
                                                     <p className="text-xs text-orange-600">Imported item (not linked to catalog)</p>
@@ -6159,9 +6204,17 @@ export default function StoreOrders() {
                                                 <p className="text-sm font-semibold text-slate-900">
                                                     {currency}{unitPrice.toFixed(2)} {(item.isBulkBundle || item.isMatrixLine) ? 'per pack' : 'each'}
                                                 </p>
+                                                {item.lineStatusNote ? (
+                                                    <p className="mt-1 text-xs text-slate-500">Note: {item.lineStatusNote}</p>
+                                                ) : null}
                                             </div>
-                                            <div className="text-right">
+                                            <div className="flex shrink-0 flex-col items-end gap-2">
                                                 <p className="text-lg font-bold text-slate-900">{currency}{lineTotal.toFixed(2)}</p>
+                                                <OrderLineStatusPicker
+                                                    value={item.lineStatus || 'PENDING'}
+                                                    disabled={savingLineStatusIndex === itemIndex}
+                                                    onChange={(nextStatus) => updateLineItemStatus(itemIndex, nextStatus)}
+                                                />
                                             </div>
                                         </div>
                                     )});

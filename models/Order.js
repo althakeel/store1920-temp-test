@@ -6,7 +6,13 @@ const OrderItemSchema = new mongoose.Schema({
   price: Number,
   quantity: Number,
   variantOptions: { type: Object, default: null },
-  // Add more fields as needed
+  lineStatus: {
+    type: String,
+    enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'OUT_OF_STOCK', 'CANCELLED', 'DELIVERED'],
+    default: 'PENDING',
+  },
+  lineStatusNote: { type: String, default: null },
+  lineStatusUpdatedAt: { type: Date, default: null },
 }, { _id: false });
 
 const RazorpaySettlementSchema = new mongoose.Schema({
