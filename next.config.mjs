@@ -90,6 +90,27 @@ const nextConfig = {
                 source: '/sitemap.xml',
                 destination: '/sitemap-index.xml',
             },
+            // Named sitemap splits (Search Console / SEO-friendly filenames)
+            {
+                source: '/sitemap-pages.xml',
+                destination: '/sitemap/pages.xml',
+            },
+            {
+                source: '/sitemap-categories.xml',
+                destination: '/sitemap/categories.xml',
+            },
+            {
+                source: '/sitemap-blog.xml',
+                destination: '/sitemap/blog.xml',
+            },
+            {
+                source: '/sitemap-products.xml',
+                destination: '/sitemap/products.xml',
+            },
+            {
+                source: '/sitemap-products-:chunk.xml',
+                destination: '/sitemap/products-:chunk.xml',
+            },
         ];
     },
 
@@ -181,9 +202,27 @@ const nextConfig = {
             },
         ];
 
+        // Stub / unfinished aliases → canonical policy pages
+        const policyCanonicalRedirects = [
+            { source: '/privacy', destination: '/privacy-policy', permanent: true },
+            { source: '/privacy/', destination: '/privacy-policy', permanent: true },
+            { source: '/shipping', destination: '/shipping-policy', permanent: true },
+            { source: '/shipping/', destination: '/shipping-policy', permanent: true },
+            { source: '/terms', destination: '/terms-and-conditions', permanent: true },
+            { source: '/terms/', destination: '/terms-and-conditions', permanent: true },
+            // Master Return / Refund / Exchange / Cancellation policy
+            { source: '/refund-policy', destination: '/return-policy', permanent: true },
+            { source: '/refund-policy/', destination: '/return-policy', permanent: true },
+            { source: '/cancellation-and-refunds', destination: '/return-policy', permanent: true },
+            { source: '/cancellation-and-refunds/', destination: '/return-policy', permanent: true },
+            { source: '/cancellation-policy', destination: '/return-policy', permanent: true },
+            { source: '/cancellation-policy/', destination: '/return-policy', permanent: true },
+        ];
+
         return [
             ...productSlugRedirects,
             ...categoryPathRedirects,
+            ...policyCanonicalRedirects,
             ...trailingSlashRedirects,
         ];
     },

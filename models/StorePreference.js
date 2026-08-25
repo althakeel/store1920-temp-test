@@ -61,7 +61,7 @@ const StorePreferenceSchema = new mongoose.Schema(
       items: {
         type: [TopBarItemSchema],
         default: [
-          { id: 'shipping', title: 'Free Shipping', subtitle: 'Special for you', icon: 'truck' },
+          { id: 'shipping', title: 'Fast Delivery', subtitle: 'Across the UAE', icon: 'truck' },
           { id: 'policy', title: 'Up to 90 days*', subtitle: 'Price adjustment', icon: 'bell' },
           { id: 'rewards', title: 'Signup Rewards', subtitle: '100 Coins + Free Coupons', icon: 'gift', action: 'signup' }
         ]

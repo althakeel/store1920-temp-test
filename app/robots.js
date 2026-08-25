@@ -25,6 +25,7 @@ export default function robots() {
         ],
       },
     ],
+    // Index auto-lists sitemap-pages / categories / products / blog (live DB).
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,
   };

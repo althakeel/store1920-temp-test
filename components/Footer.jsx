@@ -18,6 +18,14 @@ import {
     STORE1920_SOCIAL_LINKS,
 } from '@/lib/businessIdentity';
 
+const FOOTER_PAYMENT_METHODS = [
+    { id: 'visa', label: 'Visa', src: '/payments/visa.png' },
+    { id: 'mastercard', label: 'Mastercard', src: '/payments/mastercard.png' },
+    { id: 'tabby', label: 'Tabby', src: '/payments/tabby.png' },
+    { id: 'tamara', label: 'Tamara', src: '/payments/tamara.png' },
+    { id: 'cod', label: 'Cash on Delivery', src: '/payments/cod.png' },
+];
+
 const NAVBAR_APPEARANCE_CACHE_KEY = 'navbarAppearanceCacheV1';
 
 const Footer = () => {
@@ -162,7 +170,6 @@ const Footer = () => {
                 { text: t('footer.shippingPolicy'), path: '/shipping-policy' },
                 { text: t('footer.privacyPolicy'), path: '/privacy-policy' },
                 { text: t('footer.returnRefund'), path: '/return-policy' },
-                { text: t('footer.cancellationRefunds'), path: '/cancellation-and-refunds' },
                 { text: t('footer.sitemap'), path: '/sitemap' },
             ],
         },
@@ -276,13 +283,20 @@ const Footer = () => {
                                 </span>
                             </div>
                         </div>
-                        <div className="mb-6 flex flex-wrap items-center gap-2" aria-label={t('footer.paymentMethods')}>
-                            {['Visa', 'Mastercard', 'Tabby', 'Tamara', 'COD'].map((method) => (
+                        <div className="mb-6 flex flex-wrap items-center gap-2.5" aria-label={t('footer.paymentMethods')}>
+                            {FOOTER_PAYMENT_METHODS.map((method) => (
                                 <span
-                                    key={method}
-                                    className="rounded-md border border-slate-700 bg-slate-900/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-300"
+                                    key={method.id}
+                                    className="inline-flex h-8 items-center justify-center sm:h-9"
+                                    title={method.label}
                                 >
-                                    {method}
+                                    <Image
+                                        src={method.src}
+                                        alt={method.label}
+                                        width={88}
+                                        height={36}
+                                        className="h-8 w-auto max-w-[96px] object-contain sm:h-9"
+                                    />
                                 </span>
                             ))}
                         </div>

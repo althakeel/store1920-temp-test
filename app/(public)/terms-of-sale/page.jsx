@@ -231,7 +231,7 @@ export default function TermsOfSalePage() {
               <strong>Return Eligibility:</strong>
             </p>
             <ul className="list-disc ml-6 mb-3 text-gray-700">
-              <li>7-day return window from the date of delivery</li>
+              <li>Eligible returns within 3 days of delivery for damaged or incomplete orders, per our Return Policy (returns are not free unless due to our error)</li>
               <li>Product must be unused, in original packaging, with all tags attached</li>
               <li>Proof of purchase (order confirmation email) must be provided</li>
               <li>Exceptions: Perishable goods, clearance items, custom orders, and some categories have restricted returns</li>

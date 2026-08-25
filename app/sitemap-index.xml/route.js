@@ -1,15 +1,19 @@
-import { SITE_URL, getSitemapIds } from '@/lib/sitemapData';
+import { SITE_URL, getSitemapIds, toPublicSitemapFilename } from '@/lib/sitemapData';
 
 export const revalidate = 3600;
 
 export async function GET() {
   const ids = await getSitemapIds();
+  const lastmod = new Date().toISOString();
+
   const sitemapsXml = ids
-    .map(
-      ({ id }) => `  <sitemap>
-    <loc>${SITE_URL}/sitemap/${id}.xml</loc>
-  </sitemap>`
-    )
+    .map(({ id }) => {
+      const filename = toPublicSitemapFilename(id);
+      return `  <sitemap>
+    <loc>${SITE_URL}/${filename}</loc>
+    <lastmod>${lastmod}</lastmod>
+  </sitemap>`;
+    })
     .join('\n');
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

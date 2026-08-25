@@ -10,8 +10,8 @@ const DEFAULT_NAVBAR_BG = '#8f3404'
 const DEFAULT_ITEMS = [
   {
     id: 'shipping',
-    title: 'Free Shipping',
-    subtitle: 'Special for you'
+    title: 'Fast Delivery',
+    subtitle: 'Across the UAE'
   },
   {
     id: 'policy',

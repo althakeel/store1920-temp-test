@@ -14,7 +14,7 @@ export default function FAQPage() {
     },
     {
       q: 'What is the return and replacement policy?',
-      a: 'Most items are eligible for return within 7 days of delivery and replacement within 15 days (subject to product eligibility). Check the Return Policy page for full details.'
+      a: 'Eligible returns must be requested within 3 days of delivery for damaged or incomplete orders, subject to our Return, Refund, Exchange & Cancellation Policy. Returns are not free — customers usually pay return shipping unless the issue is our error. We do not currently offer exchanges. See /return-policy for full details.'
     },
     {
       q: 'How do I contact support?',

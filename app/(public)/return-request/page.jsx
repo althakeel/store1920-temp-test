@@ -323,7 +323,7 @@ function ReturnRequestForm() {
             <div className="max-w-3xl mx-auto min-h-[60vh]">
                 <PageTitle 
                     heading="Return / Replace"
-                    text="Return within 7 days or request a replacement within 15 days of delivery"
+                    text="Request returns within 3 days of delivery for eligible damaged or incomplete orders (see Return Policy)"
                     linkText="Back to Orders"
                 />
 

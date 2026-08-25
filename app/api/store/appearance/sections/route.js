@@ -20,10 +20,10 @@ const DEFAULT_APPEARANCE = {
   fastDeliveryPage: DEFAULT_FAST_DELIVERY_PAGE,
   whatsappProductWidget: DEFAULT_WHATSAPP_PRODUCT_WIDGET,
   productPageInfo: {
-    returnsText: 'FREE Returns',
+    returnsText: 'Easy Returns',
     vatText: 'All prices include VAT.',
-    deliveryPrefix: 'FREE delivery',
-    deliverySuffix: 'on your first order.',
+    deliveryPrefix: 'Estimated delivery',
+    deliverySuffix: '— timelines are estimates.',
     cutoffHour: 23,
     cutoffMinute: 0,
     deliveryMinDays: 2,

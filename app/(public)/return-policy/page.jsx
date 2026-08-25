@@ -57,9 +57,9 @@ function buildPageCopy() {
 
   return {
   en: {
-    title: 'Return, Refund & Exchange Policy',
+    title: 'Return, Refund, Exchange & Cancellation Policy',
     intro:
-      'At Store1920, your satisfaction is our priority. Please read the policy below before requesting a return or refund.',
+      'This is Store1920’s single master policy for returns, refunds, exchanges, and order cancellations. Please read it before requesting a return, refund, or cancellation.',
     sections: [
       {
         title: '1. Return Window & Eligible Cases',
@@ -67,6 +67,7 @@ function buildPageCopy() {
           'Items can be returned after notifying us within 3 days from the date of delivery in either of these cases:',
           'All returns must be in original packaging and in the same condition in which they were received.',
           'You can request a return directly on our website — sign in, go to My Orders, open your delivered order, and submit a Return Request.',
+          'Returns are not free. Customers are responsible for return shipping costs unless we confirm the return is due to our error (wrong, damaged, or incomplete item caused by us).',
         ],
         bullets: [
           'Products that are damaged',
@@ -131,6 +132,7 @@ function buildPageCopy() {
         paragraphs: [
           'Once your return is received and inspected, we will notify you by email about approval or rejection of your refund.',
           'If approved, your refund will be processed and credited to your original payment method within a certain number of days.',
+          'For COD orders, approved refunds may be issued by bank transfer once bank details are provided and verified.',
           'For returns, we can arrange return collection. Courier charges must be paid by the customer, or the customer can return directly to our partner store in Deira.',
         ],
       },
@@ -149,7 +151,10 @@ function buildPageCopy() {
       },
       {
         title: '11. Exchanges',
-        paragraphs: ['We currently do not offer exchanges.'],
+        paragraphs: [
+          'We currently do not offer exchanges.',
+          'If you need a different item, request an eligible return/refund (where applicable) and place a new order.',
+        ],
       },
       {
         title: '12. Gifts',
@@ -163,12 +168,35 @@ function buildPageCopy() {
           'Delivery times for returned/replaced products may vary depending on your location.',
         ],
       },
+      {
+        title: '14. Order Cancellation — Before Shipment',
+        paragraphs: [
+          'You may request cancellation within about 1–2 hours of placing the order, or any time before the order is shipped.',
+          'Go to My Orders and choose Cancel, or contact support with your order ID.',
+          'If a prepaid payment was captured and cancellation is approved, a full refund is issued to the original payment method.',
+        ],
+      },
+      {
+        title: '15. Order Cancellation — After Shipment',
+        paragraphs: [
+          'Once an order has been shipped, cancellation is not possible.',
+          'You may refuse delivery where the courier allows it, or submit a return request after delivery if the item meets the eligibility rules in this policy.',
+        ],
+      },
+      {
+        title: '16. Warranty',
+        paragraphs: [
+          'Warranty coverage (if any) is provided by the manufacturer or seller and varies by product. Store1920 does not promise a fixed warranty period on every item.',
+          'Check the product page for product-specific warranty details when shown. For warranty claims, contact support with your order ID and issue details.',
+          'Warranty generally excludes accidental damage, misuse, unauthorized repairs, and normal wear and tear, subject to the brand’s terms.',
+        ],
+      },
     ],
   },
   ar: {
-    title: 'سياسة الإرجاع والاسترداد والاستبدال',
+    title: 'سياسة الإرجاع والاسترداد والاستبدال والإلغاء',
     intro:
-      'في Store1920، رضاك أولويتنا. يرجى قراءة السياسة أدناه قبل طلب الإرجاع أو الاسترداد.',
+      'هذه هي السياسة الموحدة لـ Store1920 بخصوص الإرجاع والاسترداد والاستبدال وإلغاء الطلبات. يرجى قراءتها قبل تقديم أي طلب.',
     sections: [
       {
         title: '1. مدة الإرجاع والحالات المؤهلة',
@@ -176,6 +204,7 @@ function buildPageCopy() {
           'يمكن إرجاع المنتجات بعد إخطارنا خلال 3 أيام من تاريخ التسليم في إحدى الحالتين التاليتين:',
           'يجب أن تكون جميع المرتجعات في عبوتها الأصلية وبنفس الحالة التي استلمتها بها.',
           'يمكنك طلب الإرجاع مباشرة من موقعنا — سجّل الدخول، ثم اذهب إلى طلباتي، وافتح الطلب المُسلّم، وقدّم طلب إرجاع.',
+          'الإرجاع ليس مجانيًا. يتحمل العميل تكاليف شحن الإرجاع ما لم نؤكد أن السبب خطأ من جانبنا (منتج خاطئ أو تالف أو ناقص بسببنا).',
         ],
         bullets: [
           'المنتجات التالفة',
@@ -240,6 +269,7 @@ function buildPageCopy() {
         paragraphs: [
           'بمجرد استلام مرتجعك وفحصه، سنخطرك عبر البريد الإلكتروني بالموافقة على الاسترداد أو رفضه.',
           'إذا تمت الموافقة، سيتم معالجة الاسترداد وإضافته إلى طريقة الدفع الأصلية خلال عدد معين من الأيام.',
+          'لطلبات الدفع عند الاستلام، قد يتم تحويل المبالغ المستردة المعتمدة إلى الحساب البنكي بعد التحقق من بيانات الحساب.',
           'للإرجاع، يمكننا ترتيب استلام المرتجع. يتحمل العميل رسوم شركة الشحن، أو يمكن للعميل الإرجاع مباشرة إلى متجر شريكنا في ديرة.',
         ],
       },
@@ -258,7 +288,10 @@ function buildPageCopy() {
       },
       {
         title: '11. الاستبدال',
-        paragraphs: ['لا نقدم حاليًا خدمة الاستبدال.'],
+        paragraphs: [
+          'لا نقدم حاليًا خدمة الاستبدال.',
+          'إذا احتجت منتجًا مختلفًا، قدّم طلب إرجاع/استرداد مؤهلًا (إن أمكن) ثم قدّم طلبًا جديدًا.',
+        ],
       },
       {
         title: '12. الهدايا',
@@ -270,6 +303,29 @@ function buildPageCopy() {
           `لإرجاع منتجك، قدّم طلب إرجاع من صفحة طلباتي أو تواصل مع خدمة العملاء عبر ${STORE1920_SUPPORT_EMAIL}.`,
           'أنت مسؤول عن دفع تكاليف شحن الإرجاع. تكاليف الشحن غير قابلة للاسترداد. إذا تم إصدار استرداد، سيتم خصم تكلفة شحن الإرجاع من مبلغ الاسترداد.',
           'قد تختلف مواعيد تسليم المنتجات المرتجعة أو المستبدلة حسب موقعك.',
+        ],
+      },
+      {
+        title: '14. إلغاء الطلب — قبل الشحن',
+        paragraphs: [
+          'يمكنك طلب الإلغاء خلال حوالي 1–2 ساعة من تقديم الطلب، أو في أي وقت قبل شحن الطلب.',
+          'اذهب إلى طلباتي واختر إلغاء، أو تواصل مع الدعم برقم الطلب.',
+          'إذا تم تحصيل دفعة مسبقة وتمت الموافقة على الإلغاء، يُعاد المبلغ كاملًا إلى طريقة الدفع الأصلية.',
+        ],
+      },
+      {
+        title: '15. إلغاء الطلب — بعد الشحن',
+        paragraphs: [
+          'بعد شحن الطلب، لا يمكن إلغاؤه.',
+          'يمكنك رفض الاستلام إن سمحت شركة الشحن بذلك، أو تقديم طلب إرجاع بعد التسليم إذا استوفى المنتج شروط هذه السياسة.',
+        ],
+      },
+      {
+        title: '16. الضمان',
+        paragraphs: [
+          'تغطية الضمان (إن وُجدت) تقدّمها الشركة المصنعة أو البائع وتختلف حسب المنتج. لا تعد Store1920 بمدة ضمان ثابتة لكل منتج.',
+          'راجع صفحة المنتج لتفاصيل الضمان الخاصة بالمنتج عند عرضها. لطلبات الضمان، تواصل مع الدعم برقم الطلب وتفاصيل المشكلة.',
+          'يستثني الضمان عادةً التلف العرضي وسوء الاستخدام والإصلاح غير المصرّح به والبلى الطبيعي، وفق شروط العلامة.',
         ],
       },
     ],

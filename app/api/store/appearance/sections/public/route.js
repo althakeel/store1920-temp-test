@@ -8,7 +8,7 @@ import {
   normalizeWhatsAppProductWidget,
 } from '@/lib/whatsappProductWidget'
 
-const APPEARANCE_CACHE_KEY = 'public:appearance-sections:v2'
+const APPEARANCE_CACHE_KEY = 'public:appearance-sections:v3'
 
 const DEFAULT_APPEARANCE = {
   categorySliders: { enabled: true, title: 'Featured Collections', description: 'Browse our curated collections' },
@@ -21,10 +21,10 @@ const DEFAULT_APPEARANCE = {
   fastDeliveryPage: DEFAULT_FAST_DELIVERY_PAGE,
   whatsappProductWidget: DEFAULT_WHATSAPP_PRODUCT_WIDGET,
   productPageInfo: {
-    returnsText: 'FREE Returns',
+    returnsText: 'Easy Returns',
     vatText: 'All prices include VAT.',
-    deliveryPrefix: 'FREE delivery',
-    deliverySuffix: 'on your first order.',
+    deliveryPrefix: 'Estimated delivery',
+    deliverySuffix: '— timelines are estimates.',
     cutoffHour: 23,
     cutoffMinute: 0,
     deliveryMinDays: 2,
@@ -131,6 +131,18 @@ function normalizeBadgeDefinitions(values) {
   return normalized.length ? normalized.slice(0, 20) : DEFAULT_APPEARANCE.productPageInfo.badgeSettings.badges
 }
 
+function sanitizeProductPageClaimText(value = '', fallback = '') {
+  const text = String(value || '').trim()
+  if (!text) return fallback
+  const lower = text.toLowerCase()
+  if (lower.includes('free return')) return 'Easy Returns'
+  if (lower === 'free delivery' || lower === 'free shipping' || lower.startsWith('free delivery')) {
+    return 'Estimated delivery'
+  }
+  if (lower.includes('on your first order')) return '— timelines are estimates.'
+  return text
+}
+
 function normalizePublic(data = {}) {
   const homeMenuCategories = data.homeMenuCategories || {}
   const exploreYourInterests = data.exploreYourInterests || {}
@@ -166,10 +178,19 @@ function normalizePublic(data = {}) {
       data.whatsappProductWidget || DEFAULT_APPEARANCE.whatsappProductWidget,
     ),
     productPageInfo: {
-      returnsText: (productPageInfo.returnsText || DEFAULT_APPEARANCE.productPageInfo.returnsText).toString().trim(),
+      returnsText: sanitizeProductPageClaimText(
+        productPageInfo.returnsText,
+        DEFAULT_APPEARANCE.productPageInfo.returnsText,
+      ),
       vatText: (productPageInfo.vatText || DEFAULT_APPEARANCE.productPageInfo.vatText).toString().trim(),
-      deliveryPrefix: (productPageInfo.deliveryPrefix || DEFAULT_APPEARANCE.productPageInfo.deliveryPrefix).toString().trim(),
-      deliverySuffix: (productPageInfo.deliverySuffix || DEFAULT_APPEARANCE.productPageInfo.deliverySuffix).toString().trim(),
+      deliveryPrefix: sanitizeProductPageClaimText(
+        productPageInfo.deliveryPrefix,
+        DEFAULT_APPEARANCE.productPageInfo.deliveryPrefix,
+      ),
+      deliverySuffix: sanitizeProductPageClaimText(
+        productPageInfo.deliverySuffix,
+        DEFAULT_APPEARANCE.productPageInfo.deliverySuffix,
+      ),
       cutoffHour: Math.max(0, Math.min(23, Number(productPageInfo.cutoffHour ?? DEFAULT_APPEARANCE.productPageInfo.cutoffHour))),
       cutoffMinute: Math.max(0, Math.min(59, Number(productPageInfo.cutoffMinute ?? DEFAULT_APPEARANCE.productPageInfo.cutoffMinute))),
       deliveryMinDays: Math.max(0, Math.min(30, Number(productPageInfo.deliveryMinDays ?? DEFAULT_APPEARANCE.productPageInfo.deliveryMinDays))),

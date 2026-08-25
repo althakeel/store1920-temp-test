@@ -397,10 +397,10 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
   };
 
   const [productPageInfo, setProductPageInfo] = useState({
-    returnsText: 'FREE Returns',
+    returnsText: 'Easy Returns',
     vatText: 'All prices include VAT.',
-    deliveryPrefix: 'FREE delivery',
-    deliverySuffix: 'on your first order.',
+    deliveryPrefix: 'Estimated delivery',
+    deliverySuffix: '— timelines are estimates.',
     cutoffHour: 23,
     cutoffMinute: 0,
     deliveryMinDays: 2,
@@ -594,26 +594,33 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
 
   const deliverySummary = useMemo(() => {
     const { minDays, maxDays, rangeText } = deliveryWindow;
+    // Only claim free shipping when the product itself is marked eligible
+    // (order-threshold free shipping is shown separately in the fee row).
+    const qualifiesForFreeDelivery = Boolean(product?.freeShippingEligible);
 
     if (isArabic) {
       const daysText = minDays === maxDays
-        ? `خلال ${minDays} أيام`
-        : `خلال ${minDays}-${maxDays} أيام`;
+        ? `خلال حوالي ${minDays} أيام`
+        : `خلال حوالي ${minDays}-${maxDays} أيام`;
       return {
-        primary: `توصيل مجاني ${rangeText}`,
-        secondary: `اطلب الآن — استلمه ${daysText}`,
+        primary: qualifiesForFreeDelivery
+          ? `شحن مجاني — يقدّر بحلول ${rangeText}`
+          : `توصيل تقديري بحلول ${rangeText}`,
+        secondary: `اطلب الآن — ${daysText} (تقديري)`,
       };
     }
 
     const daysText = minDays === maxDays
-      ? `within ${minDays} days`
-      : `in ${minDays}-${maxDays} days`;
+      ? `within about ${minDays} days`
+      : `in about ${minDays}-${maxDays} days`;
 
     return {
-      primary: `FREE delivery by ${rangeText}`,
-      secondary: `Order now — get it ${daysText}`,
+      primary: qualifiesForFreeDelivery
+        ? `Free shipping — estimated by ${rangeText}`
+        : `Estimated delivery by ${rangeText}`,
+      secondary: `Order now — get it ${daysText} (estimate)`,
     };
-  }, [deliveryWindow, isArabic]);
+  }, [deliveryWindow, isArabic, product?.freeShippingEligible]);
 
   const buyboxCopy = useMemo(() => {
     if (isArabic) {

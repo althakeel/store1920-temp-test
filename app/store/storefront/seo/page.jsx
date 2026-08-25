@@ -48,18 +48,12 @@ const PRESET_PAGES = [
   { label: "Sitemap", path: "/sitemap" },
   { label: "Pricing", path: "/pricing" },
   { label: "Payment and Pricing", path: "/payment-and-pricing" },
-  // Policies
+  // Policies (canonical only — stubs/duplicates redirect)
   { label: "Privacy Policy", path: "/privacy-policy" },
-  { label: "Privacy", path: "/privacy" },
   { label: "Shipping Policy", path: "/shipping-policy" },
-  { label: "Shipping", path: "/shipping" },
-  { label: "Return Policy", path: "/return-policy" },
-  { label: "Refund Policy", path: "/refund-policy" },
-  { label: "Cancellation and Refunds", path: "/cancellation-and-refunds" },
-  { label: "Cancellation Policy", path: "/cancellation-policy" },
+  { label: "Return, Refund, Exchange & Cancellation", path: "/return-policy" },
   { label: "Terms and Conditions", path: "/terms-and-conditions" },
   { label: "Terms of Sale", path: "/terms-of-sale" },
-  { label: "Terms", path: "/terms" },
   { label: "Cookie Policy", path: "/cookie-policy" },
   { label: "Warranty Policy", path: "/warranty-policy" },
   // Legacy aliases (if older SEO was saved under these)

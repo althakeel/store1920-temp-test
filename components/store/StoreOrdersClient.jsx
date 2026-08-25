@@ -38,6 +38,55 @@ function formatFilterDateLabel(value = '') {
 }
 
 const DEFAULT_ORDER_FILTER_TIME = DEFAULT_ORDERS_BY_PRODUCT_TIME;
+const BULK_STATUS_UNDO_MS = 30 * 60 * 1000;
+const BULK_STATUS_UNDO_STORAGE_KEY = 'store1920_bulk_status_excel_undo';
+
+function readBulkStatusUndoFromStorage() {
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = window.localStorage.getItem(BULK_STATUS_UNDO_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.expiresAt || !Array.isArray(parsed?.updates) || !parsed.updates.length) {
+            window.localStorage.removeItem(BULK_STATUS_UNDO_STORAGE_KEY);
+            return null;
+        }
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
+function writeBulkStatusUndoToStorage(snapshot) {
+    if (typeof window === 'undefined') return;
+    try {
+        if (!snapshot?.updates?.length) {
+            window.localStorage.removeItem(BULK_STATUS_UNDO_STORAGE_KEY);
+            return;
+        }
+        window.localStorage.setItem(BULK_STATUS_UNDO_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+        // ignore quota / private mode
+    }
+}
+
+function clearBulkStatusUndoStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.removeItem(BULK_STATUS_UNDO_STORAGE_KEY);
+    } catch {
+        // ignore
+    }
+}
+
+function formatBulkStatusUndoRemaining(ms) {
+    const safe = Math.max(0, ms);
+    const totalSec = Math.ceil(safe / 1000);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    if (mins <= 0) return `${secs}s left`;
+    return `${mins}m ${String(secs).padStart(2, '0')}s left`;
+}
 
 function normalizeFilterTimeValue(value = '', fallback = DEFAULT_ORDER_FILTER_TIME) {
     return normalizeOrdersByProductTime(value, fallback);
@@ -648,6 +697,12 @@ export default function StoreOrders() {
     const [orderCsvFile, setOrderCsvFile] = useState(null);
     const [importingOrdersCsv, setImportingOrdersCsv] = useState(false);
     const [importProgress, setImportProgress] = useState({ current: 0, total: 0, phase: 'idle' });
+    const [bulkStatusExcelFile, setBulkStatusExcelFile] = useState(null);
+    const [importingBulkStatusExcel, setImportingBulkStatusExcel] = useState(false);
+    const [bulkStatusProgress, setBulkStatusProgress] = useState({ current: 0, total: 0, phase: 'idle' });
+    const [bulkStatusUndo, setBulkStatusUndo] = useState(null);
+    const [undoingBulkStatus, setUndoingBulkStatus] = useState(false);
+    const [bulkStatusUndoNow, setBulkStatusUndoNow] = useState(() => Date.now());
     const [showImportExportPanel, setShowImportExportPanel] = useState(false);
     const [showTodayOrdersPdfModal, setShowTodayOrdersPdfModal] = useState(false);
     const [exportingTodayOrdersPdf, setExportingTodayOrdersPdf] = useState(false);
@@ -1114,6 +1169,10 @@ export default function StoreOrders() {
         .filter((orderId) => selectedOrderIds.includes(orderId));
     const allVisibleSelected = paginatedOrders.length > 0 && selectedVisibleOrderIds.length === paginatedOrders.length;
     const hasSelectedOrders = selectedOrderIds.length > 0;
+    const bulkStatusUndoMsLeft = Math.max(0, Number(bulkStatusUndo?.expiresAt || 0) - bulkStatusUndoNow);
+    const bulkStatusUndoActive = Boolean(
+        bulkStatusUndo?.updates?.length && bulkStatusUndoMsLeft > 0,
+    );
 
     const applyLabelPrintedToOrders = (orderIds, printedAt = new Date().toISOString(), statusById = {}, countById = {}) => {
         const idSet = new Set(orderIds.map(String));
@@ -1962,6 +2021,13 @@ export default function StoreOrders() {
     };
 
     useEffect(() => {
+        const stored = readBulkStatusUndoFromStorage();
+        if (stored) setBulkStatusUndo(stored);
+        const tick = setInterval(() => setBulkStatusUndoNow(Date.now()), 1000);
+        return () => clearInterval(tick);
+    }, []);
+
+    useEffect(() => {
         const cached = readPageCache('store-orders');
         if (cached?.orders?.length) {
             setOrders(excludeReturnPickupCloneOrders(cached.orders));
@@ -2464,6 +2530,199 @@ export default function StoreOrders() {
             setTimeout(() => {
                 setImportProgress({ current: 0, total: 0, phase: 'idle' });
             }, 2500);
+        }
+    };
+
+    const importBulkStatusFromExcel = async () => {
+        if (!bulkStatusExcelFile) {
+            toast.error('Choose an Excel file with ShipperRef (order id) and Status columns');
+            return;
+        }
+
+        const name = String(bulkStatusExcelFile.name || '').toLowerCase();
+        if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv')) {
+            toast.error('Upload an .xlsx / .xls / .csv file');
+            return;
+        }
+
+        try {
+            setImportingBulkStatusExcel(true);
+            setBulkStatusProgress({ current: 0, total: 0, phase: 'parsing' });
+
+            const XLSX = await import('xlsx');
+            const { parseBulkStatusExcelRows } = await import('@/lib/storeBulkStatusExcel');
+            const buffer = await bulkStatusExcelFile.arrayBuffer();
+            const workbook = XLSX.read(buffer, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+            const { updates, invalid } = parseBulkStatusExcelRows(rows);
+
+            if (!updates.length) {
+                toast.error(invalid[0]?.error || 'No valid ShipperRef / Status rows found');
+                return;
+            }
+
+            const statusPreview = [...new Set(updates.map((u) => u.status))].join(', ');
+            const confirmed = await askCenterConfirm({
+                title: 'Bulk change order status from Excel?',
+                message: `${updates.length.toLocaleString()} order id(s) will update (${statusPreview}).${
+                    invalid.length ? ` ${invalid.length} row(s) skipped as invalid.` : ''
+                } Customers are emailed when status actually changes. You can undo for 30 minutes.`,
+                confirmLabel: 'Update statuses',
+                cancelLabel: 'Cancel',
+                tone: 'violet',
+                icon: 'alert',
+            });
+            if (!confirmed) return;
+
+            const token = await getToken(true);
+            if (!token) {
+                toast.error('Authentication failed. Please sign in again.');
+                return;
+            }
+
+            const CHUNK = 200;
+            let updatedCount = 0;
+            let unchangedCount = 0;
+            let failedCount = invalid.length;
+            const sampleFailures = [...invalid.slice(0, 5)];
+            const undoRows = [];
+
+            setBulkStatusProgress({ current: 0, total: updates.length, phase: 'updating' });
+
+            for (let i = 0; i < updates.length; i += CHUNK) {
+                const chunk = updates.slice(i, i + CHUNK);
+                const { data } = await axios.post('/api/store/orders/bulk-status-by-ref', {
+                    updates: chunk,
+                }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                updatedCount += Number(data?.updatedCount || 0);
+                unchangedCount += Number(data?.unchangedCount || 0);
+                failedCount += Number(data?.failedCount || 0);
+                if (Array.isArray(data?.failed) && sampleFailures.length < 8) {
+                    sampleFailures.push(...data.failed.slice(0, 8 - sampleFailures.length));
+                }
+                if (Array.isArray(data?.updated)) {
+                    for (const row of data.updated) {
+                        if (row?.shipperRef && row?.previousStatus) {
+                            undoRows.push({
+                                shipperRef: String(row.shipperRef),
+                                status: String(row.previousStatus),
+                            });
+                        }
+                    }
+                }
+
+                setBulkStatusProgress({
+                    current: Math.min(i + chunk.length, updates.length),
+                    total: updates.length,
+                    phase: 'updating',
+                });
+            }
+
+            if (undoRows.length) {
+                const snapshot = {
+                    createdAt: Date.now(),
+                    expiresAt: Date.now() + BULK_STATUS_UNDO_MS,
+                    updates: undoRows,
+                    count: undoRows.length,
+                };
+                writeBulkStatusUndoToStorage(snapshot);
+                setBulkStatusUndo(snapshot);
+                setBulkStatusUndoNow(Date.now());
+            }
+
+            await fetchOrders();
+            setBulkStatusExcelFile(null);
+
+            if (failedCount > 0) {
+                const detail = sampleFailures
+                    .map((f) => `${f.shipperRef || `row ${f.row}`}: ${f.error}`)
+                    .join(' · ');
+                toast.error(
+                    `Updated ${updatedCount}, unchanged ${unchangedCount}, failed ${failedCount}.${detail ? ` ${detail}` : ''}`,
+                    { duration: 8000 },
+                );
+            } else {
+                toast.success(
+                    `Updated ${updatedCount} order(s)${unchangedCount ? ` · ${unchangedCount} already set` : ''}${
+                        undoRows.length ? ' · Undo available for 30 min' : ''
+                    }`,
+                );
+            }
+        } catch (error) {
+            console.error('Bulk status Excel import failed:', error);
+            toast.error(error?.response?.data?.error || 'Failed to import status Excel');
+        } finally {
+            setImportingBulkStatusExcel(false);
+            setTimeout(() => {
+                setBulkStatusProgress({ current: 0, total: 0, phase: 'idle' });
+            }, 2500);
+        }
+    };
+
+    const undoBulkStatusFromExcel = async () => {
+        const snapshot = bulkStatusUndo || readBulkStatusUndoFromStorage();
+        if (!snapshot?.updates?.length) {
+            toast.error('Nothing to undo');
+            return;
+        }
+        if (Date.now() > Number(snapshot.expiresAt || 0)) {
+            clearBulkStatusUndoStorage();
+            setBulkStatusUndo(null);
+            toast.error('Undo window expired (30 minutes)');
+            return;
+        }
+
+        const confirmed = await askCenterConfirm({
+            title: 'Undo Excel status update?',
+            message: `Restore previous status for ${snapshot.updates.length.toLocaleString()} order(s). Customers are emailed when status changes.`,
+            confirmLabel: 'Undo now',
+            cancelLabel: 'Cancel',
+            tone: 'violet',
+            icon: 'alert',
+        });
+        if (!confirmed) return;
+
+        try {
+            setUndoingBulkStatus(true);
+            const token = await getToken(true);
+            if (!token) {
+                toast.error('Authentication failed. Please sign in again.');
+                return;
+            }
+
+            const CHUNK = 200;
+            let updatedCount = 0;
+            let failedCount = 0;
+
+            for (let i = 0; i < snapshot.updates.length; i += CHUNK) {
+                const chunk = snapshot.updates.slice(i, i + CHUNK);
+                const { data } = await axios.post('/api/store/orders/bulk-status-by-ref', {
+                    updates: chunk,
+                }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                updatedCount += Number(data?.updatedCount || 0);
+                failedCount += Number(data?.failedCount || 0);
+            }
+
+            clearBulkStatusUndoStorage();
+            setBulkStatusUndo(null);
+            await fetchOrders();
+
+            if (failedCount > 0) {
+                toast.error(`Undid ${updatedCount} order(s), ${failedCount} failed`);
+            } else {
+                toast.success(`Undid status for ${updatedCount} order(s)`);
+            }
+        } catch (error) {
+            console.error('Bulk status undo failed:', error);
+            toast.error(error?.response?.data?.error || 'Failed to undo status update');
+        } finally {
+            setUndoingBulkStatus(false);
         }
     };
 
@@ -4146,13 +4405,13 @@ export default function StoreOrders() {
                         type="button"
                         onClick={() => setShowImportExportPanel((prev) => !prev)}
                         className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition ${
-                            showImportExportPanel || importingOrdersCsv
+                            showImportExportPanel || importingOrdersCsv || importingBulkStatusExcel
                                 ? 'border-slate-900 bg-slate-900 text-white'
                                 : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                         }`}
                     >
                         <Download size={16} />
-                        {showImportExportPanel || importingOrdersCsv ? 'Hide Import / Export' : 'Import / Export'}
+                        {showImportExportPanel || importingOrdersCsv || importingBulkStatusExcel ? 'Hide Import / Export' : 'Import / Export'}
                     </button>
                     <button
                         type="button"
@@ -4275,7 +4534,7 @@ export default function StoreOrders() {
                         </label>
                     </div>
                 )}
-                {(showImportExportPanel || importingOrdersCsv) ? (
+                {(showImportExportPanel || importingOrdersCsv || importingBulkStatusExcel) ? (
                 <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <label className="text-xs text-slate-500">Export Type</label>
@@ -4303,18 +4562,65 @@ export default function StoreOrders() {
                             className="w-full mt-1 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                         />
                     </div>
-                    <div className="flex items-end">
+                    <div>
+                        <label className="text-xs text-slate-500">Bulk status Excel (ShipperRef = order id)</label>
+                        <input
+                            type="file"
+                            accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                            onChange={(e) => setBulkStatusExcelFile(e.target.files?.[0] || null)}
+                            className="w-full mt-1 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-medium file:text-emerald-800 hover:file:bg-emerald-100"
+                        />
+                        <p className="mt-1 text-xs text-slate-500">
+                            Columns: <span className="font-medium text-slate-700">ShipperRef</span> (order id) +{' '}
+                            <span className="font-medium text-slate-700">Status</span>
+                            {' '}(Delivered, Canceled, RTO, RETURNED, Shipped, …)
+                        </p>
+                    </div>
+                    <div className="flex items-end sm:col-span-2 lg:col-span-3">
                         <div className="w-full flex flex-col gap-2 lg:items-end">
                             <div className="text-xs text-slate-500">Import the WordPress CSV export (.csv) only — do not open in Excel first (Excel changes dates/times). Each order keeps its original date and time from the export.</div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     onClick={importOrdersFromCsv}
-                                    disabled={importingOrdersCsv}
+                                    disabled={importingOrdersCsv || importingBulkStatusExcel}
                                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     <Download size={14} />
                                     {importingOrdersCsv ? 'Importing...' : 'Import CSV'}
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={importBulkStatusFromExcel}
+                                    disabled={importingBulkStatusExcel || importingOrdersCsv || undoingBulkStatus || !bulkStatusExcelFile}
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <RefreshCw size={14} className={importingBulkStatusExcel ? 'animate-spin' : ''} />
+                                    {importingBulkStatusExcel ? 'Updating statuses…' : 'Update status from Excel'}
+                                </button>
+                                {bulkStatusUndoActive ? (
+                                    <button
+                                        type="button"
+                                        onClick={undoBulkStatusFromExcel}
+                                        disabled={undoingBulkStatus || importingBulkStatusExcel || importingOrdersCsv}
+                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-400 bg-amber-50 text-amber-950 text-xs font-semibold transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                        title={`Restore previous statuses (${bulkStatusUndo.updates.length} orders)`}
+                                    >
+                                        <Undo2 size={14} className={undoingBulkStatus ? 'animate-pulse' : ''} />
+                                        {undoingBulkStatus
+                                            ? 'Undoing…'
+                                            : `Undo (${formatBulkStatusUndoRemaining(bulkStatusUndoMsLeft)})`}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        disabled
+                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-500 text-xs font-semibold cursor-not-allowed"
+                                        title="Undo is available for 30 minutes after a bulk Excel status update"
+                                    >
+                                        <Undo2 size={14} />
+                                        Undo off
+                                    </button>
+                                )}
                                 <button
                                     onClick={exportOrdersToCsv}
                                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition"
@@ -4380,6 +4686,31 @@ export default function StoreOrders() {
                                                 : ''}
                                         </p>
                                     ) : null}
+                                </div>
+                            ) : null}
+                            {importingBulkStatusExcel && bulkStatusProgress.total > 0 ? (
+                                <div className="w-full max-w-md rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                                    <div className="mb-1 flex items-center justify-between text-xs text-emerald-800">
+                                        <span>
+                                            {bulkStatusProgress.phase === 'parsing'
+                                                ? 'Reading Excel…'
+                                                : 'Updating order statuses…'}
+                                        </span>
+                                        <span>
+                                            {Math.min(100, Math.round((bulkStatusProgress.current / bulkStatusProgress.total) * 100))}%
+                                        </span>
+                                    </div>
+                                    <div className="h-2 overflow-hidden rounded-full bg-emerald-100">
+                                        <div
+                                            className="h-full rounded-full bg-emerald-600 transition-all duration-300"
+                                            style={{
+                                                width: `${Math.min(100, Math.round((bulkStatusProgress.current / bulkStatusProgress.total) * 100))}%`,
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="mt-1 text-xs text-emerald-700">
+                                        {bulkStatusProgress.current.toLocaleString()} / {bulkStatusProgress.total.toLocaleString()} order ids
+                                    </p>
                                 </div>
                             ) : null}
                         </div>

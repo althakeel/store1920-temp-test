@@ -140,8 +140,6 @@ const EXISTING_PAGES = [
   '/terms-and-conditions',
   '/shipping-policy',
   '/return-policy',
-  '/refund-policy',
-  '/cancellation-policy',
   '/cookie-policy',
   '/warranty-policy',
 ];

@@ -1,232 +1,211 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import axios from 'axios';
-import { isStorefrontWalletEnabled } from '@/lib/storefrontWallet';
+import { getHtmlSitemapData } from '@/lib/htmlSitemapData';
+import SitemapProductsSection from '@/components/SitemapProductsSection';
+import { STORE1920_BRAND_NAME } from '@/lib/brandLogo';
 
-export default function SitemapPage() {
-  const storefrontWalletEnabled = isStorefrontWalletEnabled();
-  const [sitemapCategories, setSitemapCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+export const dynamic = 'force-dynamic';
 
-  const defaultCategories = [
-    { id: 'fast-delivery', text: 'Fast Delivery', path: '/category/fast-delivery' },
-    { id: 'trending-featured', text: 'Trending & Featured', path: '/category/trending-featured' },
-    { id: 'men-s-fashion', text: "Men's Fashion", path: '/category/men-s-fashion' },
-    { id: 'women-s-fashion', text: "Women's Fashion", path: '/category/womens-fashion' },
-    { id: 'kids', text: 'Kids', path: '/category/kids' },
-    { id: 'electronics', text: 'Electronics', path: '/category/electronics' },
-    { id: 'mobile-accessories', text: 'Mobile Accessories', path: '/category/mobile-accessories' },
-    { id: 'home-kitchen', text: 'Home & Kitchen', path: '/category/home-kitchen' },
-    { id: 'beauty', text: 'Beauty', path: '/category/beauty' },
-    { id: 'car-essentials', text: 'Car Essentials', path: '/category/car-essentials' },
-    { id: 'sports-fitness', text: 'Sports & Fitness', path: '/category/sports-fitness' },
-    { id: 'groceries', text: 'Groceries', path: '/category/groceries' },
-  ];
+export const metadata = {
+  title: 'Sitemap | Store1920',
+  description:
+    'Browse every public page, category, product, and blog post on Store1920. This HTML sitemap updates automatically from the live catalog.',
+};
 
-  useEffect(() => {
-    fetchSitemapCategories();
-  }, []);
+const NAV_LABELS = {
+  shop: 'Shop',
+  budget: 'Budget',
+  categories: 'Categories',
+  products: 'Products',
+  blogs: 'Blog',
+  stores: 'Stores',
+  account: 'Account',
+  help: 'Help',
+  policies: 'Policies',
+  about: 'About',
+};
 
-  const fetchSitemapCategories = async () => {
-    try {
-      const response = await axios.get('/api/store/sitemap-settings/public');
-      if (response.data.categories && response.data.categories.length > 0) {
-        setSitemapCategories(response.data.categories);
-      } else {
-        setSitemapCategories(defaultCategories);
-      }
-    } catch (error) {
-      console.log('Using default categories (API unavailable):', error.message);
-      // Always fallback to default categories if API fails
-      setSitemapCategories(defaultCategories);
-    } finally {
-      setLoading(false);
-    }
-  };
+function SectionBlock({ section }) {
+  const links = Array.isArray(section.links) ? section.links : [];
 
-  const sitemapSections = [
-    {
-      title: '🛍️ Shop & Browse',
-      links: [
-        { text: 'Home', path: '/', description: 'Main homepage' },
-        { text: 'All Products', path: '/products', description: 'Browse all products' },
-        { text: 'Shop', path: '/shop', description: 'Shop with filters' },
-        { text: 'Categories', path: '/categories', description: 'All categories' },
-        { text: 'Fast Delivery', path: '/fast-delivery', description: 'Quick shipping items' },
-        { text: 'Top Selling', path: '/top-selling', description: 'Best selling products' },
-        { text: 'New Arrivals', path: '/new', description: 'Latest products' },
-        { text: 'Trending Now', path: '/trending-now', description: 'Trending items' },
-        { text: 'Best Sellers', path: '/best-sellers', description: 'Customer favorites' },
-        { text: '5-Star Rated', path: '/5-star-rated', description: 'Highly rated products' },
-        { text: 'Deals', path: '/deals', description: 'Special deals' },
-        { text: 'Special Offers', path: '/offers', description: 'Products with 60%+ off' },
-        { text: 'Clearance Sale', path: '/clearance-sale', description: 'Clearance items' },
-      ]
-    },
-    {
-      title: '💰 Budget Shopping',
-      links: [
-        { text: 'Under AED149', path: '/under-149', description: 'Products under 149' },
-        { text: 'Under AED499', path: '/under-499', description: 'Products under 499' },
-      ]
-    },
-    {
-      title: '👤 Account & Orders',
-      links: [
-        { text: 'My Profile', path: '/dashboard/profile', description: 'User profile settings' },
-        { text: 'My Orders', path: '/orders', description: 'View all orders' },
-        { text: 'Track Order', path: '/track-order', description: 'Track shipment' },
-        { text: 'My Wishlist', path: '/wishlist', description: 'Saved items' },
-        { text: 'Shopping Cart', path: '/cart', description: 'Shopping cart' },
-        { text: 'Sign In', path: '/sign-in', description: 'Login to account' },
-        { text: 'Sign Up', path: '/sign-up', description: 'Create new account' },
-        { text: 'Dashboard', path: '/dashboard', description: 'User dashboard' },
-        { text: 'My Wallet', path: '/wallet', description: 'Wallet & balance' },
-        { text: 'Recently Viewed', path: '/recently-viewed', description: 'Browsing history' },
-        { text: 'Recommended', path: '/recommended', description: 'Personalized recommendations' },
-      ]
-    },
-    {
-      title: '📦 Checkout & Orders',
-      links: [
-        { text: 'Checkout', path: '/checkout', description: 'Complete purchase' },
-        { text: 'Order Success', path: '/order-success', description: 'Order confirmation' },
-        { text: 'Order Failed', path: '/order-failed', description: 'Order help' },
-        { text: 'Return Request', path: '/return-request', description: 'Request return' },
-      ]
-    },
-    {
-      title: '🔍 Search & Discovery',
-      links: [
-        { text: 'Search Results', path: '/search-results', description: 'Product search' },
-      ]
-    },
-    {
-      title: '❓ Help & Support',
-      links: [
-        { text: 'FAQ', path: '/faq', description: 'Frequently asked questions' },
-        { text: 'Support', path: '/support', description: 'Customer support' },
-        { text: 'Help Center', path: '/help', description: 'Help & guides' },
-        { text: 'Contact Us', path: '/contact-us', description: 'Get in touch' },
-      ]
-    },
-    {
-      title: '📋 Policies & Legal',
-      links: [
-        { text: 'Terms & Conditions', path: '/terms-and-conditions', description: 'Terms of use' },
-        { text: 'Terms of Sale', path: '/terms-of-sale', description: 'Purchase terms & conditions' },
-        { text: 'Privacy Policy', path: '/privacy-policy', description: 'Privacy & data' },
-        { text: 'Shipping Policy', path: '/shipping-policy', description: 'Shipping details' },
-        { text: 'Return & Refund Policy', path: '/return-policy', description: 'Returns & refunds' },
-        { text: 'Cancellation Policy', path: '/cancellation-and-refunds', description: 'Cancel orders' },
-        { text: 'Cookie Policy', path: '/cookie-policy', description: 'Cookie information' },
-        { text: 'Warranty Policy', path: '/warranty-policy', description: 'Product warranty' },
-        { text: 'Refund Policy', path: '/refund-policy', description: 'Refund terms' },
-      ]
-    },
-    {
-      title: 'ℹ️ About & Partnership',
-      links: [
-        { text: 'About Us', path: '/about-us', description: 'Company information' },
-        { text: 'Business Information', path: '/business-information', description: 'Trade license & company details' },
-        { text: 'Create Your Store', path: '/create-store', description: 'Start selling' },
-        { text: 'Careers', path: '/careers', description: 'Join our team' },
-        { text: 'Pricing', path: '/pricing', description: 'Seller pricing' },
-        { text: 'Payment & Pricing', path: '/payment-and-pricing', description: 'Payment options' },
-      ]
-    },
+  return (
+    <section id={`sitemap-${section.id}`} className="scroll-mt-28">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-stone-300 pb-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#E52721]">
+            {NAV_LABELS[section.id] || 'Section'}
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-stone-900">{section.title}</h2>
+        </div>
+        {links.length > 0 ? (
+          <p className="text-sm text-stone-500">{links.length.toLocaleString()} links</p>
+        ) : null}
+      </div>
+
+      {links.length === 0 ? (
+        <p className="text-sm text-stone-500">{section.emptyMessage || 'Nothing listed yet.'}</p>
+      ) : (
+        <ul className="columns-1 gap-x-10 sm:columns-2">
+          {links.map((link) => {
+            const depth = Number(link.depth) || 0;
+            return (
+              <li
+                key={`${section.id}-${link.path}`}
+                className="mb-2.5 break-inside-avoid"
+                style={depth > 0 ? { paddingInlineStart: `${Math.min(depth, 3) * 0.85}rem` } : undefined}
+              >
+                <Link
+                  href={link.path || '#'}
+                  className="text-sm font-medium text-stone-800 transition hover:text-[#E52721]"
+                  title={link.description || link.text}
+                >
+                  {depth > 0 ? <span className="me-1 text-stone-300">–</span> : null}
+                  {link.text}
+                </Link>
+                {link.description ? (
+                  <p className="ms-0.5 text-xs text-stone-500">{link.description}</p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export default async function SitemapPage() {
+  const { sections, products, stats } = await getHtmlSitemapData();
+
+  const beforeProducts = sections.filter((section) => (
+    section.id === 'shop' || section.id === 'budget' || section.id === 'categories'
+  ));
+  const afterProducts = sections.filter((section) => (
+    section.id !== 'shop' && section.id !== 'budget' && section.id !== 'categories'
+  ));
+
+  const navItems = [
+    ...beforeProducts.map((section) => ({ id: section.id, label: NAV_LABELS[section.id] || section.title })),
+    { id: 'products', label: 'Products' },
+    ...afterProducts.map((section) => ({ id: section.id, label: NAV_LABELS[section.id] || section.title })),
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-slate-50">
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-16 px-4">
-        <div className="max-w-[1280px] mx-auto">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-4xl">📋</span>
-            <h1 className="text-4xl md:text-5xl font-bold">Sitemap</h1>
-          </div>
-          <p className="text-blue-100 text-lg max-w-2xl">
-            Find all pages and sections of Store1920 in one place. Navigate easily to any part of our platform.
-          </p>
-          <p className="mt-3 text-sm text-blue-100/90">
-            For Google Search Console, submit the XML sitemap index at{' '}
-            <a href="/sitemap.xml" className="underline font-medium text-white">
-              /sitemap.xml
-            </a>
-            {' '}(not this HTML page).
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#f4f2ef] text-stone-900">
+      <header className="relative overflow-hidden bg-[#1c1917] text-white">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 12% 20%, rgba(229,39,33,0.35), transparent 42%), radial-gradient(circle at 88% 10%, rgba(255,255,255,0.08), transparent 35%), linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%)',
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+          }}
+        />
 
-      {/* Sitemap Content */}
-      <div className="max-w-[1280px] mx-auto px-4 py-12">
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-            <p className="text-gray-500">Loading sitemap...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {sitemapSections.map((section, idx) => (
-              <div key={idx} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
-                {/* Section Header with Title Only */}
-                <h2 className="text-lg font-bold text-slate-800 mb-6 pb-4 border-b border-slate-200">{section.title}</h2>
+        <div className="relative mx-auto max-w-[1280px] px-4 py-14 md:py-20">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#fca5a5]">
+            {STORE1920_BRAND_NAME}
+          </p>
+          <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
+            Site map
+          </h1>
+          <p className="mt-4 max-w-2xl text-base text-stone-300 md:text-lg">
+            A live directory of pages, categories, products, and posts — rebuilt from the catalog whenever it changes.
+          </p>
 
-                {/* Links */}
-                <ul className="space-y-2">
-                  {section.links.filter((link) => link && link.path && (storefrontWalletEnabled || link.path !== '/wallet')).map((link, i) => (
-                    <li key={i} className="group">
-                      <Link 
-                        href={link.path || '#'}
-                        className="text-slate-700 hover:text-blue-600 transition-colors font-medium"
-                        title={link.description}
-                      >
-                        {link.text}
-                      </Link>
-                      {link.description && (
-                        <p className="text-slate-500 text-sm ml-1 group-hover:text-slate-600 transition-colors">{link.description}</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+          <div className="mt-8 flex flex-wrap gap-2">
+            {[
+              { label: 'Categories', value: stats.categories },
+              { label: 'Products', value: stats.products },
+              { label: 'Posts', value: stats.blogs },
+              { label: 'Stores', value: stats.stores },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-stone-200 backdrop-blur-sm"
+              >
+                <span className="font-semibold text-white">{Number(item.value || 0).toLocaleString()}</span>
+                <span className="ms-2 text-stone-400">{item.label}</span>
               </div>
             ))}
           </div>
-        )}
 
-        {/* Additional Info Section */}
-        <div className="mt-12 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
-          <h3 className="text-2xl font-bold text-slate-800 mb-4">Need Help Finding Something?</h3>
-          <p className="text-slate-600 mb-6">
-            Can't find what you're looking for? Our support team is here to help you navigate Store1920.
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <Link 
-              href="/support"
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-            >
-              Contact Support
-            </Link>
-            <Link 
-              href="/help"
-              className="px-6 py-3 bg-white text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition font-medium"
-            >
-              Help Center
-            </Link>
+          <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-400">
+            <span>Search Console:</span>
+            <a href="/sitemap.xml" className="text-white underline-offset-4 hover:underline">/sitemap.xml</a>
+            <a href="/sitemap-products.xml" className="hover:text-white">products</a>
+            <a href="/sitemap-categories.xml" className="hover:text-white">categories</a>
+            <a href="/sitemap-pages.xml" className="hover:text-white">pages</a>
+            <a href="/sitemap-blog.xml" className="hover:text-white">blog</a>
           </div>
         </div>
+      </header>
 
-        {/* Browse History Link */}
-        <div className="mt-8 text-center">
-          <Link 
-            href="/"
-            className="text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-2 group"
-          >
-            <span>← Back to Home</span>
-          </Link>
+      <div className="mx-auto grid max-w-[1280px] gap-10 px-4 py-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:py-14">
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">Jump to</p>
+          <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+            {navItems.map((item) => (
+              <a
+                key={item.id}
+                href={`#sitemap-${item.id}`}
+                className="shrink-0 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 transition hover:border-stone-500 hover:text-stone-900 lg:rounded-lg lg:border-transparent lg:bg-transparent lg:px-2 lg:py-1.5 lg:hover:bg-white"
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </aside>
+
+        <div className="space-y-14">
+          {beforeProducts.map((section) => (
+            <SectionBlock key={section.id} section={section} />
+          ))}
+
+          <SitemapProductsSection
+            initialLinks={products.initialLinks}
+            total={products.total}
+            initialPage={products.page}
+            pageSize={products.limit}
+            initialHasMore={products.hasMore}
+          />
+
+          {afterProducts.map((section) => (
+            <SectionBlock key={section.id} section={section} />
+          ))}
+
+          <section className="border-t border-stone-300 pt-10">
+            <h3 className="text-xl font-semibold text-stone-900">Need a hand?</h3>
+            <p className="mt-2 max-w-xl text-stone-600">
+              If you still can&apos;t find a page, support can point you the right way.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                href="/support"
+                className="rounded-lg bg-[#1c1917] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-800"
+              >
+                Contact support
+              </Link>
+              <Link
+                href="/help"
+                className="rounded-lg border border-stone-400 bg-transparent px-5 py-2.5 text-sm font-semibold text-stone-800 transition hover:border-stone-700"
+              >
+                Help center
+              </Link>
+              <Link
+                href="/"
+                className="rounded-lg px-5 py-2.5 text-sm font-semibold text-stone-600 transition hover:text-stone-900"
+              >
+                ← Home
+              </Link>
+            </div>
+          </section>
         </div>
       </div>
     </div>
