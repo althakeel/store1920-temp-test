@@ -2235,6 +2235,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
         }
 
         setNavigatingToSuccess(true);
+        rememberPendingCheckoutOrder(createdOrderId);
         dispatch(clearCart());
         router.push(`/order-success?orderId=${createdOrderId}`);
       } else {
@@ -2262,6 +2263,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
     setUpsellOrderTotal(0);
     setUpsellToken('');
     setNavigatingToSuccess(true);
+    rememberPendingCheckoutOrder(orderId);
     router.push(`/order-success?orderId=${orderId}`);
   }, [router, upsellOrderId]);
 

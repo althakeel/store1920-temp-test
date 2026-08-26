@@ -1475,7 +1475,10 @@ export async function GET(request) {
                             .populate('addressId')
                             .lean();
 
-                        if (order?.userId && order.userId !== userId) {
+                        const isPublicGuestOrder = Boolean(order?.isGuest)
+                            || !order?.userId
+                            || order.userId === 'guest';
+                        if (order?.userId && order.userId !== userId && !isPublicGuestOrder) {
                             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
                         }
                     } catch (e) {

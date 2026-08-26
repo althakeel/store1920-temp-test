@@ -50,29 +50,33 @@ function OrderSuccessContent() {
       return;
     }
 
-    clearPendingCheckoutOrder();
-
     let cancelled = false;
 
     const fetchOrder = async () => {
       try {
-        let fetchOptions = {};
-        if (user && getToken) {
-          try {
-            const token = await getToken();
-            fetchOptions.headers = {
-              Authorization: `Bearer ${token}`,
-            };
-          } catch {
-            // guest fetch fallback
+        // Order success is opened with a specific orderId from checkout — treat that
+        // as the access key. Do not attach auth here; a logged-in refetch was wiping
+        // a valid guest/unlinked order when ownership did not match yet.
+        const fetchOptions = { cache: 'no-store' };
+        let data = null;
+
+        for (let attempt = 0; attempt < 5 && !cancelled; attempt += 1) {
+          const res = await fetch(`/api/orders?orderId=${encodeURIComponent(orderId)}`, fetchOptions);
+          if (res.ok) {
+            data = await res.json();
+            break;
           }
+          if (res.status !== 404 || attempt >= 4) {
+            if (!cancelled) setOrders(null);
+            return;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)));
         }
-        const res = await fetch(`/api/orders?orderId=${orderId}`, fetchOptions);
-        if (!res.ok) {
+
+        if (!data) {
           if (!cancelled) setOrders(null);
           return;
         }
-        const data = await res.json();
         let loadedOrders = null;
         if (data.orders && Array.isArray(data.orders)) {
           loadedOrders = data.orders;
@@ -82,6 +86,7 @@ function OrderSuccessContent() {
         if (cancelled) return;
 
         setOrders(loadedOrders);
+        clearPendingCheckoutOrder();
 
         const loadedOrder = loadedOrders?.[0];
         if (loadedOrder?._id) {
@@ -116,7 +121,7 @@ function OrderSuccessContent() {
           };
 
           const reloadOrders = async () => {
-            const refresh = await fetch(`/api/orders?orderId=${orderId}`, fetchOptions);
+            const refresh = await fetch(`/api/orders?orderId=${encodeURIComponent(orderId)}`, fetchOptions);
             if (!refresh.ok) return null;
             return refresh.json();
           };
@@ -187,7 +192,6 @@ function OrderSuccessContent() {
             fetch('/api/orders/verify-stripe', {
               method: 'POST',
               headers: {
-                ...fetchOptions.headers,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
@@ -236,7 +240,7 @@ function OrderSuccessContent() {
     return () => {
       cancelled = true;
     };
-  }, [params, router, user, getToken]);
+  }, [params, router]);
 
   const order = orders && orders.length > 0 ? orders[0] : null;
   const orderRef = useRef(order);
