@@ -7,7 +7,11 @@ export async function generateSitemaps() {
   return getSitemapIds();
 }
 
-export default async function sitemap({ id } = {}) {
-  const sitemapId = id == null || id === '' ? SITEMAP_ID.PAGES : id;
+export default async function sitemap(props = {}) {
+  const rawId = props?.id;
+  const resolvedId = rawId != null && typeof rawId?.then === 'function'
+    ? await rawId
+    : rawId;
+  const sitemapId = resolvedId == null || resolvedId === '' ? SITEMAP_ID.PAGES : resolvedId;
   return buildSitemapEntriesForId(sitemapId);
 }

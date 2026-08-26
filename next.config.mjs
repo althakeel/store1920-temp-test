@@ -90,26 +90,26 @@ const nextConfig = {
                 source: '/sitemap.xml',
                 destination: '/sitemap-index.xml',
             },
-            // Named sitemap splits (Search Console / SEO-friendly filenames)
+            // Named sitemap splits — serve full <urlset> via route handlers (not index-only).
             {
                 source: '/sitemap-pages.xml',
-                destination: '/sitemap/pages.xml',
+                destination: '/sitemap-chunk/pages',
             },
             {
                 source: '/sitemap-categories.xml',
-                destination: '/sitemap/categories.xml',
+                destination: '/sitemap-chunk/categories',
             },
             {
                 source: '/sitemap-blog.xml',
-                destination: '/sitemap/blog.xml',
+                destination: '/sitemap-chunk/blog',
             },
             {
                 source: '/sitemap-products.xml',
-                destination: '/sitemap/products.xml',
+                destination: '/sitemap-chunk/products',
             },
             {
                 source: '/sitemap-products-:chunk.xml',
-                destination: '/sitemap/products-:chunk.xml',
+                destination: '/sitemap-chunk/products-:chunk',
             },
         ];
     },
