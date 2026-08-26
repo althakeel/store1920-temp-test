@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Check, Tag, Truck, Zap } from "lucide-react";
+import { Check, Tag, Truck, Zap, AlertTriangle } from "lucide-react";
 import axios from "axios";
 import { countryCodes, UAE_PHONE_CODE, UAE_PHONE_CODE_OPTIONS } from "@/assets/countryCodes";
 import { indiaStatesAndDistricts } from "@/assets/indiaStatesAndDistricts";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/guestCheckoutAddress";
 import { clearCart, deleteItemFromCart, setCartEntry } from "@/lib/features/cart/cartSlice";
 import { fetchShippingSettings, calculateShipping, cartHasOnlyFreeShippingProducts } from "@/lib/shipping";
+import { getActiveCheckoutAlert } from '@/lib/checkoutAlert';
 import {
   getPaymentMethodLimitError,
   isPaymentMethodEnabled,
@@ -104,7 +105,26 @@ function getGuestCountryCode(countryName) {
 const CHECKOUT_ORDER_PREVIEW_LIMIT = 4;
 const CHECKOUT_RETURN_PATH_KEY = 'store1920_checkout_return_path';
 
-export default function CheckoutPage() {
+function CheckoutAlertBanner({ alert, className = '' }) {
+  if (!alert) return null;
+
+  return (
+    <div
+      role="alert"
+      className={`rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 ${className}`.trim()}
+    >
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+        <div>
+          <p className="font-semibold">{alert.title}</p>
+          <p className="mt-1 text-sm leading-relaxed">{alert.message}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
   const { user, loading: authLoading, getToken } = useAuth();
   const dispatch = useDispatch();
   const { t, isArabic } = useStorefrontI18n();
@@ -147,6 +167,7 @@ export default function CheckoutPage() {
   const [upsellToken, setUpsellToken] = useState('');
   const [navigatingToSuccess, setNavigatingToSuccess] = useState(false);
   const [shippingSetting, setShippingSetting] = useState(null);
+  const [checkoutAlert, setCheckoutAlert] = useState(initialCheckoutAlert);
   const [shipping, setShipping] = useState(0);
   const [shippingMethod, setShippingMethod] = useState('');
   const [showSignIn, setShowSignIn] = useState(false);
@@ -1111,6 +1132,28 @@ export default function CheckoutPage() {
     }
     loadShipping();
   }, [products]); // Refetch when products load
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCheckoutAlert() {
+      try {
+        const { data } = await axios.get('/api/checkout-alert');
+        if (!cancelled) {
+          setCheckoutAlert(data?.checkoutAlert || null);
+        }
+      } catch {
+        if (!cancelled) setCheckoutAlert(null);
+      }
+    }
+    loadCheckoutAlert();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const activeCheckoutAlert = getActiveCheckoutAlert(checkoutAlert, {
+    language: isArabic ? 'ar' : 'en',
+  });
 
   useEffect(() => {
     if (!shippingSetting) return;
@@ -2540,6 +2583,11 @@ export default function CheckoutPage() {
   return (
     <>
       <div className="bg-white pb-24 pt-0 md:min-h-[35dvh] md:pb-14 md:py-10">
+      {activeCheckoutAlert ? (
+        <div className="mx-auto max-w-[1250px] px-4 pb-3 pt-3 md:pb-4 md:pt-4" dir={isArabic ? 'rtl' : 'ltr'}>
+          <CheckoutAlertBanner alert={activeCheckoutAlert} />
+        </div>
+      ) : null}
       <div className="mx-auto grid max-w-[1250px] grid-cols-1 gap-0 md:grid-cols-3 md:gap-8 md:px-4" dir={isArabic ? 'rtl' : 'ltr'}>
         {/* Left column: address, form, payment */}
         <div className="md:col-span-2">

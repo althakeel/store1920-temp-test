@@ -169,7 +169,15 @@ const StorePreferenceSchema = new mongoose.Schema(
     appearanceSections: {
       type: mongoose.Schema.Types.Mixed,
       default: {}
-    }
+    },
+    checkoutAlert: {
+      enabled: { type: Boolean, default: false },
+      title: { type: String, trim: true, default: 'Delivery notice' },
+      titleAr: { type: String, trim: true, default: 'تنبيه التوصيل' },
+      message: { type: String, trim: true, default: '' },
+      messageAr: { type: String, trim: true, default: '' },
+      showOnCheckout: { type: Boolean, default: true },
+    },
   },
   { timestamps: true }
 )
@@ -374,6 +382,19 @@ if (!StorePreferenceModel.schema.path('mobileFeatures')) {
     mobileFeatures: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
+    },
+  })
+}
+
+if (!StorePreferenceModel.schema.path('checkoutAlert')) {
+  StorePreferenceModel.schema.add({
+    checkoutAlert: {
+      enabled: { type: Boolean, default: false },
+      title: { type: String, trim: true, default: 'Delivery notice' },
+      titleAr: { type: String, trim: true, default: 'تنبيه التوصيل' },
+      message: { type: String, trim: true, default: '' },
+      messageAr: { type: String, trim: true, default: '' },
+      showOnCheckout: { type: Boolean, default: true },
     },
   })
 }
