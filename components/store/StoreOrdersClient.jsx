@@ -2581,7 +2581,7 @@ export default function StoreOrders() {
                 return;
             }
 
-            const CHUNK = 200;
+            const CHUNK = 150;
             let updatedCount = 0;
             let unchangedCount = 0;
             let failedCount = invalid.length;
@@ -2592,26 +2592,40 @@ export default function StoreOrders() {
 
             for (let i = 0; i < updates.length; i += CHUNK) {
                 const chunk = updates.slice(i, i + CHUNK);
-                const { data } = await axios.post('/api/store/orders/bulk-status-by-ref', {
-                    updates: chunk,
-                }, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                try {
+                    const { data } = await axios.post('/api/store/orders/bulk-status-by-ref', {
+                        updates: chunk,
+                    }, {
+                        headers: { Authorization: `Bearer ${token}` },
+                        timeout: 120000,
+                    });
 
-                updatedCount += Number(data?.updatedCount || 0);
-                unchangedCount += Number(data?.unchangedCount || 0);
-                failedCount += Number(data?.failedCount || 0);
-                if (Array.isArray(data?.failed) && sampleFailures.length < 8) {
-                    sampleFailures.push(...data.failed.slice(0, 8 - sampleFailures.length));
-                }
-                if (Array.isArray(data?.updated)) {
-                    for (const row of data.updated) {
-                        if (row?.shipperRef && row?.previousStatus) {
-                            undoRows.push({
-                                shipperRef: String(row.shipperRef),
-                                status: String(row.previousStatus),
-                            });
+                    updatedCount += Number(data?.updatedCount || 0);
+                    unchangedCount += Number(data?.unchangedCount || 0);
+                    failedCount += Number(data?.failedCount || 0);
+                    if (Array.isArray(data?.failed) && sampleFailures.length < 8) {
+                        sampleFailures.push(...data.failed.slice(0, 8 - sampleFailures.length));
+                    }
+                    if (Array.isArray(data?.updated)) {
+                        for (const row of data.updated) {
+                            if (row?.shipperRef && row?.previousStatus) {
+                                undoRows.push({
+                                    shipperRef: String(row.shipperRef),
+                                    status: String(row.previousStatus),
+                                });
+                            }
                         }
+                    }
+                } catch (chunkError) {
+                    failedCount += chunk.length;
+                    const chunkMessage = chunkError?.response?.data?.error
+                        || chunkError?.message
+                        || 'Request failed';
+                    if (sampleFailures.length < 8) {
+                        sampleFailures.push({
+                            shipperRef: chunk[0]?.shipperRef || `rows ${i + 2}-${i + chunk.length + 1}`,
+                            error: chunkMessage,
+                        });
                     }
                 }
 
@@ -2654,7 +2668,15 @@ export default function StoreOrders() {
             }
         } catch (error) {
             console.error('Bulk status Excel import failed:', error);
-            toast.error(error?.response?.data?.error || 'Failed to import status Excel');
+            const apiError = error?.response?.data?.error;
+            const failedRows = error?.response?.data?.failed;
+            const detail = Array.isArray(failedRows) && failedRows.length
+                ? failedRows.slice(0, 3).map((f) => `${f.shipperRef || 'row'}: ${f.error}`).join(' · ')
+                : '';
+            toast.error(
+                apiError || detail || error?.message || 'Failed to import status Excel',
+                { duration: 10000 },
+            );
         } finally {
             setImportingBulkStatusExcel(false);
             setTimeout(() => {
@@ -4573,7 +4595,7 @@ export default function StoreOrders() {
                         <p className="mt-1 text-xs text-slate-500">
                             Columns: <span className="font-medium text-slate-700">ShipperRef</span> (order id) +{' '}
                             <span className="font-medium text-slate-700">Status</span>
-                            {' '}(Delivered, Canceled, RTO, RETURNED, Shipped, …)
+                            {' '}(Delivered, Shipped, Canceled, RTO, RETURNED, …)
                         </p>
                     </div>
                     <div className="flex items-end sm:col-span-2 lg:col-span-3">

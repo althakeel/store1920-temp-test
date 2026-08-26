@@ -12,7 +12,7 @@ import {
 } from '@/lib/storeOrderStatusUpdate';
 import { mapExcelStatusToStoreStatus } from '@/lib/storeBulkStatusExcel';
 
-const MAX_BULK_BY_REF = 250;
+const MAX_BULK_BY_REF = 500;
 
 /** ShipperRef in the Excel = customer-facing order number (shortOrderNumber). */
 function collectOrderRefs(order) {
@@ -113,7 +113,23 @@ export async function POST(request) {
       orClauses.push({ shortOrderNumber: { $in: refStrings } });
     }
 
+    if (!orClauses.length) {
+      return NextResponse.json({
+        success: false,
+        message: 'No valid order ids in batch',
+        updatedCount: 0,
+        unchangedCount: 0,
+        failedCount: failed.length || updates.length,
+        updated: [],
+        unchanged: [],
+        failed: failed.length
+          ? failed
+          : updates.map((u) => ({ shipperRef: u.shipperRef, error: 'Invalid order id' })),
+      });
+    }
+
     const orders = await Order.find({
+      storeId: String(storeId),
       $or: orClauses,
       ...ACTIVE_RECORD_FILTER,
     })
@@ -156,7 +172,8 @@ export async function POST(request) {
 
       try {
         const result = await applySellerOrderStatus(order, status, {
-          silent,
+          silent: false,
+          emailAsync: true,
           actor,
           source: 'store_bulk_status_excel',
         });
