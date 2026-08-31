@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Heart, Search, ShoppingCart, Package, User } from 'lucide-react';
 import ShipXpressBadge from '@/components/ShipXpressBadge';
 import { buildParentCategoryNavMenuItems } from '@/lib/categoryNavigation';
+import { STORE1920_LOGO_PATH } from '@/lib/brandLogo';
 
 const DEFAULT_BG = '#9f4b1d';
 
@@ -29,6 +30,8 @@ export default function NavbarPreview({
   }, [navMenuUseParentCategories, categoryOptions, navMenuItems]);
   const logoW = Math.min(Number(logoWidth) || 50, 250);
   const logoH = Math.min(Number(logoHeight) || 50, 50);
+  // Match live Navbar: empty/custom-missing → default Store1920 logo (never blank "Logo" text).
+  const resolvedLogoUrl = String(logoUrl || '').trim() || STORE1920_LOGO_PATH;
 
   const renderPreviewAction = (Icon, label, badge) => (
     <span className="inline-flex items-center gap-2 px-1 py-1.5">
@@ -51,21 +54,17 @@ export default function NavbarPreview({
         <div className="mx-auto w-full max-w-[1400px] overflow-visible px-4 sm:px-6">
           <div className="flex items-center gap-3 overflow-visible py-2.5 sm:gap-4">
             <div className="flex shrink-0 items-center">
-              {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt="Store logo"
-                  style={{
-                    width: logoW,
-                    height: logoH,
-                    maxHeight: '50px',
-                    maxWidth: '250px',
-                    objectFit: 'contain',
-                  }}
-                />
-              ) : (
-                <span className="text-sm font-bold">Logo</span>
-              )}
+              <img
+                src={resolvedLogoUrl}
+                alt="Store logo"
+                style={{
+                  width: logoW,
+                  height: logoH,
+                  maxHeight: '50px',
+                  maxWidth: '250px',
+                  objectFit: 'contain',
+                }}
+              />
             </div>
 
             <div className="hidden min-w-0 flex-1 items-center justify-center gap-3 sm:flex">

@@ -199,7 +199,7 @@ const StoreLayout = ({ children }) => {
     return showAuthShell ? (
         <StoreShellSkeleton />
     ) : !user ? (
-        <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
+            <div className="flex h-full max-h-full min-h-0 flex-col items-center justify-center overflow-y-auto px-6 text-center">
             <h1 className="text-2xl sm:text-4xl font-semibold text-slate-400">Authentication Required</h1>
             <p className="text-slate-500 mt-4 mb-8">Please sign in to access the store dashboard</p>
             <Link href="/store/login" className="bg-blue-600 text-white flex items-center gap-2 p-3 px-8 rounded-full hover:bg-blue-700 transition">
@@ -216,7 +216,7 @@ const StoreLayout = ({ children }) => {
             isOwner={dashboardAccess.isOwner}
             permissions={dashboardAccess.permissions}
         >
-        <div className="flex h-screen flex-col overflow-hidden">
+        <div className="flex h-full max-h-full flex-col overflow-hidden bg-slate-50">
             <SellerNavbar storeInfo={storeInfo} />
             <div className="flex min-h-0 flex-1 overflow-hidden">
                 <SellerSidebar
@@ -224,7 +224,7 @@ const StoreLayout = ({ children }) => {
                     isOwner={dashboardAccess.isOwner}
                     permissions={dashboardAccess.permissions}
                 />
-                <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 lg:p-5">
+                <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 lg:p-5">
                     {canViewCurrentPage ? children : (
                         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center">
                             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
@@ -249,7 +249,7 @@ const StoreLayout = ({ children }) => {
         </div>
         </StoreOrderNotificationProvider>
     ) : (
-        <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
+        <div className="flex h-full max-h-full min-h-0 flex-col items-center justify-center overflow-y-auto px-6 text-center">
             <h1 className="text-2xl sm:text-4xl font-semibold text-slate-400">
                 {accessIssue?.type === 'database-unavailable'
                     ? 'Store Dashboard Temporarily Unavailable'

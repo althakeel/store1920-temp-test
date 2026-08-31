@@ -21,7 +21,7 @@ export async function POST(request) {
       debugLog('drop-invalid-payload', { reason: validationError });
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
-
+  
     const identifier = await resolveCustomerIdentity(payload);
     if (shouldDropForMissingIdentity(identifier)) {
       debugLog('drop-missing-identity', {

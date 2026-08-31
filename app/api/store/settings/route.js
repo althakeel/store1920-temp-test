@@ -142,7 +142,10 @@ const mapLegacyItems = (items) => {
 };
 
 const mergeWithDefaults = (raw) => {
-  const navMenuItems = Array.isArray(raw?.navMenuItems) && raw.navMenuItems.length > 0
+  // Respect an explicitly saved empty menu. Only fall back to legacy `items`
+  // when `navMenuItems` was never stored on the document.
+  const hasExplicitNavMenuItems = Array.isArray(raw?.navMenuItems);
+  const navMenuItems = hasExplicitNavMenuItems
     ? normalizeMenuItems(raw.navMenuItems)
     : mapLegacyItems(raw?.items);
 

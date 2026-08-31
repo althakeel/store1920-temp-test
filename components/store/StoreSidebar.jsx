@@ -528,9 +528,9 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
 
     return (
 
-        <aside className="sticky top-0 flex h-full w-[60px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-50 shadow-sm md:w-[68px] lg:w-[236px]">
+        <aside className="sticky top-0 flex h-full min-h-0 w-[60px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-50 shadow-sm md:w-[68px] lg:w-[236px]">
 
-                <div className="scrollbar-hide flex-1 overflow-y-auto px-1.5 py-2 lg:px-2">
+                <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 py-2 lg:px-2">
 
                     {sidebarSections.map((section) => {
 
@@ -664,7 +664,7 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
 
                 {canAccessHref('/store/settings') && (
 
-                    <div className="border-t border-slate-200 bg-slate-50/50 px-1.5 py-2 lg:px-2">
+                    <div className="shrink-0 border-t border-slate-200 bg-slate-50/50 px-1.5 py-2 lg:px-2">
 
                         <StoreNavLink
 

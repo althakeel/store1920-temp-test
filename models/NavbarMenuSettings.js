@@ -23,6 +23,23 @@ const NavbarMenuSettingsSchema = new mongoose.Schema(
     logoHeight: {
       type: Number,
     },
+    footerLogoSameAsNavbar: {
+      type: Boolean,
+      default: true,
+    },
+    footerLogoUrl: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    footerLogoWidth: {
+      type: Number,
+      default: 160,
+    },
+    footerLogoHeight: {
+      type: Number,
+      default: 40,
+    },
     backgroundColor: {
       type: String,
       default: '#8f3404',
@@ -187,6 +204,15 @@ if (!NavbarMenuSettingsModel.schema.path('navMenuUseParentCategories')) {
       type: Boolean,
       default: false,
     },
+  });
+}
+
+if (!NavbarMenuSettingsModel.schema.path('footerLogoSameAsNavbar')) {
+  NavbarMenuSettingsModel.schema.add({
+    footerLogoSameAsNavbar: { type: Boolean, default: true },
+    footerLogoUrl: { type: String, default: '', trim: true },
+    footerLogoWidth: { type: Number, default: 160 },
+    footerLogoHeight: { type: Number, default: 40 },
   });
 }
 

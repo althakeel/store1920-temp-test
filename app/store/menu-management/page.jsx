@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/useAuth';
 import toast from 'react-hot-toast';
 import PageSkeleton from '@/components/PageSkeleton';
 import NavbarPreview from '@/components/store/NavbarPreview';
+import { STORE1920_LOGO_PATH } from '@/lib/brandLogo';
 import {
   filterParentCategories,
   getCategoryDisplayName,
@@ -24,6 +25,8 @@ import {
   Store,
   Heart,
   Package,
+  Trash2,
+  X,
 } from 'lucide-react';
 
 const createMenuItem = () => ({
@@ -215,8 +218,12 @@ export default function MenuManagementPage() {
   const [activePanel, setActivePanel] = useState('settings');
   const [uploadingMegaImageKey, setUploadingMegaImageKey] = useState('');
   const [uploadingNavbarLogo, setUploadingNavbarLogo] = useState(false);
+  const [pendingClearLogo, setPendingClearLogo] = useState(false);
   const [navbarBranding, setNavbarBranding] = useState(defaultNavbarBranding);
   const [legacyNavbarItems, setLegacyNavbarItems] = useState([]);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const closeConfirmDialog = () => setConfirmDialog(null);
 
   const loadSettings = async () => {
     try {
@@ -250,7 +257,8 @@ export default function MenuManagementPage() {
           ...defaultSettings.navMenuStyle,
           ...(data?.navMenuStyle || {}),
         },
-        navMenuItems: Array.isArray(data?.navMenuItems) && data.navMenuItems.length
+        // Respect an empty saved menu — never auto-restore hard-coded defaults after the user deleted items.
+        navMenuItems: Array.isArray(data?.navMenuItems)
           ? data.navMenuItems
           : defaultMenuItems,
         navMenuUseParentCategories: Boolean(data?.navMenuUseParentCategories),
@@ -264,6 +272,7 @@ export default function MenuManagementPage() {
           logoHeight: Number.isFinite(Number(brandingData?.logoHeight)) ? Number(brandingData.logoHeight) : defaultNavbarBranding.logoHeight,
           backgroundColor: String(brandingData?.backgroundColor || defaultNavbarBranding.backgroundColor),
         });
+        setPendingClearLogo(false);
         setLegacyNavbarItems(Array.isArray(brandingData?.items) ? brandingData.items : []);
       }
     } catch (error) {
@@ -357,6 +366,7 @@ export default function MenuManagementPage() {
       logoWidth: Math.max(20, Math.min(400, Number(navbarBranding.logoWidth) || defaultNavbarBranding.logoWidth)),
       logoHeight: Math.max(10, Math.min(200, Number(navbarBranding.logoHeight) || defaultNavbarBranding.logoHeight)),
       backgroundColor: String(navbarBranding.backgroundColor || defaultNavbarBranding.backgroundColor).trim(),
+      clearLogo: pendingClearLogo,
     };
 
     const response = await fetch('/api/store/navbar-menu', {
@@ -377,13 +387,22 @@ export default function MenuManagementPage() {
       setLegacyNavbarItems(data.data.items);
     }
 
+    const savedLogoUrl = String(data?.data?.logoUrl || payload.logoUrl || '').trim();
+    setNavbarBranding((prev) => ({
+      ...prev,
+      logoUrl: pendingClearLogo ? '' : savedLogoUrl,
+      logoWidth: data?.data?.logoWidth ?? prev.logoWidth,
+      logoHeight: data?.data?.logoHeight ?? prev.logoHeight,
+    }));
+    setPendingClearLogo(false);
+
     if (typeof window !== 'undefined') {
       try {
         const raw = window.localStorage.getItem('navbarAppearanceCache');
         const cached = raw ? JSON.parse(raw) : {};
         window.localStorage.setItem('navbarAppearanceCache', JSON.stringify({
           ...cached,
-          logoUrl: payload.logoUrl,
+          logoUrl: pendingClearLogo ? '' : savedLogoUrl,
           logoWidth: payload.logoWidth,
           logoHeight: payload.logoHeight,
           backgroundColor: payload.backgroundColor,
@@ -393,7 +412,7 @@ export default function MenuManagementPage() {
       }
       window.dispatchEvent(new CustomEvent('navbarAppearanceUpdated', {
         detail: {
-          logoUrl: payload.logoUrl,
+          logoUrl: pendingClearLogo ? '' : savedLogoUrl,
           logoWidth: payload.logoWidth,
           logoHeight: payload.logoHeight,
           backgroundColor: payload.backgroundColor,
@@ -438,6 +457,7 @@ export default function MenuManagementPage() {
       }
 
       setNavbarBranding((prev) => ({ ...prev, logoUrl: uploadData.url }));
+      setPendingClearLogo(false);
       toast.success('Logo uploaded. Click Save Settings to apply.');
     } catch (error) {
       toast.error(error?.message || 'Failed to upload logo');
@@ -681,6 +701,30 @@ export default function MenuManagementPage() {
   };
 
   const handleSaveMenu = async () => {
+    if (form.navMenuItems.length === 0) {
+      setConfirmDialog({
+        tone: 'warning',
+        title: 'Save empty menu?',
+        message: 'You removed all navigation items. The live navbar will show no manual items until you add some again.',
+        confirmLabel: 'Save empty menu',
+        onConfirm: async () => {
+          setConfirmDialog(null);
+          setSaving(true);
+          try {
+            await saveSettings({
+              navMenuItems: form.navMenuItems,
+              navMenuUseParentCategories: form.navMenuUseParentCategories,
+            }, 'Menu saved');
+          } catch (error) {
+            toast.error(error?.message || 'Failed to save menu');
+          } finally {
+            setSaving(false);
+          }
+        },
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       await saveSettings({
@@ -692,6 +736,24 @@ export default function MenuManagementPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const removeMenuItem = (index) => {
+    const itemName = String(form.navMenuItems[index]?.name || `Item ${index + 1}`).trim();
+    setConfirmDialog({
+      tone: 'danger',
+      title: 'Remove menu item?',
+      message: `“${itemName}” will be removed from this editor. Click Save menu afterward to apply on the live site.`,
+      confirmLabel: 'Remove item',
+      onConfirm: () => {
+        setForm((prev) => ({
+          ...prev,
+          navMenuItems: prev.navMenuItems.filter((_, i) => i !== index),
+        }));
+        setConfirmDialog(null);
+        toast.success('Item removed — click Save menu to apply');
+      },
+    });
   };
 
   return (
@@ -844,7 +906,7 @@ export default function MenuManagementPage() {
 
               <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
                 <div
-                  className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-slate-300 p-3"
+                  className="relative flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-slate-300 p-3"
                   style={{
                     backgroundImage:
                       'linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)',
@@ -853,18 +915,24 @@ export default function MenuManagementPage() {
                     backgroundColor: '#f8fafc',
                   }}
                 >
-                  {navbarBranding.logoUrl ? (
-                    <img
-                      src={navbarBranding.logoUrl}
-                      alt="Navbar logo preview"
-                      className="max-h-16 max-w-full object-contain"
-                    />
-                  ) : (
-                    <p className="text-xs text-slate-400">No logo uploaded</p>
-                  )}
+                  <img
+                    src={String(navbarBranding.logoUrl || '').trim() || STORE1920_LOGO_PATH}
+                    alt="Navbar logo preview"
+                    className="max-h-16 max-w-full object-contain"
+                  />
+                  {!String(navbarBranding.logoUrl || '').trim() ? (
+                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      Default logo
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    {String(navbarBranding.logoUrl || '').trim()
+                      ? 'Custom logo is saved and used on the live site.'
+                      : 'No custom logo uploaded yet. The live site uses the default Store1920 logo until you upload one.'}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <label className="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                       {uploadingNavbarLogo ? 'Uploading...' : 'Upload logo'}
@@ -876,13 +944,16 @@ export default function MenuManagementPage() {
                         onChange={(event) => uploadNavbarLogo(event.target.files?.[0])}
                       />
                     </label>
-                    {navbarBranding.logoUrl ? (
+                    {navbarBranding.logoUrl || pendingClearLogo ? (
                       <button
                         type="button"
-                        onClick={() => setNavbarBranding((prev) => ({ ...prev, logoUrl: '' }))}
+                        onClick={() => {
+                          setNavbarBranding((prev) => ({ ...prev, logoUrl: '' }));
+                          setPendingClearLogo(true);
+                        }}
                         className="rounded-lg border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50"
                       >
-                        Remove
+                        Use default
                       </button>
                     ) : null}
                   </div>
@@ -1068,12 +1139,7 @@ export default function MenuManagementPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      setForm((prev) => ({
-                        ...prev,
-                        navMenuItems: prev.navMenuItems.filter((_, i) => i !== index),
-                      }))
-                    }
+                    onClick={() => removeMenuItem(index)}
                     className="rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
                   >
                     Remove
@@ -1566,6 +1632,70 @@ export default function MenuManagementPage() {
       </div>
       ) : null}
       </div>
+
+      {confirmDialog ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]"
+          onClick={closeConfirmDialog}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="menu-confirm-title"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+              <div
+                className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                  confirmDialog.tone === 'warning'
+                    ? 'bg-amber-50 text-amber-600'
+                    : 'bg-rose-50 text-rose-600'
+                }`}
+              >
+                <Trash2 size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 id="menu-confirm-title" className="text-base font-semibold text-slate-900">
+                  {confirmDialog.title}
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                  {confirmDialog.message}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeConfirmDialog}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeConfirmDialog}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDialog.onConfirm?.()}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition ${
+                  confirmDialog.tone === 'warning'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                {confirmDialog.confirmLabel || 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const MAX_BATCH_ORDERS = 12;
+const MAX_BATCH_ORDERS = 10;
 
 function toLiveStatusPatch(order = {}) {
   return {
@@ -78,7 +78,7 @@ export async function POST(request) {
       const syncedOrders = await syncWaslahStatusForOrders(orderedMatches, {
         max: MAX_BATCH_ORDERS,
         persist: true,
-        concurrency: 4,
+        concurrency: 2,
       });
 
       return NextResponse.json({

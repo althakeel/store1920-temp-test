@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { decodeHtmlEntities } from '@/lib/displayText';
 import { getLocalizedCategoryName } from '@/lib/categoryLocalization';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
@@ -35,6 +35,8 @@ export default function ProductFilterSidebar({
   });
 
   const [sortBy, setSortBy] = useState(initialFilters.sortBy || 'popularity');
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef(null);
   const [categorySearch, setCategorySearch] = useState('');
 
   const [availableFilters, setAvailableFilters] = useState({
@@ -50,6 +52,26 @@ export default function ProductFilterSidebar({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!sortOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (sortRef.current && !sortRef.current.contains(event.target)) {
+        setSortOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setSortOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [sortOpen]);
 
   useEffect(() => {
     if (products && products.length > 0) {
@@ -72,18 +94,29 @@ export default function ProductFilterSidebar({
             }
           });
         }
-        if (product.price > maxPrice) maxPrice = product.price;
+        const priceValue = Number(product.price) || Number(product.AED) || 0;
+        if (priceValue > maxPrice) maxPrice = priceValue;
       });
+
+      const nextMax = Math.max(100000, Math.ceil(Number(maxPrice) || 0));
 
       setAvailableFilters({
         categories: Array.from(categories).sort(),
-        maxPrice: Math.ceil(maxPrice),
+        maxPrice: Math.max(1, Math.ceil(Number(maxPrice) || 0)) || 100000,
       });
 
-      setFilters((prev) => ({
-        ...prev,
-        priceRange: { ...prev.priceRange, max: Math.ceil(maxPrice) },
-      }));
+      // Keep a wide default max so auto-sync never blanks the product grid.
+      setFilters((prev) => {
+        const currentMax = Number(prev.priceRange?.max);
+        const safeCurrent = Number.isFinite(currentMax) && currentMax >= 10 ? currentMax : nextMax;
+        return {
+          ...prev,
+          priceRange: {
+            ...prev.priceRange,
+            max: Math.max(safeCurrent, nextMax),
+          },
+        };
+      });
     }
   }, [products]);
 
@@ -196,47 +229,96 @@ export default function ProductFilterSidebar({
     { value: 'discount', label: t('category.sort.discount') },
   ];
 
+  const activeSortLabel = sortOptions.find((option) => option.value === sortBy)?.label
+    || sortOptions[0].label;
+
   return (
     <div
       dir={isArabic ? 'rtl' : 'ltr'}
-      className={`w-full lg:w-72 bg-white border border-gray-200 rounded-lg p-4 h-fit sticky top-20 overflow-y-auto max-h-[calc(100vh-100px)] ${className}`.trim()}
+      className={`sticky top-20 flex h-fit w-full max-h-[calc(100vh-100px)] flex-col overflow-visible rounded-lg border border-gray-200 bg-white lg:w-72 ${className}`.trim()}
     >
-      {subcategoryLinks.length > 0 ? (
-        <div className="mb-6 border-b border-gray-200 pb-4">
-          <h3 className={`mb-3 text-lg font-bold text-gray-900 ${isArabic ? 'text-right' : ''}`}>
-            {t('category.filterByType')}
-          </h3>
-          <nav className="space-y-1">
-            {subcategoryLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`block rounded-lg px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-orange-50 hover:text-orange-700 ${isArabic ? 'text-right' : ''}`}
-              >
-                {decodeHtmlEntities(link.name)}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      ) : null}
+      <div className="shrink-0 border-b border-gray-100 p-4 pb-3">
+        {subcategoryLinks.length > 0 ? (
+          <div className="mb-4 border-b border-gray-200 pb-4">
+            <h3 className={`mb-3 text-lg font-bold text-gray-900 ${isArabic ? 'text-right' : ''}`}>
+              {t('category.filterByType')}
+            </h3>
+            <nav className="space-y-1">
+              {subcategoryLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`block rounded-lg px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-orange-50 hover:text-orange-700 ${isArabic ? 'text-right' : ''}`}
+                >
+                  {decodeHtmlEntities(link.name)}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        ) : null}
 
-      <div className="mb-6">
-        <label className={`text-sm font-semibold text-gray-800 mb-3 block ${isArabic ? 'text-right' : ''}`}>
-          {t('category.sortBy')}
-        </label>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className={`w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm ${isArabic ? 'text-right' : ''}`}
-        >
-          {sortOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <div className="relative z-30" ref={sortRef}>
+          <label className={`mb-2.5 block text-sm font-semibold text-gray-800 ${isArabic ? 'text-right' : ''}`}>
+            {t('category.sortBy')}
+          </label>
+          <button
+            type="button"
+            onClick={() => setSortOpen((open) => !open)}
+            aria-haspopup="listbox"
+            aria-expanded={sortOpen}
+            className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-white px-3.5 py-2.5 text-sm font-medium shadow-sm transition ${
+              sortOpen
+                ? 'border-orange-400 text-gray-900 ring-2 ring-orange-100'
+                : 'border-gray-200 text-gray-800 hover:border-orange-300 hover:bg-orange-50/40'
+            } ${isArabic ? 'flex-row-reverse text-right' : 'text-left'}`}
+          >
+            <span className="min-w-0 truncate">{activeSortLabel}</span>
+            <ChevronDown
+              size={16}
+              className={`shrink-0 text-gray-500 transition-transform duration-200 ${sortOpen ? 'rotate-180 text-orange-600' : ''}`}
+            />
+          </button>
+
+          <div
+            className={`absolute inset-x-0 top-[calc(100%+6px)] origin-top overflow-hidden rounded-xl border border-orange-100 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition-[opacity,transform,visibility] duration-200 ease-out ${
+              sortOpen
+                ? 'visible translate-y-0 scale-100 opacity-100'
+                : 'pointer-events-none invisible -translate-y-1 scale-[0.98] opacity-0'
+            }`}
+            role="listbox"
+            aria-label={t('category.sortBy')}
+          >
+            <ul className="max-h-64 overflow-y-auto py-1.5">
+              {sortOptions.map((option) => {
+                const active = sortBy === option.value;
+                return (
+                  <li key={option.value}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      onClick={() => {
+                        setSortBy(option.value);
+                        setSortOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-sm transition ${
+                        active
+                          ? 'bg-orange-50 font-semibold text-orange-700'
+                          : 'text-gray-700 hover:bg-slate-50 hover:text-gray-900'
+                      } ${isArabic ? 'flex-row-reverse text-right' : 'text-left'}`}
+                    >
+                      <span className="min-w-0 truncate">{option.label}</span>
+                      {active ? <Check size={15} className="shrink-0 text-orange-600" strokeWidth={2.5} /> : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
       </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pt-3">
       <div className={`flex items-center justify-between mb-4 pb-3 border-b border-gray-200 ${isArabic ? 'flex-row-reverse' : ''}`}>
         <h3 className="text-lg font-bold text-gray-900">{t('category.filters')}</h3>
         {hasActiveFilters() ? (
@@ -447,6 +529,7 @@ export default function ProductFilterSidebar({
             </label>
           ) : null}
         </div>
+      </div>
       </div>
     </div>
   );

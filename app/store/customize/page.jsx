@@ -22,13 +22,13 @@ import {
 
 const designPages = [
   {
-    title: 'Home Preferences',
+    title: 'Section 1 - home page',
     description: 'Control homepage product blocks and design settings in one place.',
     href: '/store/home-preferences',
     icon: Sparkles,
   },
   {
-    title: 'Preference',
+    title: 'Banner section - Home',
     description: 'Referral rewards, showcase 4-grid banners, and Banner 2 slider — all in one place.',
     href: '/store/preferences',
     icon: LayoutTemplate,
@@ -76,7 +76,7 @@ const designPages = [
     icon: Search,
   },
   {
-    title: 'Product Page Info',
+    title: 'Badges',
     description: 'Edit product badges plus delivery, returns, VAT, and rush-delivery texts for the product page.',
     href: '/store/customize/product-page',
     icon: Truck,

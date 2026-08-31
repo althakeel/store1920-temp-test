@@ -146,9 +146,9 @@ export default function ProductPageCustomizePage() {
         headers: { Authorization: `Bearer ${token}` }
       })
 
-      toast.success('Product page info saved')
+      toast.success('Badges saved')
     } catch (error) {
-      toast.error('Failed to save product page info')
+      toast.error('Failed to save badges')
       console.error(error)
     } finally {
       setSaving(false)
@@ -166,7 +166,7 @@ export default function ProductPageCustomizePage() {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Product Page Info</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Badges</h1>
         <p className="text-sm text-slate-600 mt-1">Update buy-box delivery and returns texts dynamically.</p>
       </div>
 
@@ -333,7 +333,7 @@ export default function ProductPageCustomizePage() {
         className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-white font-semibold hover:bg-emerald-700 disabled:opacity-50"
       >
         {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-        Save Product Page Info
+        Save Badges
       </button>
     </div>
   )

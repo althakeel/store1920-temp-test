@@ -100,7 +100,7 @@ export default function RootAdminLayout({ children }) {
         if (isCompletingRedirect) {
             return (
                 <StoreLanguageScope>
-                    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-slate-50 to-blue-100 px-4">
+                    <div className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-blue-100 px-4">
                         <div className="rounded-3xl border border-white/70 bg-white/90 p-8 text-center shadow-2xl">
                             <Loader2 className="mx-auto h-8 w-8 animate-spin text-blue-600" />
                             <p className="mt-4 text-sm text-slate-600">Completing Google sign-in...</p>
@@ -112,7 +112,7 @@ export default function RootAdminLayout({ children }) {
 
         return (
             <StoreLanguageScope>
-            <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-blue-100 px-4 flex items-center justify-center">
+            <div className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-blue-100 px-4">
                 <div className="w-full max-w-md rounded-3xl border border-white/70 bg-white/90 backdrop-blur-xl shadow-2xl shadow-slate-300/50 p-8 sm:p-10 text-center">
                     <div className="mx-auto mb-5 h-12 w-12 rounded-2xl bg-blue-600/10 flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-6 w-6 text-blue-600" fill="currentColor" aria-hidden="true">

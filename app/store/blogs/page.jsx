@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { FileText, Loader2, Plus, Trash2 } from 'lucide-react'
+import { FileText, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { useAuth } from '@/lib/useAuth'
 
 export default function StoreBlogsPage() {
@@ -14,6 +14,7 @@ export default function StoreBlogsPage() {
   const [status, setStatus] = useState('all')
   const [q, setQ] = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const load = useCallback(async () => {
     try {
@@ -39,14 +40,16 @@ export default function StoreBlogsPage() {
     load()
   }, [load])
 
-  const remove = async (id) => {
-    if (!window.confirm('Delete this blog post?')) return
+  const confirmDelete = async () => {
+    if (!deleteTarget?.id) return
+    const id = deleteTarget.id
     try {
       setDeletingId(id)
       const token = await getToken()
       await axios.delete(`/api/store/blogs/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
+      setDeleteTarget(null)
       toast.success('Blog deleted')
       await load()
     } catch (error) {
@@ -58,7 +61,7 @@ export default function StoreBlogsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16">
+    <div className="mx-auto max-w-6xl space-y-6 pb-16" lang="en" dir="ltr">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -187,7 +190,7 @@ export default function StoreBlogsPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => remove(blog.id)}
+                        onClick={() => setDeleteTarget(blog)}
                         disabled={deletingId === blog.id}
                         className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
                       >
@@ -206,6 +209,67 @@ export default function StoreBlogsPage() {
           </table>
         </div>
       )}
+
+      {deleteTarget ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]"
+          onClick={() => (deletingId ? null : setDeleteTarget(null))}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="blog-delete-title"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                <Trash2 size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 id="blog-delete-title" className="text-base font-semibold text-slate-900">
+                  Delete blog post?
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                  “{deleteTarget.title || 'Untitled'}” will be permanently removed. This cannot be undone.
+                </p>
+                {deleteTarget.slug ? (
+                  <p className="mt-2 font-mono text-xs text-slate-400">/{deleteTarget.slug}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={Boolean(deletingId)}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={Boolean(deletingId)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={Boolean(deletingId)}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
+              >
+                {deletingId ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {deletingId ? 'Deleting…' : 'Delete post'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

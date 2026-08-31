@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, ShoppingCart, Menu, X, HeartIcon, StarIcon, ArrowLeft, LogOut, User, MapPin, Package } from "lucide-react";
+import { Search, ShoppingCart, Menu, X, HeartIcon, StarIcon, ArrowLeft, LogOut, User, MapPin, Package, ChevronDown, Grid3x3, Truck, Heart, Shield, History, Flame, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -111,6 +111,7 @@ const Navbar = () => {
   const categoriesDropdownPanelRef = useRef(null);
   const userDropdownRef = useRef(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileExpandedCategoryId, setMobileExpandedCategoryId] = useState(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [wishlistCount, setWishlistCount] = useState(0);
   const addressList = useSelector((state) => state.address?.list || []);
@@ -1811,248 +1812,262 @@ const Navbar = () => {
 
         {/* Mobile Overlay Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 bg-black/60 z-[9999]" onClick={() => setMobileMenuOpen(false)}>
-            <div 
-              className="absolute top-0 left-0 w-3/4 max-w-sm h-full bg-white shadow-2xl p-6 flex flex-col gap-4 overflow-y-auto animate-slideIn" 
+          <div
+            className="lg:hidden fixed inset-0 z-[9999] bg-slate-900/50 backdrop-blur-[2px]"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setMobileExpandedCategoryId(null);
+            }}
+          >
+            <div
+              className={`absolute top-0 ${storefrontLanguage === 'ar' ? 'right-0' : 'left-0'} flex h-full w-[86%] max-w-sm flex-col overflow-hidden bg-[#f7f8fa] shadow-2xl`}
               onClick={(e) => e.stopPropagation()}
-              style={{ animation: 'slideInLeft 0.3s ease-out' }}
+              style={{ animation: storefrontLanguage === 'ar' ? 'slideInRight 0.28s ease-out' : 'slideInLeft 0.28s ease-out' }}
+              dir={storefrontLanguage === 'ar' ? 'rtl' : 'ltr'}
             >
-              {/* Header with Logo and Close Button */}
-              <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-                <button type="button" onClick={handleLogoNavigation} className="flex min-w-0 max-w-[130px] items-center overflow-hidden">
-                  <Image
-                    src={mobileLogoSrc || navbarLogoSrc}
-                    alt={`${STOREFRONT_BRAND_NAME} logo`}
-                    width={navbarAppearance.logoWidth || 120}
-                    height={navbarAppearance.logoHeight || 40}
-                    className="h-8 w-auto max-w-[120px] object-contain"
-                    style={{ maxHeight: '32px', maxWidth: '120px' }}
-                  />
-                </button>
-                <button onClick={() => setMobileMenuOpen(false)} className="p-1 hover:bg-gray-100 rounded-full transition">
-                  <X size={24} className="text-gray-600" />
-                </button>
+              <div className="shrink-0 border-b border-slate-200 bg-white px-4 pb-3 pt-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <button type="button" onClick={handleLogoNavigation} className="flex min-w-0 max-w-[140px] items-center overflow-hidden">
+                    <Image
+                      src={mobileLogoSrc || navbarLogoSrc}
+                      alt={`${STOREFRONT_BRAND_NAME} logo`}
+                      width={navbarAppearance.logoWidth || 120}
+                      height={navbarAppearance.logoHeight || 40}
+                      className="h-8 w-auto max-w-[130px] object-contain"
+                      style={{ maxHeight: '32px', maxWidth: '130px' }}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setMobileExpandedCategoryId(null);
+                    }}
+                    className="rounded-full bg-slate-100 p-2 text-slate-600 transition hover:bg-slate-200"
+                    aria-label="Close menu"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {firebaseUser === undefined ? null : !firebaseUser ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    onClick={() => {
+                      setSignInOpen(true);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <User className="h-4 w-4" />
+                    <span>{t('navbar.login')} / {t('navbar.signUp')}</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    {firebaseUser.photoURL ? (
+                      <Image src={firebaseUser.photoURL} alt="User" width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
+                    ) : (
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">
+                        {firebaseUser.displayName?.[0]?.toUpperCase() || firebaseUser.email?.[0]?.toUpperCase() || 'U'}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        Hi, {getUserGreetingName(firebaseUser)}
+                      </p>
+                      {storefrontWalletEnabled && walletCoins > 0 ? (
+                        <Link
+                          href="/wallet"
+                          className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          <Image src={WalletIcon} alt="" width={14} height={14} className="object-contain" aria-hidden="true" />
+                          <span>{formatWalletAmount(walletCoins)}</span>
+                        </Link>
+                      ) : (
+                        <p className="text-xs text-slate-500">{t('navbar.account')}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* User Section */}
-              {firebaseUser === undefined ? null : !firebaseUser ? (
-                <button
-                  type="button"
-                  className="w-full px-4 py-3 bg-white hover:bg-gray-100 text-black text-sm font-semibold rounded-full transition mb-4 flex items-center justify-center gap-2 shadow-md"
-                  onClick={() => {
-                    setSignInOpen(true);
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <User className="w-5 h-5" />
-                  <div className="flex flex-col leading-tight text-left">
-                    <span>{t('navbar.login')} /</span>
-                    <span>{t('navbar.signUp')}</span>
-                  </div>
-                </button>
-              ) : (
-                <div className="w-full px-4 py-3 bg-blue-50 text-blue-700 text-sm font-semibold rounded-full mb-4 flex items-center gap-2">
-                  {firebaseUser.photoURL ? (
-                    <Image src={firebaseUser.photoURL} alt="User" width={28} height={28} className="rounded-full object-cover" />
+              <div className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+                {firebaseUser ? (
+                  <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <p className="border-b border-slate-100 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      {t('navbar.account')}
+                    </p>
+                    <div className="divide-y divide-slate-100">
+                      <Link href="/dashboard/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                        <User size={17} className="text-slate-500" />
+                        <span>{t('navbar.profile')}</span>
+                      </Link>
+                      <Link href="/dashboard/security" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                        <Shield size={17} className="text-slate-500" />
+                        <span>Security</span>
+                      </Link>
+                      <Link href="/dashboard/orders" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                        <Package size={17} className="text-slate-500" />
+                        <span>{t('navbar.myOrders')}</span>
+                      </Link>
+                      <Link href="/browse-history" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                        <History size={17} className="text-slate-500" />
+                        <span>{t('navbar.browseHistory')}</span>
+                      </Link>
+                    </div>
+                  </section>
+                ) : null}
+
+                {firebaseUser ? null : storefrontWalletEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSignInMode('register');
+                      setSignInOpen(true);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
+                  >
+                    <Image src={WalletIcon} alt="" width={18} height={18} className="object-contain" aria-hidden="true" />
+                    <span>{t('navbar.wallet')}</span>
+                  </button>
+                ) : null}
+
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  <p className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    <Grid3x3 size={13} />
+                    {t('navbar.categories')}
+                  </p>
+                  {mainCategories.length === 0 ? (
+                    <p className="px-4 py-4 text-sm text-slate-500">No categories yet</p>
                   ) : (
-                    <span className="w-7 h-7 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold text-base">
-                      {firebaseUser.displayName?.[0]?.toUpperCase() || firebaseUser.email?.[0]?.toUpperCase() || 'U'}
-                    </span>
+                    <div className="divide-y divide-slate-100">
+                      {mainCategories.map((category) => {
+                        const categoryId = getCategoryId(category);
+                        const children = getDirectChildCategories(categories, category);
+                        const expanded = mobileExpandedCategoryId === categoryId;
+                        const href = getCategoryHref(category);
+                        return (
+                          <div key={categoryId || category?.slug || category?.name}>
+                            <div className="flex items-center">
+                              <Link
+                                href={href}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="min-w-0 flex-1 px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                              >
+                                {getLocalizedCategoryDisplayName(category)}
+                              </Link>
+                              {children.length > 0 ? (
+                                <button
+                                  type="button"
+                                  aria-expanded={expanded}
+                                  onClick={() => setMobileExpandedCategoryId(expanded ? null : categoryId)}
+                                  className="px-4 py-3 text-slate-500 hover:bg-slate-50"
+                                >
+                                  <ChevronDown size={16} className={`transition ${expanded ? 'rotate-180' : ''}`} />
+                                </button>
+                              ) : null}
+                            </div>
+                            {expanded && children.length > 0 ? (
+                              <div className="space-y-0.5 bg-slate-50 px-3 pb-3">
+                                {children.map((child) => (
+                                  <Link
+                                    key={getCategoryId(child) || child?.slug || child?.name}
+                                    href={getCategoryHref(child)}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="block rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-white"
+                                  >
+                                    {getLocalizedCategoryDisplayName(child)}
+                                  </Link>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
-                  <div className="flex flex-col leading-tight">
-                    <span className="font-medium">Hi, {getUserGreetingName(firebaseUser)}</span>
-                    {storefrontWalletEnabled && walletCoins > 0 ? (
-                    <Link
-                      href="/wallet"
-                      className="mt-0 inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-100 border border-amber-200 rounded-full text-amber-800 text-[10px] font-semibold w-fit"
-                      onClick={() => setMobileMenuOpen(false)}
-                      aria-label={`Wallet balance ${formatWalletAmount(walletCoins)}`}
-                    >
-                      <Image src={WalletIcon} alt="" width={17} height={17} className="shrink-0 object-contain" aria-hidden="true" />
-                      <span>{formatWalletAmount(walletCoins)}</span>
+                </section>
+
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  <p className="border-b border-slate-100 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    {t('navbar.shopOptions')}
+                  </p>
+                  <div className="divide-y divide-slate-100">
+                    <Link href="/top-selling" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                      <Flame size={17} className="text-orange-500" />
+                      <span>{t('navbar.topSellingItems')}</span>
                     </Link>
+                    <Link href="/new" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                      <Sparkles size={17} className="text-violet-500" />
+                      <span>{t('navbar.newArrivals')}</span>
+                    </Link>
+                    <Link href="/5-star-rated" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                      <StarIcon size={17} className="text-amber-500" fill="currentColor" />
+                      <span>{t('navbar.fiveStarRated')}</span>
+                    </Link>
+                    <Link href="/fast-delivery" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                      <Truck size={17} className="text-sky-600" />
+                      <span>{t('navbar.fastDelivery')}</span>
+                    </Link>
+                    <Link
+                      href={firebaseUser ? '/dashboard/wishlist' : '/wishlist'}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    >
+                      <span className="flex items-center gap-3">
+                        <Heart size={17} className="text-rose-500" />
+                        <span>{t('navbar.wishlist')}</span>
+                      </span>
+                      {wishlistCount > 0 ? (
+                        <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white">{wishlistCount}</span>
+                      ) : null}
+                    </Link>
+                    <Link
+                      href="/cart"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    >
+                      <span className="flex items-center gap-3">
+                        <ShoppingCart size={17} className="text-blue-600" />
+                        <span>{t('navbar.cart')}</span>
+                      </span>
+                      {isClient && cartCount > 0 ? (
+                        <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-bold text-white">{cartCount}</span>
+                      ) : null}
+                    </Link>
+                    {isSeller && navActionsVisibility.store ? (
+                      <Link href="/store" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                        <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Seller</span>
+                        <span>{t('navbar.dashboard')}</span>
+                      </Link>
                     ) : null}
                   </div>
-                </div>
-              )}
+                </section>
 
-              {firebaseUser ? null : storefrontWalletEnabled ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSignInMode('register');
-                    setSignInOpen(true);
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full px-4 py-3 bg-amber-50 text-amber-800 text-sm font-semibold rounded-full mb-4 flex items-center gap-2"
-                >
-                  <Image src={WalletIcon} alt="" width={20} height={20} className="shrink-0 object-contain" aria-hidden="true" />
-                  <span>{t('navbar.wallet')}</span>
-                </button>
-              ) : null}
-
-              {/* Links */}
-              <div className="flex flex-col gap-1">
-                {firebaseUser && (
-                  <>
-                    <Link 
-                      href="/dashboard/profile" 
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <span>{t('navbar.profile')}</span>
-                    </Link>
-                    <Link 
-                      href="/dashboard/security"
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <span>Security</span>
-                    </Link>
-                    <Link
-                      href="/dashboard/orders" 
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <Package size={18} className="text-gray-600" />
-                      <span>{t('navbar.myOrders')}</span>
-                    </Link>
-                    <Link 
-                      href="/browse-history" 
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <span>{t('navbar.browseHistory')}</span>
-                    </Link>
-                    <div className="px-4"><div className="h-px bg-gray-200 my-2" /></div>
-                  </>
-                )}
-                <Link 
-                  href="/top-selling" 
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t('navbar.topSellingItems')}
-                </Link>
-                <Link 
-                  href="/new" 
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t('navbar.newArrivals')}
-                </Link>
-
-                <Link 
-                  href="/5-star-rated" 
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <StarIcon size={18} className="text-white" fill="white" />
-                  {t('navbar.fiveStarRated')}
-                </Link>
-
-                <Link 
-                  href="/fast-delivery" 
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
-                  </svg>
-                  {t('navbar.fastDelivery')}
-                </Link>
-
-                <Link 
-                  href={firebaseUser ? "/dashboard/wishlist" : "/wishlist"}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className="flex items-center gap-3">
-                    <HeartIcon size={18} className="text-orange-500" />
-                    <span>{t('navbar.wishlist')}</span>
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  <p className="border-b border-slate-100 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    {t('navbar.support')}
+                  </p>
+                  <div className="divide-y divide-slate-100">
+                    <Link href="/faq" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">{t('navbar.faq')}</Link>
+                    <Link href="/support" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">{t('navbar.support')}</Link>
+                    <Link href="/terms-and-conditions" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">{t('navbar.termsAndConditions')}</Link>
+                    <Link href="/privacy-policy" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">{t('navbar.privacyPolicy')}</Link>
+                    <Link href="/return-policy" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">{t('navbar.returnPolicy')}</Link>
                   </div>
-                  {wishlistCount > 0 && (
-                    <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                      {wishlistCount}
-                    </span>
-                  )}
-                </Link>
-                <Link 
-                  href="/cart" 
-                  className="flex items-center justify-between px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className="flex items-center gap-3">
-                    <ShoppingCart size={18} className="text-blue-600" />
-                    <span>{t('navbar.cart')}</span>
-                  </div>
-                  {isClient && cartCount > 0 && (
-                    <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                      {cartCount}
-                    </span>
-                  )}
-                </Link>
-                {isSeller && navActionsVisibility.store && (
-                  <Link 
-                    href="/store" 
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition text-gray-700 font-medium"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">Seller</span>
-                    <span>{t('navbar.dashboard')}</span>
-                  </Link>
-                )}
-              </div>
+                </section>
 
-              {/* Support Section */}
-              <div className="mt-auto pt-4 border-t border-gray-200">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-2 px-4">{t('navbar.support')}</p>
-                <Link 
-                  href="/faq" 
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 rounded-lg transition text-gray-700 text-sm"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t('navbar.faq')}
-                </Link>
-                <Link 
-                  href="/support" 
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 rounded-lg transition text-gray-700 text-sm"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t('navbar.support')}
-                </Link>
-                <Link 
-                  href="/terms-and-conditions" 
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 rounded-lg transition text-gray-700 text-sm"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t('navbar.termsAndConditions')}
-                </Link>
-                <Link 
-                  href="/privacy-policy" 
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 rounded-lg transition text-gray-700 text-sm"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t('navbar.privacyPolicy')}
-                </Link>
-                <Link 
-                  href="/return-policy" 
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 rounded-lg transition text-gray-700 text-sm"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t('navbar.returnPolicy')}
-                </Link>
-                
-                {/* Sign Out Button - At Bottom */}
-                {firebaseUser && (
+                {firebaseUser ? (
                   <button
-                    className="w-full text-left px-4 py-3 bg-red-50 hover:bg-red-100 rounded-lg transition text-red-600 font-medium mt-4"
+                    type="button"
+                    className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
                     onClick={() => openSignOutConfirm('mobile')}
                   >
                     {t('navbar.signOut')}
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

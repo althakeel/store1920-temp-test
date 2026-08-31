@@ -42,7 +42,6 @@ export default function TopBar({ initialLanguage = 'en' }) {
   const [storefrontLanguage, setStorefrontLanguage] = useState(() => normalizeStorefrontLanguage(initialLanguage));
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeBnplIndex, setActiveBnplIndex] = useState(0);
-  const [showBnplBanner, setShowBnplBanner] = useState(true);
   const [bnplLogoError, setBnplLogoError] = useState({ tamara: false, tabby: false });
   const dropdownRef = useRef(null);
   const suppressToggleRef = useRef(false);
@@ -115,34 +114,11 @@ export default function TopBar({ initialLanguage = 'en' }) {
   };
 
   useEffect(() => {
-    if (!showBnplBanner || hideBnplBanner) return undefined;
+    if (hideBnplBanner) return undefined;
     const flipIntervalId = window.setInterval(() => {
       setActiveBnplIndex((current) => (current + 1) % BNPL_PARTNERS.length);
-    }, 2500);
+    }, 3500);
     return () => window.clearInterval(flipIntervalId);
-  }, [showBnplBanner, hideBnplBanner]);
-
-  useEffect(() => {
-    if (hideBnplBanner) return undefined;
-
-    let hideTimerId;
-    let showTimerId;
-
-    const startCycle = () => {
-      hideTimerId = window.setTimeout(() => {
-        setShowBnplBanner(false);
-        showTimerId = window.setTimeout(() => {
-          setShowBnplBanner(true);
-          startCycle();
-        }, 90000);
-      }, 10000);
-    };
-
-    startCycle();
-    return () => {
-      window.clearTimeout(hideTimerId);
-      window.clearTimeout(showTimerId);
-    };
   }, [hideBnplBanner]);
 
   const handleLanguageChange = (lang) => {
@@ -163,12 +139,17 @@ export default function TopBar({ initialLanguage = 'en' }) {
   const isArabic = storefrontLanguage === 'ar';
   const t = (key) => translateStaticText(key, storefrontLanguage);
   const activeBnplPartnerName = isArabic ? activeBnplPartner.nameAr : activeBnplPartner.name;
+  const paymentCount = activeBnplPartner.key === 'tabby' ? 12 : 4;
   const bnplBannerDesktop = isArabic
-    ? `قسّم مشترياتك إلى 4 دفعات مع ${activeBnplPartnerName}`
-    : `Split your purchase into 4 payments with ${activeBnplPartnerName}`;
+    ? (activeBnplPartner.key === 'tabby'
+      ? `قسّم مشترياتك إلى ${paymentCount} دفعة شهرية مع ${activeBnplPartnerName}`
+      : `قسّم مشترياتك إلى ${paymentCount} دفعات مع ${activeBnplPartnerName}`)
+    : (activeBnplPartner.key === 'tabby'
+      ? `Split your purchase into ${paymentCount} monthly payments with ${activeBnplPartnerName}`
+      : `Split your purchase into ${paymentCount} payments with ${activeBnplPartnerName}`);
   const bnplBannerMobile = isArabic
-    ? `ادفع على 4 دفعات مع ${activeBnplPartnerName}`
-    : `Pay in 4 with ${activeBnplPartnerName}`;
+    ? `ادفع على ${paymentCount} دفعات مع ${activeBnplPartnerName}`
+    : `Pay in ${paymentCount} with ${activeBnplPartnerName}`;
   const languageLabel = isArabic ? 'العربية' : 'English';
   const languageShort = isArabic ? 'AR' : 'EN';
   const activeMarket = GCC_MARKETS.find((market) => market.code === storefrontMarket?.code) || GCC_MARKETS[0];
@@ -341,10 +322,7 @@ export default function TopBar({ initialLanguage = 'en' }) {
       </div>
 
       {!hideBnplBanner ? (
-      <div
-        className={`overflow-hidden border-y border-[#ececec] bg-white transition-[max-height,opacity,transform] duration-[650ms] ease-in-out ${showBnplBanner ? 'max-h-11 opacity-100' : 'max-h-0 opacity-0 -translate-y-1.5'}`}
-        aria-hidden={!showBnplBanner}
-      >
+      <div className="overflow-hidden border-y border-[#ececec] bg-white">
         <div
           key={activeBnplPartner.key}
           className="mx-auto flex w-full max-w-[1400px] animate-[bnplFlip_560ms_ease-out] items-center justify-center gap-2 px-3 py-2 text-center sm:gap-2.5 sm:px-5"

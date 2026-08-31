@@ -482,7 +482,7 @@ export default function HomePreferences() {
                             Storefront
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                            Home Preferences
+                            Section 1 - home page
                         </h1>
                         <p className="mt-1 text-sm text-slate-500">
                             Configure your featured section title, product source, and layout.

@@ -130,6 +130,7 @@ import {
     getOrderTableTags,
     getOrderPaymentMethodBadge,
     normalizeStoreOrderPaymentMethod,
+    isStoreOrderRefunded,
     summarizeDeliveryBuckets,
     isDashboardConvertedOrder,
 } from '@/lib/storeOrderInsights';
@@ -525,8 +526,7 @@ function getWaslahOrderReference(order) {
     return String(order?.waslah?.reference || order?.shortOrderNumber || '').trim();
 }
 
-const WASLAH_LIVE_STATUS_POLL_MS = 30 * 1000;
-const WASLAH_LIVE_STATUS_BATCH_SIZE = 12;
+/** Waslah status sync runs on server cron only (/api/cron/waslah-sync-status, every 3h). */
 
 function getWaslahLiveAppStatus(order) {
     return getWaslahCourierStatus(order);
@@ -787,23 +787,12 @@ export default function StoreOrders() {
     const [savingLineStatusIndex, setSavingLineStatusIndex] = useState(null);
     const refreshIntervalRef = useRef(null);
     const waslahStatusRefreshInFlightRef = useRef(new Set());
-    const waslahBatchRefreshInFlightRef = useRef(false);
-    const waslahBatchCursorRef = useRef(0);
     const selectedOrderIdRef = useRef('');
     const router = useRouter();
 
     selectedOrderIdRef.current = String(selectedOrder?._id || '');
 
     const { user, getToken, loading: authLoading } = useAuth();
-
-    const liveWaslahOrderIds = useMemo(() => orders
-        .filter((order) => (
-            isWaslahShipmentProcessed(order)
-            && !isWaslahLiveTerminalOrder(order)
-        ))
-        .map((order) => String(order._id))
-        .filter(Boolean), [orders]);
-    const liveWaslahOrderIdsKey = liveWaslahOrderIds.join(',');
 
     const callCourierProxy = async (action, params, data) => {
         setLtlLoading(true);
@@ -908,6 +897,7 @@ export default function StoreOrders() {
 
     // Unified payment-status resolver for dashboard
     const isOrderPaid = (order) => {
+        if (isStoreOrderRefunded(order)) return false;
         if (isAwaitingPaymentOrder(order)) return false;
 
         const paymentMethod = normalizeOrderPaymentMethod(order);
@@ -2262,6 +2252,9 @@ export default function StoreOrders() {
         if (exportTypeFilter === 'CANCELLED') {
             return baseOrders.filter((order) => String(order?.status || '').toUpperCase() === 'CANCELLED');
         }
+        if (exportTypeFilter === 'REFUNDED') {
+            return baseOrders.filter((order) => isStoreOrderRefunded(order));
+        }
         if (exportTypeFilter === 'PAID') {
             return baseOrders.filter((order) => isOrderPaid(order));
         }
@@ -3523,198 +3516,6 @@ export default function StoreOrders() {
         }
     };
 
-    const refreshWaslahStatusBatch = async ({ orderIds = [], signal } = {}) => {
-        if (waslahBatchRefreshInFlightRef.current) return { busy: true };
-
-        const targets = [...new Set(orderIds.map((value) => String(value || '').trim()))]
-            .filter((value) => value && !waslahStatusRefreshInFlightRef.current.has(value))
-            .slice(0, WASLAH_LIVE_STATUS_BATCH_SIZE);
-        if (!targets.length) return { busy: true };
-
-        waslahBatchRefreshInFlightRef.current = true;
-        targets.forEach((id) => waslahStatusRefreshInFlightRef.current.add(id));
-
-        try {
-            const token = await getToken();
-            if (!token) return null;
-
-            const { data } = await axios.post('/api/store/waslah/sync-status', {
-                orderIds: targets,
-            }, {
-                headers: { Authorization: `Bearer ${token}` },
-                signal,
-            });
-            if (!data?.success || !Array.isArray(data.orders)) return null;
-
-            const liveById = new Map(data.orders.map((entry) => [String(entry._id), entry]));
-            const mergeLiveOrder = (current) => {
-                const liveOrder = liveById.get(String(current?._id));
-                return liveOrder ? mergeWaslahLiveStatusPatch(current, liveOrder) : current;
-            };
-
-            setOrders((current) => current.map(mergeLiveOrder));
-            setSelectedOrder((current) => (current ? mergeLiveOrder(current) : current));
-            clearPageCache('store-orders');
-            return data;
-        } catch (error) {
-            if (!axios.isCancel(error) && error?.name !== 'CanceledError' && error?.name !== 'AbortError') {
-                console.error('Background EMX status refresh failed:', error?.response?.data?.detail || error?.message || error);
-            }
-            return null;
-        } finally {
-            targets.forEach((id) => waslahStatusRefreshInFlightRef.current.delete(id));
-            waslahBatchRefreshInFlightRef.current = false;
-        }
-    };
-
-    // Keep the open EMX shipment synchronized without re-running the shipping workflow.
-    useEffect(() => {
-        const orderId = String(selectedOrder?._id || '');
-        const trackingId = getOrderAwb(selectedOrder);
-        const isWaslahOrder = Boolean(
-            selectedOrder?.waslah?.orderId
-            || selectedOrder?.waslah?.trackingNumber
-            || String(selectedOrder?.courier || '').toLowerCase().includes('emx')
-            || String(selectedOrder?.courier || '').toLowerCase().includes('waslah'),
-        );
-
-        if (
-            !isModalOpen
-            || !waslahConfig.configured
-            || !orderId
-            || (!trackingId && !selectedOrder?.waslah?.orderId)
-            || !isWaslahOrder
-            || isWaslahLiveTerminalOrder(selectedOrder)
-        ) {
-            return undefined;
-        }
-
-        let stopped = false;
-        let running = false;
-        let timerId = null;
-        const controller = new AbortController();
-
-        function scheduleNext(delay = WASLAH_LIVE_STATUS_POLL_MS) {
-            if (stopped) return;
-            if (timerId) window.clearTimeout(timerId);
-            timerId = window.setTimeout(runRefresh, delay);
-        }
-
-        async function runRefresh() {
-            if (stopped || running) return;
-            running = true;
-            let nextDelay = WASLAH_LIVE_STATUS_POLL_MS;
-            try {
-                if (document.visibilityState !== 'hidden') {
-                    const result = await refreshWaslahStatus({ orderId, signal: controller.signal });
-                    if (result?.busy) nextDelay = 500;
-                }
-            } finally {
-                running = false;
-                scheduleNext(nextDelay);
-            }
-        }
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState !== 'visible' || stopped) return;
-            if (timerId) window.clearTimeout(timerId);
-            runRefresh();
-        };
-
-        runRefresh();
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            stopped = true;
-            controller.abort();
-            if (timerId) window.clearTimeout(timerId);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-        // Primitive dependencies intentionally restart polling only when the shipment changes.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        isModalOpen,
-        waslahConfig.configured,
-        selectedOrder?._id,
-        selectedOrder?.trackingId,
-        selectedOrder?.waslah?.trackingNumber,
-        selectedOrder?.waslah?.orderId,
-        selectedOrder?.waslah?.appStatus,
-        selectedOrder?.waslah?.carrierStatus,
-        selectedOrder?.waslah?.currentSubtag,
-        selectedOrder?.waslah?.lastSubtag,
-        selectedOrder?.courier,
-        selectedOrder?.status,
-    ]);
-
-    // Reconcile every active EMX row, even when its details modal is closed.
-    // Large lists are rotated through small batches to keep courier/API load bounded.
-    useEffect(() => {
-        if (authLoading || !user || !waslahConfig.configured || !liveWaslahOrderIdsKey) {
-            return undefined;
-        }
-
-        const orderIds = liveWaslahOrderIdsKey.split(',').filter(Boolean);
-        if (!orderIds.length) return undefined;
-        if (waslahBatchCursorRef.current >= orderIds.length) waslahBatchCursorRef.current = 0;
-
-        let stopped = false;
-        let running = false;
-        let timerId = null;
-        const controller = new AbortController();
-
-        function scheduleNext(delay = WASLAH_LIVE_STATUS_POLL_MS) {
-            if (stopped) return;
-            if (timerId) window.clearTimeout(timerId);
-            timerId = window.setTimeout(runRefresh, delay);
-        }
-
-        async function runRefresh() {
-            if (stopped || running) return;
-            if (document.visibilityState === 'hidden') {
-                scheduleNext();
-                return;
-            }
-
-            running = true;
-            let nextDelay = WASLAH_LIVE_STATUS_POLL_MS;
-            const start = waslahBatchCursorRef.current % orderIds.length;
-            const batch = orderIds.slice(start, start + WASLAH_LIVE_STATUS_BATCH_SIZE);
-            try {
-                const result = await refreshWaslahStatusBatch({
-                    orderIds: batch,
-                    signal: controller.signal,
-                });
-                if (result?.busy) {
-                    nextDelay = 1000;
-                } else {
-                    waslahBatchCursorRef.current = (start + batch.length) % orderIds.length;
-                }
-            } finally {
-                running = false;
-                scheduleNext(nextDelay);
-            }
-        }
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState !== 'visible' || stopped) return;
-            if (timerId) window.clearTimeout(timerId);
-            runRefresh();
-        };
-
-        scheduleNext();
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            stopped = true;
-            controller.abort();
-            if (timerId) window.clearTimeout(timerId);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-        // The key changes only when the set of active EMX shipments changes.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [authLoading, user?.uid, waslahConfig.configured, liveWaslahOrderIdsKey]);
-
     const shipOrderWithWaslah = async () => {
         if (!selectedOrder) return;
 
@@ -4567,6 +4368,7 @@ export default function StoreOrders() {
                         >
                             <option value="ALL">All</option>
                             <option value="CANCELLED">Cancelled</option>
+                            <option value="REFUNDED">Refunded</option>
                             <option value="PAID">Paid</option>
                             <option value="COD">COD</option>
                             <option value="CARD">Card</option>
@@ -5149,7 +4951,15 @@ export default function StoreOrders() {
                                             })()}
                                             {(() => {
                                                 const isCod = normalizeOrderPaymentMethod(order) === 'COD';
+                                                const refunded = isStoreOrderRefunded(order);
                                                 const paid = getPaymentStatus(order);
+                                                if (refunded) {
+                                                    return (
+                                                        <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">
+                                                            ↩ Refunded
+                                                        </span>
+                                                    );
+                                                }
                                                 if (isCod && !paid) return null;
                                                 return (
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${paid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -6638,7 +6448,11 @@ export default function StoreOrders() {
                                     ) : null}
                                     <div>
                                         <p className="text-slate-500">Payment Status</p>
-                                        <p className="font-medium text-slate-900">{getPaymentStatus(selectedOrder) ? "✓ Paid" : "Pending"}</p>
+                                        <p className="font-medium text-slate-900">
+                                            {isStoreOrderRefunded(selectedOrder)
+                                                ? '↩ Refunded'
+                                                : (getPaymentStatus(selectedOrder) ? '✓ Paid' : 'Pending')}
+                                        </p>
                                     </div>
                                     
                                     {/* Delhivery Payment Collection Info */}

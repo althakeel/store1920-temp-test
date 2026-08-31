@@ -552,7 +552,9 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
     if (guestHydratedRef.current) return;
 
     const saved = readGuestCheckoutState();
-    let addresses = (saved.addresses || []).map((address) => normalizeGuestAddress(address));
+    let addresses = (saved.addresses || [])
+      .filter((address) => address && typeof address === 'object')
+      .map((address) => normalizeGuestAddress(address));
     if (!addresses.length && isCompleteGuestDraft(saved.draft)) {
       addresses = [normalizeGuestAddress(saved.draft)];
     }
@@ -2636,7 +2638,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
                   });
                   const optionDays = formatDeliveryDays(option.estimatedDays, '3-5');
                   const isSelected = shippingMethod === option.id;
-                  const isExpressLike = /express/i.test(option.name);
+                  const isExpressLike = /express/i.test(option?.name || '');
 
                   return (
                     <button
@@ -2659,7 +2661,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <span className="font-semibold text-slate-900">{option.name}</span>
+                          <span className="font-semibold text-slate-900">{option?.name || 'Delivery'}</span>
                           <p className="mt-0.5 text-sm text-slate-500">
                             {t('checkout.deliveredIn', { days: optionDays })}
                           </p>

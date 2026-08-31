@@ -39,6 +39,7 @@ const OrderSchema = new mongoose.Schema({
   paymentMethod: String,
   paymentStatus: String,
   isPaid: { type: Boolean, default: false },
+  refundedAt: { type: Date, default: null },
   // Set only by the current checkout flow. It distinguishes new orders whose
   // inventory lifecycle is transaction-backed from legacy orders that predate
   // the fulfillment reservation marker.
@@ -99,6 +100,7 @@ const OrderSchema = new mongoose.Schema({
     lastSubtagMessage: { type: String, default: null },
     lastLocation: { type: String, default: null },
     lastEventAt: { type: Date, default: null },
+    lastStatusSyncAt: { type: Date, default: null },
     lastEventId: { type: String, default: null },
     cancelledAt: { type: Date, default: null },
     cancelCount: { type: Number, default: 0 },

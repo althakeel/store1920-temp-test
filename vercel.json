@@ -13,6 +13,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/waslah-sync-status",
+      "schedule": "0 */3 * * *"
+    },
+    {
       "path": "/api/cron/reconcile-payments",
       "schedule": "*/5 * * * *"
     },
@@ -32,6 +36,10 @@
     },
     "app/api/store/waslah/ship/route.js": {
       "maxDuration": 120,
+      "memory": 1024
+    },
+    "app/api/cron/waslah-sync-status/route.js": {
+      "maxDuration": 300,
       "memory": 1024
     },
     "app/api/store/home-menu-categories/route.js": {
