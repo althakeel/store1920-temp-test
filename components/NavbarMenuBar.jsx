@@ -32,11 +32,10 @@ const defaultActionsVisibility = {
   cart: true,
 };
 
-const DEFAULT_NAVBAR_BG = '#8f3404';
 const NAVBAR_CONTAINER_CLASS = 'mx-auto w-full max-w-[1400px] px-4 sm:px-6';
 
 const defaultMenuStyle = {
-  barBackgroundColor: DEFAULT_NAVBAR_BG,
+  barBackgroundColor: '',
   barTextColor: '#ffffff',
   barHoverBackgroundColor: 'rgba(0,0,0,0.15)',
   dropdownBackgroundColor: '#ffffff',
@@ -56,11 +55,11 @@ const safeJsonParse = (value, fallback) => {
 };
 
 const readCachedNavbarBg = () => {
-  if (typeof window === 'undefined') return DEFAULT_NAVBAR_BG;
+  if (typeof window === 'undefined') return '';
 
   const cachedAppearance = safeJsonParse(window.localStorage.getItem(NAVBAR_APPEARANCE_CACHE_KEY), null);
   const cachedBg = typeof cachedAppearance?.backgroundColor === 'string' ? cachedAppearance.backgroundColor.trim() : '';
-  return cachedBg || DEFAULT_NAVBAR_BG;
+  return cachedBg;
 };
 
 const getContrastColor = (hexColor) => {
@@ -371,12 +370,26 @@ export default function NavbarMenuBar() {
   if (loadedOnce && (!navMenuEnabled || effectiveMenuItems.length === 0)) return null;
   if (!loadedOnce && effectiveMenuItems.length === 0) return null;
 
-  const menuBarTextColor = getContrastColor(menuStyle.barBackgroundColor);
+  const resolvedBarBg = String(menuStyle.barBackgroundColor || '').trim();
+  if (!resolvedBarBg) {
+    return (
+      <div className="relative hidden w-full overflow-hidden border-b border-slate-200 bg-slate-200 lg:block">
+        <div className={`${NAVBAR_CONTAINER_CLASS} flex items-center gap-3 py-2.5`}>
+          <div className="h-4 w-20 animate-pulse rounded-full bg-slate-300" />
+          <div className="h-4 w-24 animate-pulse rounded-full bg-slate-300/80" />
+          <div className="h-4 w-16 animate-pulse rounded-full bg-slate-300/80" />
+          <div className="h-4 w-28 animate-pulse rounded-full bg-slate-300/70" />
+        </div>
+      </div>
+    );
+  }
+
+  const menuBarTextColor = getContrastColor(resolvedBarBg);
   const menuBarBorderColor = getMenuBarBorderColor(menuBarTextColor);
   const menuBarHoverColor = getMenuBarHoverColor(menuBarTextColor);
 
   const cssVars = {
-    '--menu-bar-bg': menuStyle.barBackgroundColor,
+    '--menu-bar-bg': resolvedBarBg,
     '--menu-bar-text': menuBarTextColor,
     '--menu-bar-hover-bg': menuBarHoverColor,
     '--menu-bar-border': menuBarBorderColor,

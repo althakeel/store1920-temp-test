@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 
-import { HomeIcon, LayoutListIcon, SquarePenIcon, SquarePlusIcon, StarIcon, FolderIcon, TicketIcon, TruckIcon, RefreshCw, Users as UsersIcon, MessageSquare, Sparkles, BellIcon, MailIcon, Image as ImageIcon, ShoppingCart, Wallet, BarChart3, Target, Gift, Palette, CircleDashed, PackagePlus, Package, Activity, Layers, LineChart, Warehouse, MousePointerClick, ShieldAlert, Zap, Trash2, Smartphone, FileText, CalendarClock, MessageCircle, AlertTriangle } from "lucide-react"
+import { HomeIcon, LayoutListIcon, SquarePenIcon, SquarePlusIcon, StarIcon, FolderIcon, TicketIcon, TruckIcon, RefreshCw, Users as UsersIcon, MessageSquare, Sparkles, BellIcon, MailIcon, Image as ImageIcon, ShoppingCart, Wallet, BarChart3, Target, Gift, Palette, CircleDashed, PackagePlus, Package, Activity, Layers, LineChart, Warehouse, MousePointerClick, ShieldAlert, Zap, Trash2, Smartphone, FileText, CalendarClock, MessageCircle, AlertTriangle, Download } from "lucide-react"
 
 import StoreNavLink from "@/components/store/StoreNavLink"
 
@@ -99,6 +99,8 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
         { name: 'Balance', href: '/store/balance', icon: Wallet },
 
         { name: 'Sales Report', href: '/store/sales-report', icon: BarChart3 },
+
+        { name: 'Exports', href: '/store/exports', icon: Download },
 
         { name: 'Marketing Expenses', href: '/store/marketing-expenses', icon: Target },
 
@@ -231,6 +233,8 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
                 '/store/balance',
 
                 '/store/sales-report',
+
+                '/store/exports',
 
             ]
 

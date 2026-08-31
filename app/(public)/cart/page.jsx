@@ -375,21 +375,54 @@ function CartContent() {
             });
         }
 
+        const removableBefore = cartArray.filter((item) => {
+            if (item?._isFreeGift) return false;
+            if (item?.inStock === false) return false;
+            if (typeof item?.stockQuantity === 'number' && item.stockQuantity <= 0) return false;
+            return true;
+        });
+        const removingLastRemovable =
+            removableBefore.length === 1
+            && String(removableBefore[0]?._cartKey || removableBefore[0]?._id || '') === key;
+
         setDeletingKeys((prev) => ({ ...prev, [key]: true }));
-        dispatch(deleteItemFromCart({ productId: key }));
+        // Prevent signed-in fetchCart (seller sessions sync often) from restoring this item.
+        skipNextServerSyncRef.current = true;
+
+        if (removingLastRemovable) {
+            dispatch(clearCart());
+        } else {
+            dispatch(deleteItemFromCart({ productId: key }));
+        }
 
         if (isSignedIn) {
             try {
-                const token = await getToken();
+                const token = await Promise.race([
+                    getToken(),
+                    new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+                ]);
                 if (token) {
-                    await axios.delete(`/api/cart?productId=${encodeURIComponent(key)}`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                        data: { productId: key },
+                    const syncWithTimeout = (promise) => Promise.race([
+                        promise,
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('cart-sync-timeout')), 10000)),
+                    ]);
+
+                    await syncWithTimeout(
+                        axios.delete(`/api/cart?productId=${encodeURIComponent(key)}`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                            data: { productId: key },
+                        }),
+                    ).catch((error) => {
+                        console.warn('[Cart] Failed to delete item on server:', error?.response?.data || error?.message);
                     });
 
                     const latestCart = store.getState()?.cart?.cartItems || {};
-                    await axios.post('/api/cart', { cart: latestCart }, {
-                        headers: { Authorization: `Bearer ${token}` },
+                    await syncWithTimeout(
+                        axios.post('/api/cart', { cart: latestCart }, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        }),
+                    ).catch((error) => {
+                        console.warn('[Cart] Failed to upload cleared cart:', error?.response?.data || error?.message);
                     });
                 } else {
                     await dispatch(uploadCart({ getToken }));
@@ -468,10 +501,9 @@ function CartContent() {
     const handleConfirmRemove = async () => {
         if (!pendingRemove?.cartKey) return;
         const cartKey = pendingRemove.cartKey;
-        const removed = await handleDeleteItemFromCart(cartKey);
-        if (removed) {
-            setPendingRemove(null);
-        }
+        // Close modal immediately so seller sync latency cannot leave "Removing…" stuck.
+        setPendingRemove(null);
+        await handleDeleteItemFromCart(cartKey);
     };
 
     useEffect(() => {
@@ -583,14 +615,6 @@ function CartContent() {
                                 layout="row"
                             />
                         </div>
-
-                        <CartRemoveConfirm
-                            open={Boolean(pendingRemove)}
-                            productName={pendingRemove?.productName}
-                            isRemoving={pendingRemove ? !!deletingKeys[pendingRemove.cartKey] : false}
-                            onCancel={() => setPendingRemove(null)}
-                            onConfirm={handleConfirmRemove}
-                        />
                     </>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20">
@@ -606,6 +630,14 @@ function CartContent() {
                         </div>
                     </div>
                 )}
+
+                <CartRemoveConfirm
+                    open={Boolean(pendingRemove)}
+                    productName={pendingRemove?.productName}
+                    isRemoving={pendingRemove ? !!deletingKeys[pendingRemove.cartKey] : false}
+                    onCancel={() => setPendingRemove(null)}
+                    onConfirm={handleConfirmRemove}
+                />
 
                 {isSignedIn && !loadingOrders && recentOrders.length > 0 && (
                     <div className="mt-16 mb-12">

@@ -704,6 +704,9 @@ export default function StoreOrders() {
     const [undoingBulkStatus, setUndoingBulkStatus] = useState(false);
     const [bulkStatusUndoNow, setBulkStatusUndoNow] = useState(() => Date.now());
     const [showImportExportPanel, setShowImportExportPanel] = useState(false);
+    const [showHiddenProductExport, setShowHiddenProductExport] = useState(false);
+    const [exportingAllProductsCsv, setExportingAllProductsCsv] = useState(false);
+    const hiddenExportClicksRef = useRef({ count: 0, timer: null });
     const [showTodayOrdersPdfModal, setShowTodayOrdersPdfModal] = useState(false);
     const [exportingTodayOrdersPdf, setExportingTodayOrdersPdf] = useState(false);
     const [todayPdfFromDate, setTodayPdfFromDate] = useState('');
@@ -2018,6 +2021,16 @@ export default function StoreOrders() {
     }, []);
 
     useEffect(() => {
+        try {
+            if (sessionStorage.getItem('storeOrdersHiddenProductExport') === '1') {
+                setShowHiddenProductExport(true);
+            }
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    useEffect(() => {
         const cached = readPageCache('store-orders');
         if (cached?.orders?.length) {
             setOrders(excludeReturnPickupCloneOrders(cached.orders));
@@ -2351,6 +2364,89 @@ export default function StoreOrders() {
         } catch (error) {
             console.error('CSV export failed:', error);
             toast.error('Failed to export CSV file');
+        }
+    };
+
+    const revealHiddenProductExport = () => {
+        setShowHiddenProductExport(true);
+        try {
+            sessionStorage.setItem('storeOrdersHiddenProductExport', '1');
+        } catch {
+            // ignore
+        }
+        setShowImportExportPanel(true);
+        toast.success('Hidden product export unlocked', { duration: 2500 });
+    };
+
+    const handleImportExportButtonClick = (event) => {
+        // Hidden unlock: Alt+Shift+click on Import / Export
+        if (event.altKey && event.shiftKey) {
+            event.preventDefault();
+            revealHiddenProductExport();
+            return;
+        }
+
+        // Fallback unlock: click Import / Export 7 times quickly
+        const state = hiddenExportClicksRef.current;
+        if (state.timer) clearTimeout(state.timer);
+        state.count += 1;
+        if (state.count >= 7) {
+            state.count = 0;
+            revealHiddenProductExport();
+            return;
+        }
+        state.timer = setTimeout(() => {
+            state.count = 0;
+        }, 2500);
+
+        setShowImportExportPanel((prev) => !prev);
+    };
+
+    const exportAllProductsDetailsCsv = async () => {
+        try {
+            setExportingAllProductsCsv(true);
+            const token = await getToken(true);
+            if (!token) {
+                toast.error('Please sign in again');
+                return;
+            }
+
+            const response = await fetch('/api/store/products/export-csv', {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store',
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data?.error || 'Failed to export products');
+            }
+
+            const blob = await response.blob();
+            const countHeader = response.headers.get('X-Product-Count');
+            const disposition = response.headers.get('Content-Disposition') || '';
+            const match = disposition.match(/filename="?([^"]+)"?/i);
+            const filename = match?.[1] || `store-all-products-${new Date().toISOString().slice(0, 10)}.csv`;
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+
+            const count = Number(countHeader);
+            toast.success(
+                Number.isFinite(count) && count > 0
+                    ? `Exported ${count} product(s) to CSV`
+                    : 'Product details CSV downloaded',
+            );
+        } catch (error) {
+            console.error('All products CSV export failed:', error);
+            toast.error(error?.message || 'Failed to export product details');
+        } finally {
+            setExportingAllProductsCsv(false);
         }
     };
 
@@ -4226,7 +4322,7 @@ export default function StoreOrders() {
                     </div>
                     <button
                         type="button"
-                        onClick={() => setShowImportExportPanel((prev) => !prev)}
+                        onClick={handleImportExportButtonClick}
                         className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition ${
                             showImportExportPanel || importingOrdersCsv || importingBulkStatusExcel
                                 ? 'border-slate-900 bg-slate-900 text-white'
@@ -4459,6 +4555,18 @@ export default function StoreOrders() {
                                     <Download size={14} />
                                     {hasSelectedOrders ? 'Export Selected Excel' : 'Export Excel'}
                                 </button>
+                                {showHiddenProductExport ? (
+                                    <button
+                                        type="button"
+                                        onClick={exportAllProductsDetailsCsv}
+                                        disabled={exportingAllProductsCsv}
+                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                        title="Hidden: export full catalog product details"
+                                    >
+                                        <Download size={14} className={exportingAllProductsCsv ? 'animate-pulse' : ''} />
+                                        {exportingAllProductsCsv ? 'Exporting products…' : 'Export all products CSV'}
+                                    </button>
+                                ) : null}
                                 <button
                                     type="button"
                                     onClick={openTodayOrdersPdfModal}

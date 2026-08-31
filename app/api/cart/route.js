@@ -11,6 +11,35 @@ import { scheduleAbandonedCartWhatsAppReminder, queueAbandonedCartWhatsAppDrain 
 import { cartRestoreTokenSetOnInsert } from '@/lib/abandonedCartRestore';
 import { getProductThumbnailUrl } from '@/lib/productMedia';
 
+function toPlainCartObject(cart) {
+    if (!cart) return {};
+    if (cart instanceof Map) return Object.fromEntries(cart.entries());
+    if (typeof cart?.entries === 'function' && typeof cart?.get === 'function') {
+        try {
+            return Object.fromEntries(cart.entries());
+        } catch {
+            // fall through
+        }
+    }
+    if (typeof cart === 'object') {
+        const out = {};
+        for (const [key, value] of Object.entries(cart)) {
+            if (value != null) out[key] = value;
+        }
+        return out;
+    }
+    return {};
+}
+
+async function replaceUserCart(userId, cart) {
+    const nextCart = toPlainCartObject(cart);
+    // Use $set so Mongoose Map fields are replaced wholesale (empty {} must clear all keys).
+    return User.findOneAndUpdate(
+        { _id: userId },
+        { $set: { cart: nextCart } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+}
 
 // Update user cart 
 export async function POST(request){
@@ -31,18 +60,15 @@ export async function POST(request){
 
         await dbConnect();
         const { cart, customerInfo } = await request.json();
+        const nextCart = toPlainCartObject(cart);
 
-        // Ensure user exists (minimal) then update cart
-        const user = await User.findOneAndUpdate(
-            { _id: userId },
-            { cart: cart },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
+        // Ensure user exists (minimal) then replace cart entirely
+        const user = await replaceUserCart(userId, nextCart);
 
         // Track abandoned carts by product store
-        if (cart && Object.keys(cart).length > 0) {
+        if (Object.keys(nextCart).length > 0) {
             try {
-                const cartItems = Object.entries(cart).map(([productId, entry]) => ({
+                const cartItems = Object.entries(nextCart).map(([productId, entry]) => ({
                     productId: getCartEntryProductId(productId, entry),
                     quantity: getCartEntryQuantity(entry),
                     isFreeGift: isFreeGiftEntry(entry),
@@ -139,7 +165,7 @@ export async function POST(request){
             }
         }
 
-        return NextResponse.json({ message: 'Cart updated' });
+        return NextResponse.json({ message: 'Cart updated', cart: toPlainCartObject(user?.cart) });
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: error.message }, { status: 400 });
@@ -176,7 +202,7 @@ export async function GET(request){
             });
         }
 
-        return NextResponse.json({ cart: user.cart || {} });
+        return NextResponse.json({ cart: toPlainCartObject(user.cart) });
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: error.message }, { status: 400 });
@@ -220,17 +246,17 @@ export async function DELETE(request) {
 
         await dbConnect();
 
-        const updatedUser = await User.findOneAndUpdate(
-            { _id: userId },
-            { $unset: { [`cart.${productKey}`]: 1 } },
-            { new: true }
-        );
-
-        if (!updatedUser) {
+        const user = await User.findOne({ _id: userId });
+        if (!user) {
             return NextResponse.json({ cart: {} });
         }
 
-        return NextResponse.json({ cart: updatedUser.cart || {} });
+        const currentCart = toPlainCartObject(user.cart);
+        delete currentCart[productKey];
+
+        const updatedUser = await replaceUserCart(userId, currentCart);
+
+        return NextResponse.json({ cart: toPlainCartObject(updatedUser?.cart) });
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: error.message }, { status: 400 });

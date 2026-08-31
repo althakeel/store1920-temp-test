@@ -3,7 +3,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import Logo from "@/assets/logo/Store1920.png";
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 import { HOME_SECTION_INNER_CLASS } from '@/lib/storefrontCarousel';
 import {
@@ -26,7 +25,24 @@ const FOOTER_PAYMENT_METHODS = [
     { id: 'cod', label: 'Cash on Delivery', src: '/payments/cod.png' },
 ];
 
-const NAVBAR_APPEARANCE_CACHE_KEY = 'navbarAppearanceCacheV1';
+/** Same key as Navbar — never flash a bundled static logo while loading. */
+const NAVBAR_APPEARANCE_CACHE_KEY = 'navbarAppearanceCache';
+
+function resolveFooterLogoFromAppearance(data = {}) {
+    const sameAsNavbar = data?.footerLogoSameAsNavbar !== false;
+    const customFooterUrl = String(data?.footerLogoUrl || '').trim();
+    const navbarLogoUrl = String(data?.logoUrl || '').trim();
+    const resolvedFromApi = String(data?.resolvedFooterLogoUrl || '').trim();
+    const logoUrl = resolvedFromApi
+        || (sameAsNavbar ? navbarLogoUrl : (customFooterUrl || navbarLogoUrl));
+    const widthSource = sameAsNavbar ? data?.logoWidth : (data?.footerLogoWidth ?? data?.logoWidth);
+    const heightSource = sameAsNavbar ? data?.logoHeight : (data?.footerLogoHeight ?? data?.logoHeight);
+    return {
+        logoUrl,
+        logoWidth: Number(widthSource) > 0 ? Number(widthSource) : 160,
+        logoHeight: Number(heightSource) > 0 ? Number(heightSource) : 40,
+    };
+}
 
 const Footer = () => {
     const { t, isArabic } = useStorefrontI18n();
@@ -36,6 +52,7 @@ const Footer = () => {
         logoWidth: 160,
         logoHeight: 40,
     });
+    const [footerLogoLoading, setFooterLogoLoading] = useState(true);
     const [appComingSoonOpen, setAppComingSoonOpen] = useState(false);
     const [portalReady, setPortalReady] = useState(false);
 
@@ -59,12 +76,11 @@ const Footer = () => {
                 const raw = window.localStorage.getItem(NAVBAR_APPEARANCE_CACHE_KEY);
                 if (raw) {
                     const cached = JSON.parse(raw);
-                    setFooterLogo((prev) => ({
-                        ...prev,
-                        logoUrl: typeof cached?.logoUrl === 'string' ? cached.logoUrl : prev.logoUrl,
-                        logoWidth: Number.isFinite(Number(cached?.logoWidth)) ? Number(cached.logoWidth) : prev.logoWidth,
-                        logoHeight: Number.isFinite(Number(cached?.logoHeight)) ? Number(cached.logoHeight) : prev.logoHeight,
-                    }));
+                    const resolved = resolveFooterLogoFromAppearance(cached);
+                    if (resolved.logoUrl) {
+                        setFooterLogo(resolved);
+                        setFooterLogoLoading(false);
+                    }
                 }
             } catch {
                 // Ignore cache parse issues.
@@ -78,20 +94,11 @@ const Footer = () => {
                 });
                 if (!response.ok) return;
                 const data = await response.json();
-                const nextAppearance = {
-                    logoUrl: data.logoUrl || '',
-                    logoWidth: data.logoWidth || 160,
-                    logoHeight: data.logoHeight || 40,
-                };
-                setFooterLogo(nextAppearance);
-                if (typeof window !== 'undefined') {
-                    window.localStorage.setItem(NAVBAR_APPEARANCE_CACHE_KEY, JSON.stringify({
-                        ...(JSON.parse(window.localStorage.getItem(NAVBAR_APPEARANCE_CACHE_KEY) || '{}')),
-                        ...nextAppearance,
-                    }));
-                }
+                setFooterLogo(resolveFooterLogoFromAppearance(data));
             } catch {
-                // Ignore network failures and fallback to static logo.
+                // Keep skeleton / text — never flash a bundled static logo.
+            } finally {
+                setFooterLogoLoading(false);
             }
         };
 
@@ -99,11 +106,17 @@ const Footer = () => {
 
         const handleNavbarAppearanceUpdate = (event) => {
             const detail = event?.detail || {};
-            setFooterLogo((prev) => ({
+            setFooterLogo((prev) => resolveFooterLogoFromAppearance({
                 logoUrl: typeof detail.logoUrl === 'string' ? detail.logoUrl : prev.logoUrl,
                 logoWidth: typeof detail.logoWidth === 'number' ? detail.logoWidth : prev.logoWidth,
                 logoHeight: typeof detail.logoHeight === 'number' ? detail.logoHeight : prev.logoHeight,
+                footerLogoSameAsNavbar: detail.footerLogoSameAsNavbar,
+                footerLogoUrl: detail.footerLogoUrl,
+                footerLogoWidth: detail.footerLogoWidth,
+                footerLogoHeight: detail.footerLogoHeight,
+                resolvedFooterLogoUrl: detail.resolvedFooterLogoUrl,
             }));
+            setFooterLogoLoading(false);
         };
 
         if (typeof window !== 'undefined') {
@@ -245,16 +258,31 @@ const Footer = () => {
             <div className={HOME_SECTION_INNER_CLASS}>
                 <div className="py-2 grid grid-cols-2 gap-2 md:grid-cols-2 lg:grid-cols-6 md:gap-4 lg:gap-6">
                     <div className="col-span-2 lg:col-span-2">
-                        <Link href="/" className="inline-block mb-4">
-                            <Image
-                                src={footerLogo.logoUrl || Logo}
-                                alt="Store1920 Logo"
-                                width={footerLogo.logoWidth || 160}
-                                height={footerLogo.logoHeight || 40}
-                                className="object-contain"
-                                priority
+                        {footerLogoLoading ? (
+                            <div
+                                className="mb-4 animate-pulse rounded-md bg-slate-700/80"
+                                style={{
+                                    width: Math.min(Number(footerLogo.logoWidth) || 160, 180),
+                                    height: Math.min(Number(footerLogo.logoHeight) || 40, 48),
+                                }}
+                                aria-hidden="true"
                             />
-                        </Link>
+                        ) : footerLogo.logoUrl ? (
+                            <Link href="/" className="inline-block mb-4">
+                                <Image
+                                    src={footerLogo.logoUrl}
+                                    alt="Store1920 Logo"
+                                    width={footerLogo.logoWidth || 160}
+                                    height={footerLogo.logoHeight || 40}
+                                    className="object-contain"
+                                    priority
+                                />
+                            </Link>
+                        ) : (
+                            <Link href="/" className="mb-4 inline-block text-lg font-semibold tracking-tight text-white">
+                                store1920
+                            </Link>
+                        )}
                         <p className="text-sm text-slate-400 leading-relaxed mb-3 max-w-sm">
                             {t('footer.description')}
                         </p>

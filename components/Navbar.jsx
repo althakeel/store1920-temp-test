@@ -15,7 +15,6 @@ import WalletIcon from '@/assets/icons/wallet.png';
 import { isStorefrontWalletEnabled } from '@/lib/storefrontWallet';
 import SignInModal from './SignInModal';
 import AddressModal from './AddressModal';
-import NavbarMenuBar from './NavbarMenuBar';
 import { clearCart, fetchCart, uploadCart } from '@/lib/features/cart/cartSlice';
 import { fetchAddress, clearAddresses } from '@/lib/features/address/addressSlice';
 import {
@@ -39,44 +38,47 @@ import { secureSignOut } from '@/lib/authClient';
 const NAVBAR_SELECTED_ADDRESS_KEY = 'navbarSelectedAddressId';
 const NAVBAR_APPEARANCE_CACHE_KEY = 'navbarAppearanceCache';
 
-import { STORE1920_LOGO_PATH } from '@/lib/brandLogo';
-
-const DEFAULT_STORE_LOGO = STORE1920_LOGO_PATH;
 const STOREFRONT_BRAND_NAME = 'store1920';
-const DEFAULT_NAVBAR_APPEARANCE = {
-  logoUrl: DEFAULT_STORE_LOGO,
+/** Empty until API/cache — never flash a hardcoded logo or brand color. */
+const EMPTY_NAVBAR_APPEARANCE = {
+  logoUrl: '',
   logoWidth: 120,
   logoHeight: 40,
-  backgroundColor: '#8f3404',
+  backgroundColor: '',
 };
 const NAVBAR_CONTAINER_CLASS = 'mx-auto w-full max-w-[1400px] px-4 sm:px-6';
 
-const resolveNavbarLogoSrc = (logoUrl) => {
-  const trimmed = String(logoUrl || '').trim();
-  return trimmed || DEFAULT_STORE_LOGO;
-};
+const resolveNavbarLogoSrc = (logoUrl) => String(logoUrl || '').trim();
 
 const normalizeNavbarAppearance = (appearance = {}) => ({
   logoUrl: resolveNavbarLogoSrc(appearance.logoUrl),
   logoWidth: Number(appearance.logoWidth) > 0 ? Number(appearance.logoWidth) : 120,
   logoHeight: Number(appearance.logoHeight) > 0 ? Number(appearance.logoHeight) : 40,
-  backgroundColor: appearance.backgroundColor || '#8f3404',
+  backgroundColor: String(appearance.backgroundColor || '').trim(),
 });
 
 const readCachedNavbarAppearance = () => {
-  if (typeof window === 'undefined') return DEFAULT_NAVBAR_APPEARANCE;
+  if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(NAVBAR_APPEARANCE_CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
-        return normalizeNavbarAppearance({ ...DEFAULT_NAVBAR_APPEARANCE, ...parsed });
+        return normalizeNavbarAppearance(parsed);
       }
     }
   } catch {
     // Ignore storage read failures.
   }
-  return DEFAULT_NAVBAR_APPEARANCE;
+  return null;
+};
+
+const isCachedAppearanceReady = (appearance) => {
+  if (!appearance) return false;
+  return Boolean(
+    resolveNavbarLogoSrc(appearance.logoUrl)
+    || String(appearance.backgroundColor || '').trim(),
+  );
 };
 
 const getContrastColor = (hexColor) => {
@@ -149,13 +151,9 @@ const Navbar = () => {
   // Will be updated from localStorage in useEffect after mount
   const [storefrontLanguage, setStorefrontLanguage] = useState('en');
   const [languageHydrated, setLanguageHydrated] = useState(false);
-  // Initialize with default appearance to avoid hydration mismatch
-  // Will be updated from localStorage in useEffect after mount
-  const [navbarAppearance, setNavbarAppearance] = useState(DEFAULT_NAVBAR_APPEARANCE);
-  // Render the navbar with the default appearance on both server and client initially
-  // to avoid hydration mismatches. Loading state is set false initially and toggled
-  // by the fetch effect when data is retrieved.
-  const [navbarAppearanceLoading, setNavbarAppearanceLoading] = useState(false);
+  // Skeleton until cache/API provides logo + background (no static logo/bg flash).
+  const [navbarAppearance, setNavbarAppearance] = useState(EMPTY_NAVBAR_APPEARANCE);
+  const [navbarAppearanceLoading, setNavbarAppearanceLoading] = useState(true);
   const t = (key, replacements = {}) => translateStaticText(key, storefrontLanguage, replacements);
 
   const getShortName = (value) => {
@@ -303,16 +301,50 @@ const Navbar = () => {
   const searchParams = useSearchParams();
   const isHomePage = pathname === '/';
 
-  const mobileNavbarUsesBrandColor = isHomePage;
+  const resolvedNavbarBg = String(navbarAppearance.backgroundColor || '').trim();
+  const mobileNavbarUsesBrandColor = isHomePage && Boolean(resolvedNavbarBg);
   const mobileNavbarBackgroundColor = mobileNavbarUsesBrandColor
-    ? navbarAppearance.backgroundColor
+    ? resolvedNavbarBg
     : '#ffffff';
   const mobileNavbarControlClass = mobileNavbarUsesBrandColor
     ? 'text-white/95 hover:bg-white/15'
     : 'text-gray-900 hover:bg-gray-100';
-  const navbarTextColor = getContrastColor(navbarAppearance.backgroundColor);
+  const desktopNavbarBackgroundColor = resolvedNavbarBg || '#f8fafc';
+  const navbarTextColor = getContrastColor(desktopNavbarBackgroundColor);
   const navbarLogoSrc = resolveNavbarLogoSrc(navbarAppearance.logoUrl);
-  const mobileLogoSrc = navbarLogoSrc;
+  const searchAccentColor = resolvedNavbarBg || '#0f172a';
+
+  const renderNavbarLogoImage = ({
+    width,
+    height,
+    className = '',
+    style = {},
+    priority = false,
+  }) => {
+    if (navbarLogoSrc) {
+      return (
+        <Image
+          src={navbarLogoSrc}
+          alt={`${STOREFRONT_BRAND_NAME} logo`}
+          width={width}
+          height={height}
+          className={className}
+          style={style}
+          priority={priority}
+        />
+      );
+    }
+
+    return (
+      <span
+        className={`inline-flex items-center font-semibold tracking-tight text-current ${className}`}
+        style={{ maxHeight: style?.maxHeight, ...style }}
+        aria-label={STOREFRONT_BRAND_NAME}
+      >
+        {STOREFRONT_BRAND_NAME}
+      </span>
+    );
+  };
 
   useEffect(() => {
     if (!navbarAppearanceLoading) {
@@ -451,21 +483,13 @@ const Navbar = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
-    try {
-      const cached = window.localStorage.getItem(NAVBAR_APPEARANCE_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && typeof parsed === 'object') {
-          const normalized = normalizeNavbarAppearance({ ...DEFAULT_NAVBAR_APPEARANCE, ...parsed });
-          setNavbarAppearance(normalized);
-          // Defer so sibling listeners are mounted before they receive the event.
-          window.setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('navbarAppearanceUpdated', { detail: normalized }));
-          }, 0);
-        }
-      }
-    } catch {
-      // Ignore storage read failures
+    const cached = readCachedNavbarAppearance();
+    if (isCachedAppearanceReady(cached)) {
+      setNavbarAppearance(cached);
+      setNavbarAppearanceLoading(false);
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('navbarAppearanceUpdated', { detail: cached }));
+      }, 0);
     }
 
     return undefined;
@@ -487,20 +511,20 @@ const Navbar = () => {
           return;
         }
         const data = await response.json();
-        console.log('[Navbar] Backend Response:', { 
-          logoUrl: data.logoUrl || '(empty - will use default)', 
-          logoWidth: data.logoWidth, 
-          logoHeight: data.logoHeight, 
-          backgroundColor: data.backgroundColor 
+        console.log('[Navbar] Backend Response:', {
+          logoUrl: data.logoUrl || '(empty)',
+          logoWidth: data.logoWidth,
+          logoHeight: data.logoHeight,
+          backgroundColor: data.backgroundColor || '(empty)',
         });
-        
+
         const nextAppearance = normalizeNavbarAppearance({
-          logoUrl: data.logoUrl || DEFAULT_STORE_LOGO,
+          logoUrl: data.logoUrl || '',
           logoWidth: data.logoWidth ?? 120,
           logoHeight: data.logoHeight ?? 40,
-          backgroundColor: data.backgroundColor || '#8f3404',
+          backgroundColor: data.backgroundColor || '',
         });
-        
+
         setNavbarAppearance(nextAppearance);
         try {
           window.localStorage.setItem(NAVBAR_APPEARANCE_CACHE_KEY, JSON.stringify(nextAppearance));
@@ -510,9 +534,9 @@ const Navbar = () => {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('navbarAppearanceUpdated', { detail: nextAppearance }));
         }
-        console.log('[Navbar] Applied Appearance:', { 
-          usingCustomLogo: !!data.logoUrl, 
-          dims: `${nextAppearance.logoWidth}x${nextAppearance.logoHeight}` 
+        console.log('[Navbar] Applied Appearance:', {
+          usingCustomLogo: !!nextAppearance.logoUrl,
+          dims: `${nextAppearance.logoWidth}x${nextAppearance.logoHeight}`,
         });
       } catch (error) {
         // Ignore AbortError on cleanup
@@ -1353,28 +1377,24 @@ const Navbar = () => {
 
   const navbarSkeleton = (
     <>
-      <div className="lg:hidden sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
-        <div className="flex items-center gap-3 px-3 py-3">
-          <div className="h-8 w-28 animate-pulse rounded-md bg-gray-200" />
-          <div className="h-10 flex-1 animate-pulse rounded-lg bg-gray-100" />
-          <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
+      <div className="lg:hidden sticky top-0 z-50 border-b border-slate-200 bg-slate-100">
+        <div className="flex items-center gap-2 px-2 py-2 sm:gap-3 sm:px-3 sm:py-2.5">
+          <div className="h-8 w-8 animate-pulse rounded-full bg-slate-200" />
+          <div className="h-7 w-[72px] animate-pulse rounded-md bg-slate-300 sm:w-24" />
+          <div className="h-9 flex-1 animate-pulse rounded-full bg-slate-200" />
+          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200" />
         </div>
       </div>
 
-      <div className="relative z-50 hidden lg:block border-b border-gray-200 bg-white shadow-sm">
-        <div className={`${NAVBAR_CONTAINER_CLASS} flex items-center justify-between gap-4 py-3`}>
-          <div className="h-9 w-32 animate-pulse rounded-md bg-gray-200" />
-          <div className="flex items-center gap-3">
-            <div className="h-4 w-28 animate-pulse rounded-full bg-gray-100" />
-            <div className="h-4 w-16 animate-pulse rounded-full bg-gray-100" />
-            <div className="h-8 w-24 animate-pulse rounded-full bg-gray-100" />
-            <div className="h-4 w-20 animate-pulse rounded-full bg-gray-100" />
-          </div>
-          <div className="h-10 w-full max-w-[420px] animate-pulse rounded-full bg-gray-100" />
-          <div className="flex items-center gap-3">
-            <div className="h-4 w-16 animate-pulse rounded-full bg-gray-100" />
-            <div className="h-9 w-9 animate-pulse rounded-full bg-gray-100" />
-            <div className="h-9 w-28 animate-pulse rounded-full bg-gray-100" />
+      <div className="relative z-50 hidden overflow-hidden border-b border-slate-200 bg-slate-200 lg:block">
+        <div className={`${NAVBAR_CONTAINER_CLASS} flex items-center gap-3 py-2.5 lg:gap-4`}>
+          <div className="h-10 w-[120px] shrink-0 animate-pulse rounded-md bg-slate-300 xl:w-[160px]" />
+          <div className="hidden h-4 w-28 animate-pulse rounded-full bg-slate-300/80 xl:block" />
+          <div className="h-11 min-w-0 flex-1 animate-pulse rounded-2xl bg-slate-300/70" />
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="h-4 w-14 animate-pulse rounded-full bg-slate-300/80" />
+            <div className="h-9 w-9 animate-pulse rounded-full bg-slate-300/80" />
+            <div className="h-9 w-24 animate-pulse rounded-full bg-slate-300/80" />
           </div>
         </div>
       </div>
@@ -1500,15 +1520,13 @@ const Navbar = () => {
             onClick={handleLogoNavigation}
             className="flex shrink-0 items-center"
           >
-            <Image
-              src={mobileLogoSrc}
-              alt={`${STOREFRONT_BRAND_NAME} logo`}
-              width={navbarAppearance.logoWidth}
-              height={navbarAppearance.logoHeight}
-              className="h-7 w-auto max-w-[72px] object-contain sm:max-w-[96px]"
-              style={{ maxHeight: '32px' }}
-              priority
-            />
+            {renderNavbarLogoImage({
+              width: navbarAppearance.logoWidth,
+              height: navbarAppearance.logoHeight,
+              className: 'h-7 w-auto max-w-[72px] object-contain sm:max-w-[96px]',
+              style: { maxHeight: '32px' },
+              priority: true,
+            })}
           </Link>
 
           <form onSubmit={handleSearch} className="relative z-[70] min-w-0 flex-1">
@@ -1544,7 +1562,7 @@ const Navbar = () => {
                 type="submit"
                 aria-label="Search"
                 className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90"
-                style={{ backgroundColor: navbarAppearance.backgroundColor }}
+                style={{ backgroundColor: searchAccentColor }}
               >
                 <Search size={14} strokeWidth={2.5} />
               </button>
@@ -1608,8 +1626,9 @@ const Navbar = () => {
       <nav
         className="overflow-visible border-b text-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]"
         style={{
-          backgroundColor: navbarAppearance.backgroundColor,
+          backgroundColor: desktopNavbarBackgroundColor,
           borderColor: 'rgba(15, 23, 42, 0.18)',
+          color: navbarTextColor,
         }}
       >
       <div className={NAVBAR_CONTAINER_CLASS}>
@@ -1631,15 +1650,13 @@ const Navbar = () => {
               onClick={handleLogoNavigation}
               className="flex items-center gap-2 flex-shrink-0"
             >
-              <Image
-                src={navbarLogoSrc}
-                alt={`${STOREFRONT_BRAND_NAME} logo`}
-                width={navbarAppearance.logoWidth}
-                height={navbarAppearance.logoHeight}
-                className="h-auto w-auto max-w-[88px] object-contain flex-shrink-0 xl:max-w-[180px]"
-                style={{ maxHeight: '50px' }}
-                priority
-              />
+              {renderNavbarLogoImage({
+                width: navbarAppearance.logoWidth,
+                height: navbarAppearance.logoHeight,
+                className: 'h-auto w-auto max-w-[88px] object-contain flex-shrink-0 xl:max-w-[180px]',
+                style: { maxHeight: '50px' },
+                priority: true,
+              })}
             </Link>
 
             <button
@@ -1700,7 +1717,7 @@ const Navbar = () => {
                 <button
                   type="submit"
                   className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition hover:bg-slate-100"
-                  style={{ color: navbarAppearance.backgroundColor }}
+                  style={{ color: searchAccentColor }}
                   aria-label="Search"
                 >
                   <Search size={15} />
@@ -1828,14 +1845,12 @@ const Navbar = () => {
               <div className="shrink-0 border-b border-slate-200 bg-white px-4 pb-3 pt-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <button type="button" onClick={handleLogoNavigation} className="flex min-w-0 max-w-[140px] items-center overflow-hidden">
-                    <Image
-                      src={mobileLogoSrc || navbarLogoSrc}
-                      alt={`${STOREFRONT_BRAND_NAME} logo`}
-                      width={navbarAppearance.logoWidth || 120}
-                      height={navbarAppearance.logoHeight || 40}
-                      className="h-8 w-auto max-w-[130px] object-contain"
-                      style={{ maxHeight: '32px', maxWidth: '130px' }}
-                    />
+                    {renderNavbarLogoImage({
+                      width: navbarAppearance.logoWidth || 120,
+                      height: navbarAppearance.logoHeight || 40,
+                      className: 'h-8 w-auto max-w-[130px] object-contain',
+                      style: { maxHeight: '32px', maxWidth: '130px' },
+                    })}
                   </button>
                   <button
                     type="button"
