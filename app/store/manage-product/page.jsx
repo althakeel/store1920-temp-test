@@ -552,6 +552,22 @@ export default function StoreManageProducts() {
         ? (resolveCategoryName(categoryMap, selectedCategory) || 'this category')
         : ''
 
+    // categoryMap stores id + slug + name aliases for lookups — dropdown must list each category once.
+    const categoryFilterOptions = useMemo(() => {
+        const seen = new Set()
+        const options = []
+        for (const [id, name] of Object.entries(categoryMap)) {
+            if (!/^[a-f0-9]{24}$/i.test(id)) continue
+            const key = id.toLowerCase()
+            if (seen.has(key)) continue
+            seen.add(key)
+            const label = String(name || '').trim()
+            if (!label) continue
+            options.push({ id, name: label })
+        }
+        return options.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    }, [categoryMap])
+
     const toggleStock = async (productId) => {
         const token = await getToken()
         const { data } = await axios.post('/api/store/stock-toggle',{ productId }, {headers: { Authorization: `Bearer ${token}` } })
@@ -1251,7 +1267,7 @@ export default function StoreManageProducts() {
                     onChange={(e) => setSelectedCategory(e.target.value)}
                 >
                     <option value="">All Categories</option>
-                    {Object.entries(categoryMap).map(([id, name]) => (
+                    {categoryFilterOptions.map(({ id, name }) => (
                         <option key={id} value={id}>{name}</option>
                     ))}
                 </ManageProductSelect>
