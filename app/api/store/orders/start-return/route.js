@@ -111,14 +111,25 @@ export async function POST(request) {
       },
     });
 
+    const refreshedOrder = result.followUp?.order
+      || await Order.findOne({ _id: orderId, storeId: String(storeId) })
+        .select('_id status returns waslah waslahReturn trackingId shortOrderNumber updatedAt')
+        .lean();
+
     return NextResponse.json({
       success: true,
       message: result.message || (type === 'REPLACEMENT'
         ? 'Replacement started. Pickup is scheduled; replacement ships after QC.'
-        : 'Return started. Pickup is scheduled from the new return order.'),
+        : 'Return started. Pickup is scheduled from the original order.'),
       previousStatus,
       request: serializeReturnCase(result.request || created.request, order),
       followUp: result.followUp || null,
+      order: refreshedOrder || null,
+      returnTrackingNumber: refreshedOrder?.waslahReturn?.trackingNumber || result.followUp?.pickupEmx?.trackingNumber || null,
+      originalTrackingNumber: refreshedOrder?.waslahReturn?.originalTrackingNumber
+        || refreshedOrder?.waslah?.emxTrackingNumber
+        || refreshedOrder?.trackingId
+        || null,
     });
   } catch (error) {
     console.error('[store/orders/start-return]', error);

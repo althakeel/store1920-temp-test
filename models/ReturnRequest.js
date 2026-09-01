@@ -107,6 +107,12 @@ const ReturnRequestSchema = new mongoose.Schema({
     customerMessage: { type: String, default: '' },
     error: { type: String, default: '' },
   },
+  stockRestockedAt: { type: Date, default: null },
+  stockRestock: {
+    productCount: { type: Number, default: 0 },
+    unitCount: { type: Number, default: 0 },
+    lines: { type: [Object], default: [] },
+  },
   followUpOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
   followUpOrderNumber: { type: String, default: '' },
   returnPickupOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },

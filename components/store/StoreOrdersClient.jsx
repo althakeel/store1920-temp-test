@@ -517,9 +517,24 @@ function getOrderAwb(order) {
     return '';
 }
 
+/** Reverse-pickup AWB on the original sale (waslahReturn — separate from outbound). */
+function getReturnPickupAwb(order) {
+    const value = String(order?.waslahReturn?.trackingNumber || '').trim();
+    if (!value) return '';
+    if (/^1000\d{9,12}$/.test(value)) return value;
+    if (/^\d{10,16}$/.test(value) && !/^62\d+$/.test(value) && !/^[a-fA-F0-9]{24}$/.test(value) && !/^S1920-/i.test(value)) {
+        return value;
+    }
+    // Still show platform / pending numbers so sellers see what Waslah currently has.
+    if (!/^[a-fA-F0-9]{24}$/.test(value)) return value;
+    return '';
+}
+
 /** Any courier AWB for list/filters (EMX Waslah number or manual trackingId). */
 function getDisplayAwb(order) {
-    return getOrderAwb(order) || String(order?.trackingId || '').trim();
+    return getOrderAwb(order)
+        || getReturnPickupAwb(order)
+        || String(order?.trackingId || '').trim();
 }
 
 function getWaslahOrderReference(order) {
@@ -658,6 +673,9 @@ function mergeWaslahLiveStatusPatch(current, incoming) {
         courier: incoming.courier ?? current.courier,
         updatedAt: incoming.updatedAt ?? current.updatedAt,
         waslah: preserveWaslahLabelDownloadState(current.waslah, incoming.waslah),
+        waslahReturn: incoming.waslahReturn
+            ? { ...(current.waslahReturn || {}), ...incoming.waslahReturn }
+            : current.waslahReturn,
     };
 }
 
@@ -3222,6 +3240,14 @@ export default function StoreOrders() {
                 )));
             }
             clearPageCache('store-orders');
+            const startedOrderId = data.order?._id || selectedOrder._id;
+            if (startedOrderId) {
+                try {
+                    await refreshWaslahStatus({ orderId: startedOrderId, manual: false });
+                } catch {
+                    // Return was created; EMX AWB may appear shortly after.
+                }
+            }
             toast.success(data.message || (returnActionType === 'REPLACEMENT' ? 'Replacement started' : 'Return started'));
             setReturnActionType(null);
             setReturnActionReason('');
@@ -3568,11 +3594,29 @@ export default function StoreOrders() {
 
             if (manual && selectedOrderIdRef.current === targetOrderId) {
                 if (data.pending || data.empty) {
-                    toast('EMX has no tracking events yet for this shipment');
+                    const returnAwb = getReturnPickupAwb(liveOrder)
+                        || String(liveOrder?.waslahReturn?.trackingNumber || '').trim();
+                    if (returnAwb) {
+                        toast.success(
+                            data.returnTrackingChanged || data.changed
+                                ? `Return pickup tracking updated: ${returnAwb}`
+                                : `Return pickup tracking: ${returnAwb}`,
+                        );
+                    } else {
+                        toast('EMX has no tracking events yet for this shipment');
+                    }
                 } else {
                     const liveAwb = getOrderAwb(liveOrder);
+                    const returnAwb = getReturnPickupAwb(liveOrder)
+                        || String(liveOrder?.waslahReturn?.trackingNumber || '').trim();
                     const liveLabel = getWaslahLiveStatusLabel(liveOrder);
-                    if (liveAwb) {
+                    if (returnAwb && (data.returnTrackingChanged || !liveAwb)) {
+                        toast.success(
+                            data.returnTrackingChanged || data.changed
+                                ? `Return pickup tracking updated: ${returnAwb}`
+                                : `Return pickup tracking: ${returnAwb}`,
+                        );
+                    } else if (liveAwb) {
                         toast.success(data.changed
                             ? `EMX tracking ${liveAwb} · ${liveLabel}`
                             : `Tracking number ${liveAwb} · ${liveLabel}`);
@@ -5469,6 +5513,73 @@ export default function StoreOrders() {
                                             <p className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-[11px] font-medium text-orange-950">
                                                 Return pickup stays on this order. EMX collects from the customer address (customer is sender, warehouse is receiver). No extra pickup order is created.
                                             </p>
+                                        ) : null}
+
+                                        {selectedOrder?.waslahReturn?.orderId ? (
+                                            <div className="rounded-lg border border-orange-200 bg-orange-50/60 p-3">
+                                                <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Original delivery AWB</p>
+                                                        <p className="font-semibold text-slate-900 font-mono">
+                                                            {selectedOrder.waslahReturn?.originalTrackingNumber
+                                                                || getOrderAwb(selectedOrder)
+                                                                || '—'}
+                                                        </p>
+                                                        {(selectedOrder.waslahReturn?.originalTrackingNumber || getOrderAwb(selectedOrder)) ? (
+                                                            <a
+                                                                href={buildEmxTrackingUrl(
+                                                                    selectedOrder.waslahReturn?.originalTrackingNumber
+                                                                    || getOrderAwb(selectedOrder),
+                                                                ) || '#'}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="mt-1 inline-flex text-xs font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-900"
+                                                            >
+                                                                Track original delivery
+                                                            </a>
+                                                        ) : null}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Return pickup tracking</p>
+                                                        <p className="font-semibold text-slate-900 font-mono">
+                                                            {getReturnPickupAwb(selectedOrder)
+                                                                || selectedOrder.waslahReturn?.trackingNumber
+                                                                || 'Pending — click Refresh EMX status'}
+                                                        </p>
+                                                        {getReturnPickupAwb(selectedOrder) ? (
+                                                            <a
+                                                                href={buildEmxTrackingUrl(getReturnPickupAwb(selectedOrder)) || '#'}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="mt-1 inline-flex text-xs font-semibold text-orange-800 underline underline-offset-2 hover:text-orange-950"
+                                                            >
+                                                                Track return on EMX
+                                                            </a>
+                                                        ) : null}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Return Waslah order</p>
+                                                        <p className="font-mono text-xs font-semibold text-slate-800 break-all">
+                                                            {selectedOrder.waslahReturn.orderId}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Return label</p>
+                                                        {selectedOrder.waslahReturn?.labelUrl ? (
+                                                            <a
+                                                                href={selectedOrder.waslahReturn.labelUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-xs font-semibold text-orange-800 underline underline-offset-2"
+                                                            >
+                                                                Open return label
+                                                            </a>
+                                                        ) : (
+                                                            <p className="text-xs text-slate-500">Not ready yet</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         ) : null}
 
                                         {!isWaslahShipmentProcessed(selectedOrder) && !selectedOrder?.waslah?.orderId ? (

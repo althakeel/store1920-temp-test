@@ -1162,7 +1162,11 @@ const Navbar = () => {
 
     return (
       <div className={wrapperClassName}>
-        {previewSuggestions.map((product) => (
+        {previewSuggestions.map((product) => {
+          const title = storefrontLanguage === 'ar' && product.nameAr
+            ? product.nameAr
+            : (product.name || product.nameAr || 'Product');
+          return (
           <Link
             key={product._id || product.slug}
             href={getProductPath(product)}
@@ -1177,21 +1181,17 @@ const Navbar = () => {
               {getProductThumbnailUrl(product, { fallback: '' }) ? (
                 <SafeNextImage
                   src={getProductThumbnailUrl(product)}
-                  alt={product.name || 'Product'}
+                  alt={title}
                   fill
                   sizes="36px"
                   className="object-cover"
                 />
               ) : null}
             </div>
-            <div className="min-w-0">
-              <span className="block truncate font-medium">{product.name}</span>
-              <span className="truncate text-xs text-gray-500">
-                {[product.brand, product.sku ? `SKU: ${product.sku}` : ''].filter(Boolean).join(' · ')}
-              </span>
-            </div>
+            <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{title}</span>
           </Link>
-        ))}
+          );
+        })}
         {hasMoreResults ? (
           <button
             type="button"

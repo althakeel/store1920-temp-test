@@ -195,7 +195,9 @@ export async function GET(req) {
       )
     }
 
-    const enrichedOrder = await enrichOrderWithLiveTracking(order)
+    const enrichedOrder = await enrichOrderWithLiveTracking(order, {
+      lookupIdentifier: identifier,
+    })
 
     return NextResponse.json({
       success: true,

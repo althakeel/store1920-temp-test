@@ -14,6 +14,10 @@ import {
     getSalesReportPaymentBucketLabel,
     shouldCountSalesReportRevenue,
 } from '@/lib/storeSalesReport';
+import {
+    getOrderNetRevenue,
+    loadCompletedReturnRefundsByOrderId,
+} from '@/lib/returnSalesAdjustments';
 import { normalizeStoreOrderPaymentMethod } from '@/lib/storeOrderInsights';
 import { ACTIVE_RECORD_FILTER } from '@/lib/storeTrash';
 
@@ -58,11 +62,15 @@ export async function GET(req) {
             MarketingExpense.find({ storeId, ...dateFilter }).select('amount').lean(),
         ]);
 
-        const paymentSummary = buildSalesReportPaymentSummary(orders);
+        const orderIds = orders.map((order) => String(order._id));
+        const refundByOrderId = await loadCompletedReturnRefundsByOrderId(storeId, { orderIds });
+        const paymentSummaryNet = buildSalesReportPaymentSummary(orders, refundByOrderId);
         const revenueOrders = orders.filter((order) => shouldCountSalesReportRevenue(order));
         const productCostMap = await buildProductCostMap(revenueOrders, Product);
 
         let totalRevenue = 0;
+        let totalGrossRevenue = 0;
+        let totalRefunds = 0;
         let totalProductCosts = 0;
         let totalDeliveryCosts = 0;
         const totalMarketingCosts = marketingExpenses.reduce(
@@ -73,16 +81,20 @@ export async function GET(req) {
         const ordersWithProfit = orders.map((order) => {
             const paymentBucket = getSalesReportOrderBucket(order);
             const countsTowardRevenue = shouldCountSalesReportRevenue(order);
+            const refundedAmount = refundByOrderId.get(String(order._id)) || 0;
             const orderProductCost = countsTowardRevenue
                 ? calculateOrderProductCost(order, productCostMap)
                 : 0;
-            const orderRevenue = Number(order.total || 0);
+            const orderGrossRevenue = Number(order.total || 0);
+            const orderRevenue = getOrderNetRevenue(order, refundedAmount);
             const orderDeliveryCost = countsTowardRevenue ? Number(order.shippingFee || 0) : 0;
             const orderProfit = countsTowardRevenue
                 ? orderRevenue - orderProductCost - orderDeliveryCost
                 : 0;
 
             if (countsTowardRevenue) {
+                totalGrossRevenue += orderGrossRevenue;
+                totalRefunds += refundedAmount;
                 totalRevenue += orderRevenue;
                 totalProductCosts += orderProductCost;
                 totalDeliveryCosts += orderDeliveryCost;
@@ -93,6 +105,8 @@ export async function GET(req) {
                 shortOrderNumber: order.shortOrderNumber,
                 createdAt: order.createdAt,
                 total: orderRevenue,
+                grossTotal: orderGrossRevenue,
+                refundedAmount,
                 productCost: orderProductCost,
                 shippingFee: orderDeliveryCost,
                 profit: orderProfit,
@@ -107,11 +121,11 @@ export async function GET(req) {
         const totalCosts = totalProductCosts + totalDeliveryCosts + totalMarketingCosts;
         const totalProfit = totalRevenue - totalCosts;
         const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-        const avgOrderValue = paymentSummary.totalOrders > 0
-            ? totalRevenue / paymentSummary.totalOrders
+        const avgOrderValue = paymentSummaryNet.totalOrders > 0
+            ? totalRevenue / paymentSummaryNet.totalOrders
             : 0;
-        const avgProfit = paymentSummary.totalOrders > 0
-            ? totalProfit / paymentSummary.totalOrders
+        const avgProfit = paymentSummaryNet.totalOrders > 0
+            ? totalProfit / paymentSummaryNet.totalOrders
             : 0;
 
         const monthsMap = new Map();
@@ -143,18 +157,20 @@ export async function GET(req) {
 
         const report = {
             totalRevenue,
+            totalGrossRevenue,
+            totalRefunds,
             totalCosts,
             productCosts: totalProductCosts,
             deliveryCosts: totalDeliveryCosts,
             marketingCosts: totalMarketingCosts,
             totalProfit,
             profitMargin,
-            totalOrders: paymentSummary.totalOrders,
+            totalOrders: paymentSummaryNet.totalOrders,
             totalOrdersInRange: orders.length,
             avgOrderValue,
             avgProfit,
             monthlyData: Array.from(monthsMap.values()),
-            paymentSummary,
+            paymentSummary: paymentSummaryNet,
         };
 
         const totalOrderRows = ordersWithProfit.length;

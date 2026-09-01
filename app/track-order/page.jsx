@@ -37,6 +37,7 @@ function buildTrackingParams(phoneNumber, awbNumber) {
 function getTrackingOrderKey(order = {}) {
   return String(
     order?._id
+    || order?.waslahReturn?.trackingNumber
     || order?.waslah?.emxTrackingNumber
     || order?.trackingId
     || order?.waslah?.trackingNumber
@@ -57,6 +58,12 @@ function mergePublicLiveTracking(current, incoming) {
     courier: incoming.courier ?? current.courier,
     trackingId: incoming.trackingId ?? current.trackingId,
     trackingUrl: incoming.trackingUrl ?? current.trackingUrl,
+    trackingKind: incoming.trackingKind ?? current.trackingKind,
+    linkedOriginalTrackingNumber: incoming.linkedOriginalTrackingNumber ?? current.linkedOriginalTrackingNumber,
+    linkedReturnTrackingNumber: incoming.linkedReturnTrackingNumber ?? current.linkedReturnTrackingNumber,
+    waslahReturn: incoming.waslahReturn
+      ? { ...(current.waslahReturn || {}), ...incoming.waslahReturn }
+      : current.waslahReturn,
     waslah: incoming.waslah
       ? { ...(current.waslah || {}), ...incoming.waslah }
       : current.waslah,
@@ -68,6 +75,13 @@ function mergePublicLiveTracking(current, incoming) {
       ? { ...(current.delhivery || {}), ...incoming.delhivery }
       : current.delhivery,
   };
+}
+
+function getActiveTrackingDisplayId(order = {}) {
+  if (order?.trackingKind === 'return') {
+    return String(order.trackingId || order.waslahReturn?.trackingNumber || '').trim();
+  }
+  return getPublicTrackingDisplayId(order);
 }
 
 function TrackOrderPageInner() {
@@ -90,7 +104,7 @@ function TrackOrderPageInner() {
   const refreshLiveTracking = async ({ manual = false } = {}) => {
     if (trackingRefreshInFlight.current || !order) return null;
     const trackingReference = String(
-      getPublicTrackingDisplayId(order)
+      getActiveTrackingDisplayId(order)
       || order.trackingId
       || order.waslah?.emxTrackingNumber
       || order.waslah?.trackingNumber
@@ -148,8 +162,9 @@ function TrackOrderPageInner() {
 
   useEffect(() => {
     const trackingReference = String(
-      getPublicTrackingDisplayId(order)
+      getActiveTrackingDisplayId(order)
       || order?.trackingId
+      || order?.waslahReturn?.trackingNumber
       || order?.waslah?.emxTrackingNumber
       || order?.waslah?.trackingNumber
       || '',
@@ -157,7 +172,9 @@ function TrackOrderPageInner() {
     const courier = String(order?.courier || '').toLowerCase();
     const isEmxOrder = Boolean(
       order?.waslah?.orderId
+      || order?.waslahReturn?.orderId
       || order?.waslah?.trackingNumber
+      || order?.waslahReturn?.trackingNumber
       || order?.waslah?.emxTrackingNumber
       || courier.includes('emx')
       || courier.includes('waslah'),
@@ -469,9 +486,21 @@ function TrackOrderPageInner() {
             </div>
           )}
 
-          {/* Order Details */}
+              {/* Order Details */}
           {order && (
             <div className="space-y-6">
+              {order.trackingKind === 'return' ? (
+                <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-950">
+                  <p className="font-semibold">Return pickup tracking</p>
+                  <p className="mt-1">
+                    You searched the return pickup AWB
+                    {order.trackingId ? ` (${order.trackingId})` : ''}.
+                    {order.linkedOriginalTrackingNumber ? (
+                      <> Original delivery AWB: <span className="font-mono font-semibold">{order.linkedOriginalTrackingNumber}</span>.</>
+                    ) : null}
+                  </p>
+                </div>
+              ) : null}
               {relatedOrders.length > 0 && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
                   <p className="text-sm font-medium text-blue-900 mb-3">
@@ -506,7 +535,7 @@ function TrackOrderPageInner() {
                 </div>
               )}
               {/* Tracking not ready notice */}
-              {!getPublicTrackingDisplayId(order) && !order.c3x && !order.waslah && (
+              {!getActiveTrackingDisplayId(order) && !order.c3x && !order.waslah && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-yellow-800 text-sm">
                   Shipment hasn't been created yet. You'll see live tracking here once the EMX tracking number is generated.
                 </div>
@@ -519,8 +548,8 @@ function TrackOrderPageInner() {
                       {order._id ? 'Store order status' : 'Shipment status'}
                     </p>
                     <h2 className="mt-1 text-xl font-semibold text-slate-900">
-                      {getPublicTrackingDisplayId(order)
-                        ? `Tracking number: ${getPublicTrackingDisplayId(order)}`
+                      {getActiveTrackingDisplayId(order)
+                        ? `${order.trackingKind === 'return' ? 'Return tracking' : 'Tracking number'}: ${getActiveTrackingDisplayId(order)}`
                         : getDisplayOrderLabel(order)}
                     </h2>
                     {order.createdAt && !Number.isNaN(new Date(order.createdAt).getTime()) && (
@@ -564,10 +593,12 @@ function TrackOrderPageInner() {
                           <p className="mt-1 font-semibold text-slate-900">{order.courier}</p>
                         </div>
                       )}
-                      {getPublicTrackingDisplayId(order) ? (
+                      {getActiveTrackingDisplayId(order) ? (
                         <div className="rounded-lg bg-white/75 p-3">
-                          <p className="text-xs font-medium text-slate-500">Tracking number</p>
-                          <p className="mt-1 font-mono font-semibold text-slate-900">{getPublicTrackingDisplayId(order)}</p>
+                          <p className="text-xs font-medium text-slate-500">
+                            {order.trackingKind === 'return' ? 'Return tracking number' : 'Tracking number'}
+                          </p>
+                          <p className="mt-1 font-mono font-semibold text-slate-900">{getActiveTrackingDisplayId(order)}</p>
                         </div>
                       ) : null}
                       {order.trackingUrl && (

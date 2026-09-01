@@ -13,6 +13,10 @@ import {
     getSalesReportPaymentBucketLabel,
     shouldCountSalesReportRevenue,
 } from '@/lib/storeSalesReport';
+import {
+    getOrderNetRevenue,
+    loadCompletedReturnRefundsByOrderId,
+} from '@/lib/returnSalesAdjustments';
 
 export async function GET(req) {
     try {
@@ -52,16 +56,21 @@ export async function GET(req) {
 
         const revenueOrders = orders.filter((order) => shouldCountSalesReportRevenue(order));
         const productCostMap = await buildProductCostMap(revenueOrders, Product);
+        const refundByOrderId = await loadCompletedReturnRefundsByOrderId(storeId, {
+            orderIds: orders.map((order) => String(order._id)),
+        });
 
-        let csv = 'Order Number,Date,Payment Type,Revenue,Product Cost,Delivery Cost,Profit/Loss,Included In Revenue,Status\n';
+        let csv = 'Order Number,Date,Payment Type,Gross Revenue,Refunded,Net Revenue,Product Cost,Delivery Cost,Profit/Loss,Included In Revenue,Status\n';
 
         for (const order of orders) {
             const paymentBucket = getSalesReportOrderBucket(order);
             const countsTowardRevenue = shouldCountSalesReportRevenue(order);
+            const refundedAmount = refundByOrderId.get(String(order._id)) || 0;
             const orderProductCost = countsTowardRevenue
                 ? calculateOrderProductCost(order, productCostMap)
                 : 0;
-            const orderRevenue = Number(order.total || 0);
+            const orderGrossRevenue = Number(order.total || 0);
+            const orderRevenue = getOrderNetRevenue(order, refundedAmount);
             const orderDeliveryCost = countsTowardRevenue ? Number(order.shippingFee || 0) : 0;
             const orderProfit = countsTowardRevenue
                 ? orderRevenue - orderProductCost - orderDeliveryCost
@@ -70,6 +79,8 @@ export async function GET(req) {
             csv += `${order.shortOrderNumber},`;
             csv += `${new Date(order.createdAt).toLocaleDateString('en-IN')},`;
             csv += `${getSalesReportPaymentBucketLabel(paymentBucket)},`;
+            csv += `${orderGrossRevenue},`;
+            csv += `${refundedAmount},`;
             csv += `${orderRevenue},`;
             csv += `${orderProductCost},`;
             csv += `${orderDeliveryCost},`;

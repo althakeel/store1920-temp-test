@@ -21,6 +21,7 @@ function toLiveStatusPatch(order = {}) {
     trackingUrl: order.trackingUrl,
     courier: order.courier,
     waslah: order.waslah || {},
+    waslahReturn: order.waslahReturn || {},
     updatedAt: order.updatedAt,
   };
 }
@@ -71,7 +72,7 @@ export async function POST(request) {
         _id: { $in: requestedOrderIds },
         storeId: String(storeId),
       })
-        .select('_id status trackingId trackingUrl courier waslah updatedAt')
+        .select('_id status trackingId trackingUrl courier waslah waslahReturn updatedAt')
         .lean();
       const byId = new Map(matchingOrders.map((entry) => [String(entry._id), entry]));
       const orderedMatches = requestedOrderIds.map((id) => byId.get(id)).filter(Boolean);
@@ -112,6 +113,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       changed: Boolean(result.changed),
+      returnTrackingChanged: Boolean(result.returnTrackingChanged),
       orderStatusChanged: Boolean(result.orderStatusChanged),
       courierChanged: Boolean(result.courierChanged),
       fetched: Boolean(result.fetched),
@@ -129,7 +131,11 @@ export async function POST(request) {
       refreshedAt: new Date().toISOString(),
       order: toLiveStatusPatch(result.order || order),
       message: result.pending || result.empty
-        ? 'EMX has no tracking events yet for this shipment'
+        ? (
+          result.returnTrackingChanged
+            ? 'Return pickup tracking was refreshed from Waslah'
+            : 'EMX has no tracking events yet for this shipment'
+        )
         : undefined,
     });
   } catch (error) {

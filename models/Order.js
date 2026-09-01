@@ -152,6 +152,11 @@ const OrderSchema = new mongoose.Schema({
     pickupDate: { type: String, default: null },
     pickupTime: { type: String, default: null },
     pickupVehicle: { type: String, default: null },
+    lastStatusSyncAt: { type: Date, default: null },
+    /** Outbound sale AWB — kept so return pickup can be linked to original delivery. */
+    originalTrackingNumber: { type: String, default: null },
+    originalWaslahOrderId: { type: String, default: null },
+    returnRequestNumber: { type: String, default: null },
   },
   zohoCrm: {
     contactId: { type: String, default: null },

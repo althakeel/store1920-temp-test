@@ -7,6 +7,7 @@ import authSeller from "@/middlewares/authSeller";
 import { NextResponse } from "next/server";
 import { getAuth } from "@/lib/firebase-admin";
 import { visibleStoreOrderMatch } from "@/lib/visibleStoreOrderMatch";
+import { sumCompletedReturnRefunds } from "@/lib/returnSalesAdjustments";
 
 export const dynamic = 'force-dynamic';
 
@@ -162,6 +163,7 @@ export async function GET(request) {
         abandonedCarts,
         totalCustomers,
         ratingStats,
+        totalReturnRefunds,
       ] = await Promise.all([
         Order.aggregate([
           { $match: visibleMatch },
@@ -296,11 +298,13 @@ export async function GET(request) {
               },
             ])
           : Promise.resolve([]),
+        sumCompletedReturnRefunds(storeIdString),
       ]);
 
       const totals = orderTotals[0] || { totalOrders: 0, totalEarnings: 0 };
       const totalOrders = totals.totalOrders || 0;
-      const totalEarnings = totals.totalEarnings || 0;
+      const grossEarnings = totals.totalEarnings || 0;
+      const totalEarnings = Math.max(0, grossEarnings - Number(totalReturnRefunds || 0));
       const avgOrderValue = totalOrders > 0 ? Math.round(totalEarnings / totalOrders) : 0;
 
       const { trendMap, statusTrendMap } = buildTrendMaps(days, today);
@@ -409,6 +413,8 @@ export async function GET(request) {
       const dashboardData = {
          totalOrders,
          totalEarnings: Math.round(totalEarnings),
+         grossEarnings: Math.round(grossEarnings),
+         totalReturnRefunds: Math.round(Number(totalReturnRefunds || 0)),
          totalProducts,
          totalCustomers: totalCustomers[0]?.count || 0,
          abandonedCarts,

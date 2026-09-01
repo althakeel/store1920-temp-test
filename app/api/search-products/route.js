@@ -8,6 +8,8 @@ import {
   mapSearchProduct,
   mergeCategorySearchIntoFilter,
   normalizeSearchKeyword,
+  productTitleMatchesKeyword,
+  rankProductsByTitleMatch,
   PRODUCT_SEARCH_SELECT_FIELDS,
 } from '@/lib/productSearch';
 import { STOREFRONT_PUBLISHED_FILTER } from '@/lib/productVisibility';
@@ -117,6 +119,7 @@ export async function GET(request) {
     });
 
     // Supplement with MongoDB text search for multi-word queries when regex returns few hits.
+    // Keep only title / brand / SKU hits — text index also covers shortDescription.
     const resultCap = limit ?? total;
     if (products.length < resultCap && page === 1) {
       const existingIds = new Set(products.map((product) => String(product._id)));
@@ -139,6 +142,7 @@ export async function GET(request) {
         const merged = [...products];
 
         for (const product of textMatches) {
+          if (!productTitleMatchesKeyword(product, keyword)) continue;
           const id = String(product._id);
           if (existingIds.has(id)) continue;
           merged.push(product);
@@ -153,6 +157,8 @@ export async function GET(request) {
         // Text index may be unavailable in some environments; regex results are enough.
       }
     }
+
+    products = rankProductsByTitleMatch(products, keyword);
 
     return NextResponse.json({
       keyword,

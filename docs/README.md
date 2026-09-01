@@ -30,7 +30,8 @@ This folder is the **full API documentation set** — from public storefront / m
 | 11c | [warehouse-emx-label-scan.md](./warehouse-emx-label-scan.md) | Warehouse app | Door To Door barcode scan |
 | 11d | [warehouse-tracking-api.md](./warehouse-tracking-api.md) | Warehouse app | Tracking endpoint short reference |
 | 11e | [warehouse-app-scan-handoff-reply.md](./warehouse-app-scan-handoff-reply.md) | Warehouse app | Backend reply: AWB lookup / prod deploy |
-| 11f | [warehouse-return-collect-api.md](./warehouse-return-collect-api.md) | Warehouse Flutter | **Return scan** → Return collected, RETURNED/RTO, **stock restock** |
+| 11f | [warehouse-return-scan-api.md](./warehouse-return-scan-api.md) | Warehouse Flutter | **Return scan API** — lookup + collect → RETURNED, product ids, stock |
+| 11g | [warehouse-return-collect-api.md](./warehouse-return-collect-api.md) | Warehouse Flutter | Legacy collect endpoint (`/returns/collect`) |
 | 12 | [warehouse-inventory-api.md](./warehouse-inventory-api.md) | Warehouse app | Inventory |
 | 13 | [warehouse-android-firebase-setup.md](./warehouse-android-firebase-setup.md) | Warehouse setup | Firebase |
 | 14 | [GOOGLE_MERCHANT_CENTER_COMPLIANCE.md](./GOOGLE_MERCHANT_CENTER_COMPLIANCE.md) | Ads / Merchant Center | Compliance |

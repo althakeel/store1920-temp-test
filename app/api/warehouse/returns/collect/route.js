@@ -7,6 +7,7 @@ import {
   warehouseReturnStatusLabel,
 } from '@/lib/warehouseReturnCollect';
 import { serializeWarehouseTrackingOrder } from '@/lib/warehouseTracking';
+import { buildReturnedProductsFromRestock } from '@/lib/warehouseReturnScan';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -86,6 +87,7 @@ export async function POST(request) {
       productCount: 0,
       unitCount: 0,
     };
+    const returnedProducts = buildReturnedProductsFromRestock(stockRestock, result.order);
 
     return NextResponse.json({
       success: true,
@@ -97,6 +99,7 @@ export async function POST(request) {
       status: result.status,
       statusLabel: warehouseReturnStatusLabel(result.status),
       returnCollected: formatWarehouseReturn(result.order),
+      returnedProducts,
       stockRestock,
       order,
     });
