@@ -22,6 +22,7 @@ import {
   PRODUCT_CARD_STYLES,
   PRODUCT_CTA_PRESETS,
   PRODUCT_CTA_STYLES,
+  PRODUCT_IMAGE_RATIO_OPTIONS,
   PRODUCT_MEDIA_MODES,
   PRODUCT_SELECTION_MODES,
   PRODUCT_SOURCE_OPTIONS,
@@ -29,6 +30,7 @@ import {
   createBlockId,
   createDefaultBlock,
   renderEmailFromBlocks,
+  rewriteEmailPreviewMediaUrls,
 } from '@/lib/emailCampaignBuilder';
 
 const UPLOADED_IMAGES_KEY = 'store1920-email-uploaded-images';
@@ -111,14 +113,17 @@ const PREVIEW_IFRAME_SCRIPT = `
 })();
 `;
 
-function buildPreviewIframeDocument(bodyHtml) {
+function buildPreviewIframeDocument(bodyHtml, origin = '') {
+  const baseHref = String(origin || '').replace(/\/$/, '') || 'https://store1920.com';
   return [
     '<!DOCTYPE html>',
     '<html>',
-    '<head><meta charset="utf-8"><style>',
+    `<head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><base href="${baseHref}/">`,
+    '<style>',
     '.email-product-carousel{scrollbar-width:none;-ms-overflow-style:none;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;touch-action:pan-x;cursor:grab;}',
     '.email-product-carousel::-webkit-scrollbar{display:none;width:0;height:0;}',
     '.email-product-carousel.is-dragging{cursor:grabbing;scroll-behavior:auto;}',
+    'img{max-width:100%;}',
     '</style></head>',
     '<body style="margin:0;background:#e2e8f0;padding:16px;">',
     sanitizeIframeBodyHtml(bodyHtml),
@@ -591,6 +596,25 @@ function ProductBlockFields({ block, onChange, previewProducts = [], categories 
               ))}
             </select>
           </label>
+          <div>
+            <FieldLabel>Image ratio</FieldLabel>
+            <div className="grid grid-cols-2 gap-2">
+              {PRODUCT_IMAGE_RATIO_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => set('imageRatio', option.id)}
+                  className={`rounded-lg border px-2 py-2 text-xs font-medium ${
+                    (block.imageRatio || '1:1') === option.id
+                      ? 'border-teal-600 bg-teal-50 text-teal-800'
+                      : 'border-gray-200 bg-white text-gray-700'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -2129,13 +2153,17 @@ export default function EmailCampaignBuilder({
   }, [blocks]);
 
   const previewHtml = useMemo(
-    () => renderEmailFromBlocks(blocks, {
-      products: previewProducts,
-      recipientEmail: 'preview@example.com',
-      preheader,
-      fontFamily,
-      interactivePreview: true,
-    }),
+    () => {
+      const html = renderEmailFromBlocks(blocks, {
+        products: previewProducts,
+        recipientEmail: 'preview@example.com',
+        preheader,
+        fontFamily,
+        interactivePreview: true,
+      });
+      if (typeof window === 'undefined') return html;
+      return rewriteEmailPreviewMediaUrls(html, window.location.origin);
+    },
     [blocks, preheader, previewProducts, fontFamily],
   );
 
@@ -2199,9 +2227,11 @@ export default function EmailCampaignBuilder({
     const writePreview = () => {
       const doc = frame.contentDocument;
       if (!doc) return;
-      doc.open();
-      doc.write(buildPreviewIframeDocument(previewHtml));
-      doc.close();
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://store1920.com';
+      const html = buildPreviewIframeDocument(previewHtml, origin);
+      // srcdoc inherits parent better for media loading than about:blank + document.write
+      frame.removeAttribute('src');
+      frame.srcdoc = html;
       if (expandedBlockId) {
         try {
           frame.contentWindow?.postMessage({
@@ -2405,7 +2435,7 @@ export default function EmailCampaignBuilder({
             ref={previewFrameRef}
             title="Email preview"
             className="h-[min(720px,calc(100vh-9rem))] w-full bg-white"
-            src="about:blank"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           />
         </div>
       </div>

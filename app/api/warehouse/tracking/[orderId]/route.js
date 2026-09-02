@@ -4,7 +4,7 @@ import Order from '@/models/Order';
 import { getWarehouseApiContext } from '@/lib/warehouseAuth';
 import { syncWaslahStatusForOrder } from '@/lib/waslahOrderStatusSync';
 import { ACTIVE_RECORD_FILTER } from '@/lib/storeTrash';
-import { serializeWarehouseTrackingOrder } from '@/lib/warehouseTracking';
+import { serializeWarehouseTrackingOrderHydrated } from '@/lib/warehouseTracking';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +56,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({
       success: true,
       liveSync,
-      order: serializeWarehouseTrackingOrder(order),
+      order: await serializeWarehouseTrackingOrderHydrated(order),
     });
   } catch (error) {
     console.error('[warehouse/tracking/:orderId GET]', error);
@@ -100,7 +100,7 @@ export async function POST(request, { params }) {
       changed: Boolean(synced?.changed),
       skipped: Boolean(synced?.skipped),
       error: synced?.error || null,
-      order: serializeWarehouseTrackingOrder(synced?.order || order),
+      order: await serializeWarehouseTrackingOrderHydrated(synced?.order || order),
     });
   } catch (error) {
     console.error('[warehouse/tracking/:orderId POST]', error);

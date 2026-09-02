@@ -6,7 +6,7 @@ import {
   formatWarehouseReturn,
   warehouseReturnStatusLabel,
 } from '@/lib/warehouseReturnCollect';
-import { serializeWarehouseTrackingOrder } from '@/lib/warehouseTracking';
+import { serializeWarehouseTrackingOrderHydrated } from '@/lib/warehouseTracking';
 import { buildReturnedProductsFromRestock } from '@/lib/warehouseReturnScan';
 
 export const dynamic = 'force-dynamic';
@@ -78,7 +78,7 @@ export async function POST(request) {
       }, { status: result.status || 400 });
     }
 
-    const order = serializeWarehouseTrackingOrder(result.order);
+    const order = await serializeWarehouseTrackingOrderHydrated(result.order);
     const stockRestock = result.stockRestock || {
       restocked: false,
       skipped: true,

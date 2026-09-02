@@ -3,6 +3,8 @@ import connectDB from '@/lib/mongodb';
 import Product from '@/models/Product';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
+import { getProductThumbnailUrl, isVideoSource, normalizeProductImages } from '@/lib/productMedia';
+import { getCustomerSiteUrl } from '@/lib/appUrl';
 
 async function getStoreId(request) {
   const authHeader = request.headers.get('authorization') || '';
@@ -15,8 +17,28 @@ async function getStoreId(request) {
   }
 }
 
+function toAbsoluteMediaUrl(url = '') {
+  const raw = String(url || '').trim();
+  if (!raw || isVideoSource(raw)) return '';
+  if (/^https?:\/\//i.test(raw) || /^data:image\//i.test(raw)) return raw;
+  if (raw.startsWith('//')) return `https:${raw}`;
+  const base = (getCustomerSiteUrl() || 'https://store1920.com').replace(/\/$/, '');
+  if (raw.startsWith('/')) return `${base}${raw}`;
+  if (/^(uploads|images|media|products)\//i.test(raw)) return `${base}/${raw}`;
+  return raw;
+}
+
 function mapProduct(product) {
-  const images = Array.isArray(product.images) ? product.images.filter(Boolean) : [];
+  const rawImages = normalizeProductImages(product.images);
+  const images = rawImages
+    .map((entry) => {
+      if (typeof entry === 'string') return toAbsoluteMediaUrl(entry);
+      return toAbsoluteMediaUrl(entry?.url || entry?.src || entry?.path || '');
+    })
+    .filter(Boolean);
+  const image = toAbsoluteMediaUrl(getProductThumbnailUrl(product, { fallback: '', allowVideo: false }))
+    || images[0]
+    || null;
   const categoryName = String(product.categoryName || '').trim();
   const categoryRaw = String(product.category || '').trim();
   const categoryLooksLikeId = /^[a-f0-9]{24}$/i.test(categoryRaw);
@@ -33,7 +55,7 @@ function mapProduct(product) {
     categoryName: category,
     price: product.price,
     originalPrice: product.mrp || product.AED || null,
-    image: images[0] || null,
+    image,
     images,
     stock: product.stockQuantity || 0,
     createdAt: product.createdAt,

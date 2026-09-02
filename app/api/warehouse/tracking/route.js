@@ -6,7 +6,8 @@ import { findOrderByTrackingIdentifier } from '@/lib/orderTrackingLookup';
 import { syncWaslahStatusForOrder } from '@/lib/waslahOrderStatusSync';
 import { ACTIVE_RECORD_FILTER } from '@/lib/storeTrash';
 import {
-  serializeWarehouseTrackingOrder,
+  serializeWarehouseTrackingOrderHydrated,
+  serializeWarehouseTrackingOrdersHydrated,
   WAREHOUSE_TRACKING_QUEUE_STATUSES,
 } from '@/lib/warehouseTracking';
 
@@ -82,7 +83,7 @@ export async function GET(request) {
         mode: 'lookup',
         q: lookup,
         liveSync,
-        order: serializeWarehouseTrackingOrder(order),
+        order: await serializeWarehouseTrackingOrderHydrated(order),
       });
     }
 
@@ -137,7 +138,7 @@ export async function GET(request) {
         packed: packedFilter || null,
         pickup: pickupFilter || null,
       },
-      orders: orders.map(serializeWarehouseTrackingOrder),
+      orders: await serializeWarehouseTrackingOrdersHydrated(orders),
     });
   } catch (error) {
     console.error('[warehouse/tracking GET]', error);
@@ -199,7 +200,7 @@ export async function POST(request) {
       mode: 'lookup',
       q: lookup,
       liveSync,
-      order: serializeWarehouseTrackingOrder(order),
+      order: await serializeWarehouseTrackingOrderHydrated(order),
     });
   } catch (error) {
     console.error('[warehouse/tracking POST]', error);
