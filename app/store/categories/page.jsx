@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/useAuth';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { FiTrash2, FiPlus, FiEdit2, FiX, FiSearch, FiCheckCircle, FiUpload } from 'react-icons/fi';
+import { FiTrash2, FiPlus, FiEdit2, FiX, FiSearch, FiCheckCircle, FiUpload, FiPackage } from 'react-icons/fi';
 import { MdCategory, MdOutlineCheckCircleOutline, MdAutoAwesome } from 'react-icons/md';
 import Loading from '@/components/Loading';
 import { cleanDisplayText } from '@/lib/displayText';
@@ -20,6 +20,356 @@ function getCategoryImageSrc(src = '') {
 
 function getCategoryDisplayName(name = '') {
   return cleanDisplayText(name);
+}
+
+const DETAILS_PROGRESS_FILTERS = [
+  { value: 'all', label: 'All details' },
+  { value: 'lte5', label: 'Details ≤ 5/10' },
+  { value: 'lte7', label: 'Details ≤ 7/10' },
+  { value: 'incomplete', label: 'Incomplete details' },
+];
+
+const PRODUCT_SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'name', label: 'Name A–Z' },
+  { value: 'name_desc', label: 'Name Z–A' },
+  { value: 'price_asc', label: 'Price: low to high' },
+  { value: 'price_desc', label: 'Price: high to low' },
+  { value: 'brand', label: 'Brand A–Z' },
+  { value: 'brand_desc', label: 'Brand Z–A' },
+];
+
+const STOCK_FILTER_OPTIONS = [
+  { value: 'all', label: 'All stock' },
+  { value: 'in', label: 'In stock' },
+  { value: 'out', label: 'Out of stock' },
+];
+
+function AddProductsToCategoryModal({
+  open,
+  categoryName,
+  search,
+  onSearchChange,
+  sku,
+  onSkuChange,
+  brand,
+  onBrandChange,
+  brands = [],
+  minPrice,
+  onMinPriceChange,
+  maxPrice,
+  onMaxPriceChange,
+  sort,
+  onSortChange,
+  stock,
+  onStockChange,
+  detailsProgress,
+  onDetailsProgressChange,
+  products = [],
+  selectedIds = [],
+  loading = false,
+  saving = false,
+  page = 1,
+  totalPages = 1,
+  total = 0,
+  onToggle,
+  onToggleAllVisible,
+  onClose,
+  onConfirm,
+  onPageChange,
+}) {
+  if (!open) return null;
+
+  const selectedCount = selectedIds.length;
+  const selectable = products.filter((product) => !product.alreadyInCategory);
+  const allVisibleSelected = selectable.length > 0
+    && selectable.every((product) => selectedIds.includes(String(product._id || product.id)));
+
+  return (
+    <div className="fixed inset-0 z-[1100] flex items-end justify-center p-3 sm:items-center sm:p-6">
+      <button
+        type="button"
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+        aria-label="Close add products"
+        disabled={saving}
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-products-category-title"
+        className="relative flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-teal-600 to-emerald-700 px-5 py-5 text-white sm:px-6">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-100">Category assignment</p>
+            <h3 id="add-products-category-title" className="mt-1 text-xl font-semibold sm:text-2xl">
+              Add products to {categoryName}
+            </h3>
+            <p className="mt-1 text-sm text-teal-50">
+              Filter by name, SKU, brand, price, stock, or details — sort and bulk add.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-full bg-white/15 p-2 text-white hover:bg-white/25 disabled:opacity-50"
+            aria-label="Close"
+          >
+            <FiX size={18} />
+          </button>
+        </div>
+
+        <div className="border-b border-slate-100 bg-slate-50 px-5 py-4 sm:px-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <div className="relative md:col-span-2 xl:col-span-2">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Name</label>
+              <FiSearch className="pointer-events-none absolute left-3 top-[34px] h-4 w-4 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Type to search name…"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                disabled={saving}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">SKU</label>
+              <input
+                value={sku}
+                onChange={(e) => onSkuChange(e.target.value)}
+                placeholder="SKU contains…"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                disabled={saving}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Brand</label>
+              <select
+                value={brand}
+                onChange={(e) => onBrandChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                disabled={saving}
+              >
+                <option value="">All brands{brands.length ? ` (${brands.length})` : ''}</option>
+                {brands.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Price from</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={minPrice}
+                onChange={(e) => onMinPriceChange(e.target.value)}
+                placeholder="0"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                disabled={saving}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Price to</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={maxPrice}
+                onChange={(e) => onMaxPriceChange(e.target.value)}
+                placeholder="Any"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                disabled={saving}
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Sort</label>
+              <select
+                value={sort}
+                onChange={(e) => onSortChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                disabled={saving}
+              >
+                {PRODUCT_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Stock</label>
+              <select
+                value={stock}
+                onChange={(e) => onStockChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                disabled={saving}
+              >
+                {STOCK_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <p className="w-full rounded-xl bg-white px-3 py-2.5 text-center text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+                {loading ? 'Searching…' : `${total} found`}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Details</span>
+            {DETAILS_PROGRESS_FILTERS.map((option) => {
+              const active = detailsProgress === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onDetailsProgressChange(option.value)}
+                  disabled={saving}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    active
+                      ? 'bg-slate-900 text-white'
+                      : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+            <span className="text-[11px] text-slate-400">Filters update as you type</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 sm:px-6">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={onToggleAllVisible}
+              disabled={saving || selectable.length === 0}
+              className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+            />
+            Select all on this page ({selectable.length})
+          </label>
+          <p className="text-sm font-semibold text-teal-800">
+            {selectedCount} selected
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+          {loading ? (
+            <div className="py-16 text-center text-sm text-slate-500">Loading products…</div>
+          ) : products.length === 0 ? (
+            <div className="py-16 text-center text-sm text-slate-500">
+              No products match these filters. Try clearing Stock / Brand, or search a fuller name.
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {products.map((product) => {
+                const id = String(product._id || product.id);
+                const checked = selectedIds.includes(id);
+                const alreadyIn = Boolean(product.alreadyInCategory);
+                const image = Array.isArray(product.images) ? product.images[0] : (product.image || '');
+                const price = product.AED ?? product.price;
+                return (
+                  <label
+                    key={id}
+                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-3 py-2.5 transition ${
+                      alreadyIn
+                        ? 'border-slate-200 bg-slate-50 opacity-70'
+                        : checked
+                          ? 'border-teal-300 bg-teal-50 shadow-sm'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => onToggle(id)}
+                      disabled={saving || alreadyIn}
+                      className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 disabled:cursor-not-allowed"
+                    />
+                    {image ? (
+                      <img
+                        src={image}
+                        alt=""
+                        className="h-12 w-12 rounded-lg border border-white bg-white object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-400">
+                        —
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-slate-800">{product.name}</span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-500">
+                        {alreadyIn ? (
+                          <span className="font-medium text-amber-700">Already in category</span>
+                        ) : null}
+                        {product.sku ? <span>SKU: {product.sku}</span> : null}
+                        {product.brand ? <span>{product.brand}</span> : null}
+                        {price != null && price !== '' ? <span>AED {Number(price).toLocaleString()}</span> : null}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onPageChange(Math.max(1, page - 1))}
+              disabled={saving || loading || page <= 1}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-slate-600">
+              Page {page} of {Math.max(1, totalPages)}
+            </span>
+            <button
+              type="button"
+              onClick={() => onPageChange(page + 1)}
+              disabled={saving || loading || page >= totalPages}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:flex-none"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={saving || selectedCount === 0}
+              className="flex-1 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+            >
+              {saving
+                ? 'Adding…'
+                : `Add ${selectedCount} product${selectedCount === 1 ? '' : 's'}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function slugify(text = '') {
@@ -249,6 +599,26 @@ export default function StoreCategoryMenu() {
   const [categoryDirectProductCounts, setCategoryDirectProductCounts] = useState({});
   const [totalStoreProducts, setTotalStoreProducts] = useState(0);
 
+  const [addProductsOpen, setAddProductsOpen] = useState(false);
+  const [addProductsCategory, setAddProductsCategory] = useState(null);
+  const [addProductsSearch, setAddProductsSearch] = useState('');
+  const [addProductsSku, setAddProductsSku] = useState('');
+  const [addProductsBrand, setAddProductsBrand] = useState('');
+  const [addProductsBrands, setAddProductsBrands] = useState([]);
+  const [addProductsMinPrice, setAddProductsMinPrice] = useState('');
+  const [addProductsMaxPrice, setAddProductsMaxPrice] = useState('');
+  const [addProductsSort, setAddProductsSort] = useState('newest');
+  const [addProductsStock, setAddProductsStock] = useState('all');
+  const [addProductsDetails, setAddProductsDetails] = useState('all');
+  const [addProductsPage, setAddProductsPage] = useState(1);
+  const [addProductsTotal, setAddProductsTotal] = useState(0);
+  const [addProductsTotalPages, setAddProductsTotalPages] = useState(1);
+  const [addProductsResults, setAddProductsResults] = useState([]);
+  const [addProductsSelected, setAddProductsSelected] = useState([]);
+  const [addProductsLoading, setAddProductsLoading] = useState(false);
+  const [addProductsSaving, setAddProductsSaving] = useState(false);
+  const addProductsRequestIdRef = useRef(0);
+
   const fetchCategoryProductCounts = async (token) => {
     const { data } = await axios.get('/api/store/categories/product-stats', {
       headers: { Authorization: `Bearer ${token}` },
@@ -256,6 +626,257 @@ export default function StoreCategoryMenu() {
     setCategoryProductCounts(data?.counts || {});
     setCategoryDirectProductCounts(data?.directCounts || {});
     setTotalStoreProducts(Number(data?.totalProducts) || 0);
+  };
+
+  const openAddProductsModal = (category) => {
+    setAddProductsCategory(category);
+    setAddProductsSearch('');
+    setAddProductsSku('');
+    setAddProductsBrand('');
+    setAddProductsBrands([]);
+    setAddProductsMinPrice('');
+    setAddProductsMaxPrice('');
+    setAddProductsSort('newest');
+    setAddProductsStock('all');
+    setAddProductsDetails('all');
+    setAddProductsPage(1);
+    setAddProductsTotal(0);
+    setAddProductsTotalPages(1);
+    setAddProductsResults([]);
+    setAddProductsSelected([]);
+    setAddProductsOpen(true);
+  };
+
+  const closeAddProductsModal = (force = false) => {
+    if (addProductsSaving && !force) return;
+    setAddProductsOpen(false);
+    setAddProductsCategory(null);
+    setAddProductsSearch('');
+    setAddProductsSku('');
+    setAddProductsBrand('');
+    setAddProductsBrands([]);
+    setAddProductsMinPrice('');
+    setAddProductsMaxPrice('');
+    setAddProductsSort('newest');
+    setAddProductsStock('all');
+    setAddProductsDetails('all');
+    setAddProductsPage(1);
+    setAddProductsTotal(0);
+    setAddProductsTotalPages(1);
+    setAddProductsResults([]);
+    setAddProductsSelected([]);
+  };
+
+  const mergeAddProductsBrands = (incoming = []) => {
+    const next = (Array.isArray(incoming) ? incoming : [])
+      .map((brand) => String(brand || '').trim())
+      .filter(Boolean);
+    if (!next.length) return;
+    setAddProductsBrands((prev) => {
+      const merged = Array.from(new Set([...(prev || []), ...next]));
+      merged.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      return merged;
+    });
+  };
+
+  const loadAddProductsBrands = async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const { data } = await axios.get('/api/store/product?manage=true&page=1&limit=1&distinct=brands', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const brands = Array.isArray(data?.brands) ? data.brands : [];
+      setAddProductsBrands(
+        brands
+          .map((brand) => String(brand || '').trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+      );
+    } catch (error) {
+      console.error('Failed to load brands', error);
+    }
+  };
+
+  const searchProductsForCategory = async ({
+    page = addProductsPage,
+    search = addProductsSearch,
+    sku = addProductsSku,
+    brand = addProductsBrand,
+    minPrice = addProductsMinPrice,
+    maxPrice = addProductsMaxPrice,
+    sort = addProductsSort,
+    stock = addProductsStock,
+    detailsProgress = addProductsDetails,
+    category = addProductsCategory,
+  } = {}) => {
+    const categoryId = String(category?._id || '').trim();
+    if (!categoryId) return;
+
+    const requestId = ++addProductsRequestIdRef.current;
+
+    try {
+      setAddProductsLoading(true);
+      const token = await getToken();
+      if (!token) {
+        toast.error('Please sign in again to search products.');
+        return;
+      }
+
+      const params = new URLSearchParams({
+        manage: 'true',
+        page: String(Math.max(1, page)),
+        limit: '48',
+        sort: String(sort || 'newest'),
+      });
+      if (String(search || '').trim()) params.set('search', String(search).trim());
+      if (String(sku || '').trim()) params.set('sku', String(sku).trim());
+      if (String(brand || '').trim()) params.set('brand', String(brand).trim());
+      if (String(minPrice || '').trim() !== '') params.set('minPrice', String(minPrice).trim());
+      if (String(maxPrice || '').trim() !== '') params.set('maxPrice', String(maxPrice).trim());
+      if (stock && stock !== 'all') params.set('inStock', stock);
+      if (detailsProgress && detailsProgress !== 'all') params.set('detailsProgress', detailsProgress);
+
+      const { data } = await axios.get(`/api/store/product?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (requestId !== addProductsRequestIdRef.current) return;
+
+      const products = (data.products || []).map((product) => {
+        const refs = [
+          product.category,
+          ...(Array.isArray(product.categories) ? product.categories : []),
+        ].map((value) => String(value || '').trim()).filter(Boolean);
+        return {
+          ...product,
+          alreadyInCategory: refs.some((ref) => ref === categoryId),
+        };
+      });
+
+      // Keep brand dropdown filled even if the distinct call returned empty.
+      mergeAddProductsBrands(
+        products.flatMap((product) => [product.brand, product.brandAr]),
+      );
+
+      setAddProductsResults(products);
+      setAddProductsTotal(Number(data.pagination?.total) || products.length);
+      setAddProductsTotalPages(Number(data.pagination?.totalPages) || 1);
+      const nextPage = Number(data.pagination?.page) || page;
+      if (nextPage !== page) setAddProductsPage(nextPage);
+    } catch (error) {
+      if (requestId !== addProductsRequestIdRef.current) return;
+      console.error('Failed to search products', error);
+      toast.error(error?.response?.data?.error || 'Failed to search products.');
+      setAddProductsResults([]);
+      setAddProductsTotal(0);
+      setAddProductsTotalPages(1);
+    } finally {
+      if (requestId === addProductsRequestIdRef.current) {
+        setAddProductsLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!addProductsOpen) return undefined;
+    loadAddProductsBrands();
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addProductsOpen]);
+
+  useEffect(() => {
+    if (!addProductsOpen || !addProductsCategory?._id) return undefined;
+
+    const timer = setTimeout(() => {
+      searchProductsForCategory({
+        page: addProductsPage,
+        search: addProductsSearch,
+        sku: addProductsSku,
+        brand: addProductsBrand,
+        minPrice: addProductsMinPrice,
+        maxPrice: addProductsMaxPrice,
+        sort: addProductsSort,
+        stock: addProductsStock,
+        detailsProgress: addProductsDetails,
+        category: addProductsCategory,
+      });
+    }, 350);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    addProductsOpen,
+    addProductsCategory?._id,
+    addProductsPage,
+    addProductsSearch,
+    addProductsSku,
+    addProductsBrand,
+    addProductsMinPrice,
+    addProductsMaxPrice,
+    addProductsSort,
+    addProductsStock,
+    addProductsDetails,
+  ]);
+
+  const toggleAddProductSelection = (productId) => {
+    const id = String(productId);
+    setAddProductsSelected((prev) => (
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    ));
+  };
+
+  const toggleAllVisibleAddProducts = () => {
+    const selectableIds = addProductsResults
+      .filter((product) => !product.alreadyInCategory)
+      .map((product) => String(product._id));
+    if (!selectableIds.length) return;
+
+    setAddProductsSelected((prev) => {
+      const allSelected = selectableIds.every((id) => prev.includes(id));
+      if (allSelected) {
+        return prev.filter((id) => !selectableIds.includes(id));
+      }
+      return Array.from(new Set([...prev, ...selectableIds]));
+    });
+  };
+
+  const confirmAddProductsToCategory = async () => {
+    const categoryId = String(addProductsCategory?._id || '').trim();
+    if (!categoryId || !addProductsSelected.length) return;
+
+    try {
+      setAddProductsSaving(true);
+      const token = await getToken();
+      if (!token) return;
+
+      const { data } = await axios.post(
+        '/api/store/product/add-to-category',
+        {
+          categoryId,
+          productIds: addProductsSelected,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (data.addedCount > 0) {
+        toast.success(data.message || `Added ${data.addedCount} product(s).`);
+        await fetchCategoryProductCounts(token);
+        closeAddProductsModal(true);
+      } else {
+        toast.error(data.message || 'No products were added.');
+      }
+
+      if (data.skippedCount > 0 && data.addedCount === 0) {
+        const firstReason = data.skipped?.[0]?.reason;
+        if (firstReason) toast.error(firstReason);
+      }
+    } catch (error) {
+      console.error('Failed to add products to category', error);
+      toast.error(error?.response?.data?.error || 'Failed to add products.');
+    } finally {
+      setAddProductsSaving(false);
+    }
   };
 
   const fetchCategories = async () => {
@@ -954,6 +1575,16 @@ export default function StoreCategoryMenu() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => openAddProductsModal(category)}
+                    className="rounded-lg border border-teal-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 sm:px-3 sm:py-2 sm:text-sm"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <FiPackage size={14} />
+                      Add products
+                    </span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleEdit(category)}
                     className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition sm:px-3 sm:py-2 sm:text-sm ${meta.useClassName}`}
                   >
@@ -1454,6 +2085,64 @@ export default function StoreCategoryMenu() {
           </>
         )}
       </div>
+
+      <AddProductsToCategoryModal
+        open={addProductsOpen}
+        categoryName={getCategoryDisplayName(addProductsCategory?.name || 'category')}
+        search={addProductsSearch}
+        onSearchChange={(value) => {
+          setAddProductsPage(1);
+          setAddProductsSearch(value);
+        }}
+        sku={addProductsSku}
+        onSkuChange={(value) => {
+          setAddProductsPage(1);
+          setAddProductsSku(value);
+        }}
+        brand={addProductsBrand}
+        onBrandChange={(value) => {
+          setAddProductsPage(1);
+          setAddProductsBrand(value);
+        }}
+        brands={addProductsBrands}
+        minPrice={addProductsMinPrice}
+        onMinPriceChange={(value) => {
+          setAddProductsPage(1);
+          setAddProductsMinPrice(value);
+        }}
+        maxPrice={addProductsMaxPrice}
+        onMaxPriceChange={(value) => {
+          setAddProductsPage(1);
+          setAddProductsMaxPrice(value);
+        }}
+        sort={addProductsSort}
+        onSortChange={(value) => {
+          setAddProductsPage(1);
+          setAddProductsSort(value);
+        }}
+        stock={addProductsStock}
+        onStockChange={(value) => {
+          setAddProductsPage(1);
+          setAddProductsStock(value);
+        }}
+        detailsProgress={addProductsDetails}
+        onDetailsProgressChange={(value) => {
+          setAddProductsPage(1);
+          setAddProductsDetails(value);
+        }}
+        products={addProductsResults}
+        selectedIds={addProductsSelected}
+        loading={addProductsLoading}
+        saving={addProductsSaving}
+        page={addProductsPage}
+        totalPages={addProductsTotalPages}
+        total={addProductsTotal}
+        onToggle={toggleAddProductSelection}
+        onToggleAllVisible={toggleAllVisibleAddProducts}
+        onClose={() => closeAddProductsModal(false)}
+        onConfirm={confirmAddProductsToCategory}
+        onPageChange={setAddProductsPage}
+      />
     </div>
   );
 }

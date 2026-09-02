@@ -4,12 +4,13 @@ import React from "react";
 import { cookies, headers } from "next/headers";
 import ClientLayout from "./ClientLayout";
 import StorefrontLanguageInitScript from "@/components/StorefrontLanguageInitScript";
+import EarlyHeadScripts from "@/components/EarlyHeadScripts";
 import {
   STOREFRONT_LANGUAGE_COOKIE,
   detectLanguageFromAcceptLanguage,
 } from "@/lib/storefrontLanguage";
 import { GTM_ID, getGtmHeadScript, getGtmNoscriptSrc } from "@/lib/gtm";
-import { META_PIXEL_ID, getMetaPixelBootstrapScript, getMetaPurchaseGuardInlineScript } from "@/lib/metaPixelConfig";
+import { META_PIXEL_ID, getMetaPixelBootstrapScript } from "@/lib/metaPixelConfig";
 import { TIKTOK_PIXEL_ID, getTikTokPixelBootstrapScript } from "@/lib/tiktokPixelConfig";
 import { GOOGLE_ADS_ID, getGoogleAdsGtagInitScript, getGoogleAdsGtagSrc } from "@/lib/googleAdsConfig";
 import OrganizationJsonLd from "@/components/OrganizationJsonLd";
@@ -90,13 +91,7 @@ export default async function RootLayout({ children }) {
         <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
       </head>
       <body className="overflow-x-clip antialiased" suppressHydrationWarning>
-        <Script
-          id="meta-purchase-guard"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: getMetaPurchaseGuardInlineScript(META_PIXEL_ID),
-          }}
-        />
+        <EarlyHeadScripts />
         <Script
           id="google-tag-manager"
           strategy="afterInteractive"

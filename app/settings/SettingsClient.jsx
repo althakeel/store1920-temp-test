@@ -47,14 +47,17 @@ export default function SettingsClient() {
     loadPreferences()
   }, [user?.email])
 
-  // Handle unsubscribe from email link
+  // Legacy /settings?unsubscribe=… links → dedicated confirm page
   useEffect(() => {
     const unsubscribeType = searchParams.get('unsubscribe')
     const emailParam = searchParams.get('email')
 
     if (unsubscribeType && emailParam) {
-      // Auto-unsubscribe from the specific type
-      handleUnsubscribe(unsubscribeType, emailParam)
+      const params = new URLSearchParams({
+        unsubscribe: unsubscribeType,
+        email: emailParam,
+      })
+      window.location.replace(`/unsubscribe?${params.toString()}`)
     }
   }, [searchParams])
 

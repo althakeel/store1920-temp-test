@@ -27,6 +27,7 @@ import { GTM_EVENTS, gtmDedupeKey } from "@/lib/gtmEvents";
 import { STORE_CURRENCY } from "@/lib/storeCurrency";
 import { getCartEntryProductId, getCartEntryQuantity, isFreeGiftEntry } from "@/lib/freeGiftUtils";
 import { resolveCartLinePricing } from "@/lib/bulkBundleCart";
+import { sumCartPriceBreakdown } from "@/lib/cartPriceDisplay";
 import { getCartProductIdsNeedingVariants, mergeFetchedProducts } from '@/lib/cartProductFetch';
 import { getOrCreateAnonymousId, getOrCreateSessionId } from '@/lib/trackingClient';
 
@@ -56,6 +57,7 @@ function CartContent() {
     const [productsLoaded, setProductsLoaded] = useState(false);
     const [cartArray, setCartArray] = useState([]);
     const [totalPrice, setTotalPrice] = useState(0);
+    const [priceBreakdown, setPriceBreakdown] = useState({ productValue: 0, saleTotal: 0, discount: 0 });
     const [recentOrders, setRecentOrders] = useState([]);
     const [loadingOrders, setLoadingOrders] = useState(true);
     const shippingFee = 0;
@@ -224,6 +226,7 @@ function CartContent() {
 
         setCartArray(arr);
         setTotalPrice(total);
+        setPriceBreakdown(sumCartPriceBreakdown(arr));
     };
 
     useEffect(() => {
@@ -600,6 +603,8 @@ function CartContent() {
                                         subtotal={totalPrice}
                                         shipping={0}
                                         total={totalPrice}
+                                        productValue={priceBreakdown.productValue}
+                                        discount={priceBreakdown.discount}
                                         showShipping={false}
                                         checkoutDisabled={checkoutDisabled}
                                         checkoutNote={outOfStockCartArray.length > 0 ? `${outOfStockCartArray.length} out-of-stock item(s) are excluded from checkout.` : ''}

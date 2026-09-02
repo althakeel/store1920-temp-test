@@ -58,6 +58,8 @@ export default function CartSummaryBox({
   subtotal,
   shipping,
   total,
+  productValue = null,
+  discount = null,
   checkoutDisabled = false,
   checkoutNote = "",
   showShipping = true,
@@ -65,11 +67,22 @@ export default function CartSummaryBox({
 }) {
   const { market, formatAmount } = useStorefrontMarket();
   const { t } = useStorefrontI18n();
+  // Temporarily hidden on cart — keep Tabby available at checkout.
+  const showTabbyPromo = false;
   const tabbyPublicKey = process.env.NEXT_PUBLIC_TABBY_PUBLIC_KEY || '';
   const tabbyMerchantCode = process.env.NEXT_PUBLIC_TABBY_MERCHANT_CODE || process.env.TABBY_MERCHANT_CODE || 'Store1920';
 
+  const listValue = Number(productValue);
+  const discountAmount = Number(discount);
+  const showPriceBreakdown =
+    Number.isFinite(listValue)
+    && Number.isFinite(discountAmount)
+    && listValue > Number(subtotal || 0)
+    && discountAmount > 0.009;
+
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!showTabbyPromo) return undefined;
+    if (typeof window === 'undefined') return undefined;
 
     const initTabbyPromo = () => {
       if (!window.TabbyPromo || !tabbyPublicKey || !tabbyMerchantCode) return;
@@ -94,7 +107,7 @@ export default function CartSummaryBox({
 
     if (window.TabbyPromo) {
       initTabbyPromo();
-      return;
+      return undefined;
     }
 
     const script = document.createElement('script');
@@ -102,15 +115,33 @@ export default function CartSummaryBox({
     script.async = true;
     script.onload = initTabbyPromo;
     document.body.appendChild(script);
-  }, [total, tabbyPublicKey, tabbyMerchantCode]);
+    return undefined;
+  }, [showTabbyPromo, total, tabbyPublicKey, tabbyMerchantCode]);
 
   return (
     <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4">
-        <div className="flex justify-between text-sm text-gray-500 mb-2">
-          <span>{t('cart.items')}</span>
-          <span>{market.currency} {formatAmount(subtotal)}</span>
-        </div>
+        {showPriceBreakdown ? (
+          <>
+            <div className="flex justify-between text-sm text-gray-500 mb-2">
+              <span>{t('cart.productValue')}</span>
+              <span className="tabular-nums">{market.currency} {formatAmount(listValue)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-500 mb-2">
+              <span>{t('cart.salePrice')}</span>
+              <span className="tabular-nums">{market.currency} {formatAmount(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-emerald-600 mb-2 font-medium">
+              <span>{t('cart.discount')}</span>
+              <span className="tabular-nums">− {market.currency} {formatAmount(discountAmount)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between text-sm text-gray-500 mb-2">
+            <span>{t('cart.items')}</span>
+            <span>{market.currency} {formatAmount(subtotal)}</span>
+          </div>
+        )}
         {showShipping && (
           <div className="flex justify-between text-sm mb-2">
             <span className={shipping === 0 ? 'text-green-600' : 'text-gray-400'}>
@@ -126,7 +157,7 @@ export default function CartSummaryBox({
           <span>{t('cart.total')}</span>
           <span>{market.currency} {formatAmount(total)}</span>
         </div>
-        <div id="tabbyPromoCart" className="mt-3" />
+        {showTabbyPromo ? <div id="tabbyPromoCart" className="mt-3" /> : null}
       </div>
       {checkoutNote && (
         <p className="text-xs text-red-600 mb-3">{checkoutNote}</p>

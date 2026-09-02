@@ -34,6 +34,7 @@ import {
 import { getProductThumbnailUrl } from '@/lib/productMedia';
 import { getProductPath } from '@/lib/productUrl';
 import { secureSignOut } from '@/lib/authClient';
+import { showStorefrontActionToast } from '@/lib/storefrontActionToast';
 
 const NAVBAR_SELECTED_ADDRESS_KEY = 'navbarSelectedAddressId';
 const NAVBAR_APPEARANCE_CACHE_KEY = 'navbarAppearanceCache';
@@ -1279,9 +1280,11 @@ const Navbar = () => {
   const handleCartClick = (e) => {
     e.preventDefault();
     if (!cartCount || cartCount === 0) {
-      toast.error(t('navbar.emptyCartToast'), {
+      // Fixed toast id → only one notification; white card via StorefrontActionToast
+      showStorefrontActionToast({
+        variant: 'cart',
+        title: t('navbar.emptyCartToast'),
         duration: 3000,
-        icon: '🛒',
       });
       return;
     }
@@ -2156,7 +2159,6 @@ const Navbar = () => {
           open={signInOpen}
           onClose={() => setSignInOpen(false)}
           defaultMode={signInMode}
-          bonusMessage="Register now and get 20 coins free bonus!"
         />
       )}
       {showAddressModal && firebaseUser && (

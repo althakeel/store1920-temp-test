@@ -40,7 +40,10 @@ export async function POST(request) {
 
     const google = await verifyGoogleRecaptcha(body.recaptchaToken, getClientIp(request));
     let captchaOk = google.ok;
-    if (!google.ok && google.skipped) {
+    if (!captchaOk) {
+      if (!google.skipped && body.recaptchaToken) {
+        return NextResponse.json({ error: 'CAPTCHA verification failed' }, { status: 400 });
+      }
       captchaOk = verifyMathCaptcha(body.captchaChallengeId, body.captchaAnswer);
     }
     if (!captchaOk) {

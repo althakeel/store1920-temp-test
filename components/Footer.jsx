@@ -202,7 +202,7 @@ const Footer = () => {
         { icon: FacebookIcon, link: STORE1920_SOCIAL_LINKS.facebook, label: 'Facebook' },
         { icon: InstagramIcon, link: STORE1920_SOCIAL_LINKS.instagram, label: 'Instagram' },
         { icon: TikTokIcon, link: STORE1920_SOCIAL_LINKS.tiktok, label: 'TikTok' },
-        { icon: PinterestIcon, link: STORE1920_SOCIAL_LINKS.pinterest, label: 'Pinterest' },
+        // Pinterest hidden for now
         { icon: SnapchatIcon, link: STORE1920_SOCIAL_LINKS.snapchat, label: 'Snapchat' },
     ];
     const phoneDisplay = formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE);

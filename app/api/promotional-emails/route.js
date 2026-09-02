@@ -8,24 +8,9 @@ import EmailTemplate from '@/models/EmailTemplate';
 import { sendMail } from '@/lib/email';
 import { getRandomTemplate, getTemplateById, getAllTemplateIds } from '@/lib/promotionalEmailTemplates';
 import { withBrandEmailLogo } from '@/lib/brandLogo';
-import { renderEmailFromBlocks } from '@/lib/emailCampaignBuilder';
+import { mapProductsForEmail, renderEmailFromBlocks } from '@/lib/emailCampaignBuilder';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
 import mongoose from 'mongoose';
-
-function mapProducts(featuredProducts = []) {
-  return featuredProducts.map((p) => ({
-    id: p._id.toString(),
-    slug: p.slug,
-    name: p.name,
-    description: p.description || '',
-    category: p.category || 'Product',
-    price: p.price,
-    originalPrice: p.AED || p.mrp || null,
-    image: p.images && p.images[0] ? p.images[0] : null,
-    images: p.images || [],
-    stock: p.stockQuantity || 0,
-  }));
-}
 
 async function loadFeaturedProducts() {
   const featuredProducts = await Product.find({
@@ -33,10 +18,10 @@ async function loadFeaturedProducts() {
     stockQuantity: { $gt: 0 },
   })
     .sort({ createdAt: -1 })
-    .limit(4)
-    .select('_id name slug price mrp AED images description category stockQuantity')
+    .limit(12)
+    .select('_id name slug price mrp AED images description shortDescription category categories categoryName stockQuantity createdAt')
     .lean();
-  return mapProducts(featuredProducts);
+  return mapProductsForEmail(featuredProducts).filter((product) => Boolean(product.image)).slice(0, 8);
 }
 
 async function resolveRecipients(customerEmails, limit = 50) {
@@ -199,7 +184,7 @@ export async function GET() {
           fromType: 'marketing',
           tags: [{ name: 'category', value: 'promotional' }],
           headers: {
-            'List-Unsubscribe': `<${getCustomerSiteUrl()}/settings?unsubscribe=promotional&email=${encodeURIComponent(customer.email)}>`,
+            'List-Unsubscribe': `<${getCustomerSiteUrl()}/unsubscribe?unsubscribe=promotional&email=${encodeURIComponent(customer.email)}>`,
             'X-Campaign': template.id,
           },
         });
@@ -289,7 +274,7 @@ export async function POST(request) {
           fromType: 'marketing',
           tags: [{ name: 'category', value: 'promotional' }],
           headers: {
-            'List-Unsubscribe': `<${getCustomerSiteUrl()}/settings?unsubscribe=promotional&email=${encodeURIComponent(customer.email)}>`,
+            'List-Unsubscribe': `<${getCustomerSiteUrl()}/unsubscribe?unsubscribe=promotional&email=${encodeURIComponent(customer.email)}>`,
             'X-Campaign': campaign.id,
             ...(audience ? { 'X-Audience': String(audience) } : {}),
           },

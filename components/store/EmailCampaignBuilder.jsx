@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   EMAIL_BLOCK_TYPES,
   EMAIL_FONT_FAMILY_OPTIONS,
@@ -31,6 +31,7 @@ import {
   createDefaultBlock,
   renderEmailFromBlocks,
   rewriteEmailPreviewMediaUrls,
+  resolveEmailProductImage,
 } from '@/lib/emailCampaignBuilder';
 
 const UPLOADED_IMAGES_KEY = 'store1920-email-uploaded-images';
@@ -300,35 +301,299 @@ function ToggleChip({ checked, onChange, children }) {
   );
 }
 
-function ProductBlockFields({ block, onChange, previewProducts = [], categories = [] }) {
+function ProductBlockFields({ block, onChange, previewProducts = [], categories = [], getToken }) {
   const [tab, setTab] = useState('products');
+  const [productSearch, setProductSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedCache, setSelectedCache] = useState({});
   const set = (key, value) => onChange({ ...block, [key]: value });
   const selectedIds = Array.isArray(block.productIds) ? block.productIds.map(String) : [];
   const mode = block.selectionMode || 'manual';
   const isSlider = block.type === 'product_carousel';
   const activeStyle = PRODUCT_CARD_STYLES.find((item) => item.id === (block.cardStyle || 'classic'));
+  const blockProductMeta = block.productMeta && typeof block.productMeta === 'object'
+    ? block.productMeta
+    : {};
+
+  const categoryOptions = useMemo(() => {
+    return (Array.isArray(categories) ? categories : [])
+      .map((item) => {
+        if (typeof item === 'string') return { id: item, name: item };
+        return {
+          id: String(item?.id || item?.name || '').trim(),
+          name: String(item?.name || item?.id || '').trim(),
+        };
+      })
+      .filter((item) => item.id && item.name && item.name.toLowerCase() !== 'product');
+  }, [categories]);
+
+  const rememberProducts = useCallback((products = []) => {
+    const entries = (Array.isArray(products) ? products : [])
+      .map((product) => {
+        const id = String(product?.id || product?._id || '').trim();
+        if (!id) return null;
+        return [id, {
+          id,
+          name: product.name || '',
+          sku: product.sku || '',
+          brand: product.brand || '',
+          image: product.image || '',
+        }];
+      })
+      .filter(Boolean);
+    if (!entries.length) return;
+    setSelectedCache((prev) => {
+      const next = { ...prev };
+      entries.forEach(([id, meta]) => {
+        next[id] = { ...next[id], ...meta };
+      });
+      return next;
+    });
+  }, []);
+
+  const selectedProducts = useMemo(() => {
+    const pool = [...searchResults, ...previewProducts];
+    const byId = new Map(
+      pool.map((product) => [String(product.id || product._id || ''), product]).filter(([id]) => id),
+    );
+    return selectedIds.map((rawId) => {
+      const id = String(rawId);
+      const live = byId.get(id);
+      const cached = selectedCache[id] || blockProductMeta[id] || null;
+      if (live) {
+        return {
+          ...cached,
+          ...live,
+          id,
+          name: live.name || cached?.name || '',
+          sku: live.sku || cached?.sku || '',
+          image: live.image || cached?.image || '',
+        };
+      }
+      if (cached?.name) {
+        return { id, ...cached };
+      }
+      return { id, name: '', sku: '', image: '' };
+    });
+  }, [selectedIds, searchResults, previewProducts, selectedCache, blockProductMeta]);
+
+  // Keep labels for already-selected products even after search results clear.
+  useEffect(() => {
+    rememberProducts(searchResults);
+    rememberProducts(previewProducts);
+  }, [searchResults, previewProducts, rememberProducts]);
+
+  // Hydrate missing selected names from API (e.g. after reload / cleared search).
+  useEffect(() => {
+    if (mode !== 'manual' || !selectedIds.length || !getToken) return undefined;
+    const missing = selectedIds.filter((id) => {
+      const cached = selectedCache[id] || blockProductMeta[id];
+      return !cached?.name;
+    });
+    if (!missing.length) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token || cancelled) return;
+        const response = await fetch(
+          `/api/store/email-marketing/products?limit=${Math.min(48, Math.max(missing.length, 8))}&ids=${encodeURIComponent(missing.join(','))}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (cancelled || !response.ok) return;
+        const found = Array.isArray(data.products) ? data.products : [];
+        rememberProducts(found);
+        if (found.length) {
+          const nextMeta = { ...blockProductMeta };
+          found.forEach((product) => {
+            const id = String(product.id || product._id || '');
+            if (!id) return;
+            nextMeta[id] = {
+              id,
+              name: product.name || '',
+              sku: product.sku || '',
+              brand: product.brand || '',
+              image: product.image || '',
+            };
+          });
+          onChange({ ...block, productMeta: nextMeta });
+        }
+      } catch {
+        // ignore hydrate failures
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, selectedIds.join('|'), getToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibleProducts = useMemo(() => {
+    let list = searchResults.length ? searchResults : previewProducts;
+
     if (mode === 'category' && block.category) {
-      return previewProducts.filter(
-        (product) => String(product.category) === String(block.category),
-      );
+      const selected = String(block.category).toLowerCase();
+      list = list.filter((product) => (
+        String(product.category || '').toLowerCase() === selected
+        || String(product.categoryName || '').toLowerCase() === selected
+        || String(product.categoryId || '') === String(block.category)
+      ));
     }
-    return previewProducts;
-  }, [previewProducts, mode, block.category]);
+
+    return list;
+  }, [previewProducts, searchResults, mode, block.category]);
+
+  useEffect(() => {
+    if (mode === 'category' && block.category) {
+      let cancelled = false;
+      const timer = window.setTimeout(async () => {
+        if (!getToken) return;
+        try {
+          setSearchLoading(true);
+          const token = await getToken();
+          const params = new URLSearchParams({
+            limit: '48',
+            category: String(block.category),
+          });
+          const response = await fetch(`/api/store/email-marketing/products?${params}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!cancelled) setSearchResults(Array.isArray(data.products) ? data.products : []);
+        } catch {
+          if (!cancelled) setSearchResults([]);
+        } finally {
+          if (!cancelled) setSearchLoading(false);
+        }
+      }, 200);
+      return () => {
+        cancelled = true;
+        window.clearTimeout(timer);
+      };
+    }
+
+    if (mode !== 'manual') return undefined;
+
+    const query = productSearch.trim();
+    if (query.length < 2) {
+      // Keep referential stability — a fresh [] every run re-renders the tree
+      // and can contribute to preview churn while "Choose products" is idle.
+      setSearchResults((prev) => (prev.length ? [] : prev));
+      setSearchLoading(false);
+      return undefined;
+    }
+
+    const matchLocal = (list) => {
+      const q = query.toLowerCase();
+      return (Array.isArray(list) ? list : []).filter((product) => {
+        const haystack = [
+          product.name,
+          product.brand,
+          product.sku,
+          product.slug,
+          product.categoryName,
+          product.category,
+        ]
+          .map((value) => String(value || '').toLowerCase())
+          .join(' ');
+        return haystack.includes(q);
+      });
+    };
+
+    const mergeById = (...lists) => {
+      const byId = new Map();
+      lists.flat().forEach((product) => {
+        const id = String(product?.id || product?._id || '').trim();
+        if (!id || byId.has(id)) return;
+        byId.set(id, product);
+      });
+      return Array.from(byId.values());
+    };
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const localMatches = matchLocal(previewProducts);
+
+      if (!getToken) {
+        if (!cancelled) setSearchResults(localMatches);
+        return;
+      }
+
+      try {
+        setSearchLoading(true);
+        const token = await getToken();
+        if (!token) {
+          if (!cancelled) setSearchResults(localMatches);
+          return;
+        }
+        const params = new URLSearchParams({ limit: '48', q: query });
+        const response = await fetch(`/api/store/email-marketing/products?${params}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json().catch(() => ({}));
+        const apiMatches = response.ok && Array.isArray(data.products) ? data.products : [];
+        if (!cancelled) setSearchResults(mergeById(apiMatches, localMatches));
+      } catch {
+        if (!cancelled) setSearchResults(localMatches);
+      } finally {
+        if (!cancelled) setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [productSearch, block.category, mode, getToken, previewProducts]);
 
   const toggleProduct = (productId) => {
-    const id = String(productId);
-    const next = selectedIds.includes(id)
+    const id = String(productId || '').trim();
+    if (!id) return;
+    const removing = selectedIds.includes(id);
+    const next = removing
       ? selectedIds.filter((item) => item !== id)
       : [...selectedIds, id];
+
+    const fromSearch = searchResults.find((product) => String(product.id || product._id) === id);
+    const fromPreview = previewProducts.find((product) => String(product.id || product._id) === id);
+    const source = fromSearch || fromPreview || selectedCache[id] || blockProductMeta[id] || null;
+
+    const nextMeta = { ...blockProductMeta };
+    if (removing) {
+      delete nextMeta[id];
+      setSelectedCache((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+    } else if (source) {
+      const meta = {
+        id,
+        name: source.name || '',
+        sku: source.sku || '',
+        brand: source.brand || '',
+        image: source.image || '',
+        price: source.price ?? null,
+        originalPrice: source.originalPrice ?? source.AED ?? source.mrp ?? null,
+        categoryName: source.categoryName || source.category || '',
+      };
+      nextMeta[id] = meta;
+      setSelectedCache((prev) => ({ ...prev, [id]: meta }));
+    }
+
     onChange({
       ...block,
       selectionMode: 'manual',
       productIds: next,
+      productMeta: nextMeta,
       limit: Math.max(Number(block.limit) || 4, next.length || 4),
     });
   };
+
+  const productKey = (product, index = 0) => String(product?.id || product?._id || `product-${index}`);
 
   return (
     <div className="space-y-3">
@@ -401,54 +666,132 @@ function ProductBlockFields({ block, onChange, previewProducts = [], categories 
               <FieldLabel>Category</FieldLabel>
               <select
                 value={block.category || ''}
-                onChange={(e) => set('category', e.target.value)}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const match = categoryOptions.find((item) => item.id === id);
+                  onChange({
+                    ...block,
+                    selectionMode: 'category',
+                    category: id,
+                    categoryName: match?.name || '',
+                  });
+                }}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
                 <option value="">Choose a category...</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
+                {categoryOptions.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </select>
             </label>
           )}
 
           {mode === 'manual' && (
-            <div className="space-y-2">
-              <FieldLabel hint={`${selectedIds.length} selected`}>
-                Click products to {isSlider ? 'add to slider' : 'include'}
-              </FieldLabel>
-              <select
-                value={block.category || ''}
-                onChange={(e) => set('category', e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              >
-                <option value="">All categories</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-              <div className="grid max-h-52 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-                {(block.category
-                  ? previewProducts.filter((p) => String(p.category) === String(block.category))
-                  : previewProducts
-                ).map((product) => {
-                  const active = selectedIds.includes(String(product.id));
-                  return (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => toggleProduct(product.id)}
-                      className={`overflow-hidden rounded-lg border text-left ${
-                        active ? 'border-teal-600 ring-2 ring-teal-200' : 'border-gray-200'
-                      }`}
-                      title={product.name}
-                    >
-                      <img src={product.image} alt="" className="h-16 w-full object-cover" />
-                      <div className="truncate px-1 py-1 text-[10px] text-gray-700">{product.name}</div>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="space-y-3">
+              <label className="block">
+                <FieldLabel hint={`${selectedIds.length} selected`}>
+                  Search products to {isSlider ? 'add to slider' : 'include'}
+                </FieldLabel>
+                <input
+                  type="search"
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="Type at least 2 letters (name, SKU, brand)…"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </label>
+
+              {selectedProducts.length > 0 ? (
+                <div>
+                  <FieldLabel>Selected</FieldLabel>
+                  <div className="max-h-36 space-y-1 overflow-y-auto">
+                    {selectedProducts.map((product, index) => (
+                      <div
+                        key={productKey(product, index)}
+                        className="flex items-center gap-2 rounded-lg border border-teal-200 bg-teal-50/60 px-2 py-1.5"
+                      >
+                        {product.image ? (
+                          <img src={product.image} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-slate-200 text-[9px] text-slate-500">
+                            N/A
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs font-medium text-slate-800">
+                            {product.name || 'Loading product…'}
+                          </div>
+                          {product.sku ? (
+                            <div className="truncate text-[10px] text-slate-500">SKU: {product.sku}</div>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleProduct(productKey(product, index))}
+                          className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {productSearch.trim().length < 2 ? (
+                <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+                  Search by product name or SKU. Results show as a compact list.
+                </p>
+              ) : searchLoading ? (
+                <p className="text-xs text-slate-500">Searching…</p>
+              ) : searchResults.length === 0 ? (
+                <p className="text-xs text-slate-500">No products matched “{productSearch.trim()}”.</p>
+              ) : (
+                <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1">
+                  {searchResults.map((product, index) => {
+                    const id = productKey(product, index);
+                    const active = selectedIds.includes(id);
+                    const sku = String(product.sku || '').trim();
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => toggleProduct(id)}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition ${
+                          active
+                            ? 'bg-teal-50 ring-1 ring-teal-500'
+                            : 'hover:bg-slate-50'
+                        }`}
+                        title={product.name}
+                      >
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt=""
+                            className="h-9 w-9 shrink-0 rounded border border-slate-100 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-slate-100 bg-slate-100 text-[9px] text-slate-400">
+                            N/A
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs font-medium text-slate-800">
+                            {product.name}
+                          </div>
+                          <div className="truncate text-[10px] text-slate-500">
+                            {sku ? `SKU: ${sku}` : 'SKU: —'}
+                            {product.brand ? ` · ${product.brand}` : ''}
+                          </div>
+                        </div>
+                        <span className={`shrink-0 text-[10px] font-semibold ${active ? 'text-teal-700' : 'text-slate-400'}`}>
+                          {active ? 'Added' : 'Add'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -470,9 +813,9 @@ function ProductBlockFields({ block, onChange, previewProducts = [], categories 
             <div>
               <FieldLabel>Preview picks</FieldLabel>
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {visibleProducts.slice(0, 8).map((product) => (
+                {visibleProducts.slice(0, 8).map((product, index) => (
                   <img
-                    key={product.id}
+                    key={productKey(product, index)}
                     src={product.image}
                     alt=""
                     className="h-12 w-12 shrink-0 rounded-lg object-cover"
@@ -730,6 +1073,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
         onChange={onChange}
         previewProducts={previewProducts}
         categories={categories}
+        getToken={getToken}
       />
     );
   }
@@ -1879,7 +2223,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
       return (
         <div className="space-y-3">
           <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            Email clients cannot submit forms. This block shows a signup preview and links to your site.
+            Email clients cannot submit forms. The button opens your signup page; leads show under Email Marketing → Leads.
           </p>
           <label className="block text-xs text-gray-600">
             Heading
@@ -1945,7 +2289,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
           </label>
           <label className="block text-xs text-gray-600">
             Signup / success URL
-            <input value={block.successUrl || ''} onChange={(e) => set('successUrl', e.target.value)} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" placeholder="https://store1920.com" />
+            <input value={block.successUrl || ''} onChange={(e) => set('successUrl', e.target.value)} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" placeholder="https://store1920.com/welcome-offer" />
           </label>
         </div>
       );
@@ -2119,6 +2463,7 @@ export default function EmailCampaignBuilder({
   const userChoseBlockRef = useRef(false);
   const blockEditorRefs = useRef({});
   const previewFrameRef = useRef(null);
+  const lastPreviewDocRef = useRef('');
   const imageLibrary = useMemo(() => {
     const seen = new Set();
     const merged = [];
@@ -2152,10 +2497,46 @@ export default function EmailCampaignBuilder({
     });
   }, [blocks]);
 
+  const productsForPreview = useMemo(() => {
+    const byId = new Map();
+    (Array.isArray(previewProducts) ? previewProducts : []).forEach((product) => {
+      const id = String(product?.id || product?._id || '').trim();
+      if (!id) return;
+      byId.set(id, {
+        ...product,
+        id,
+        image: resolveEmailProductImage(product) || product.image || '',
+      });
+    });
+    (Array.isArray(blocks) ? blocks : []).forEach((block) => {
+      const metaMap = block?.productMeta && typeof block.productMeta === 'object' ? block.productMeta : {};
+      Object.values(metaMap).forEach((meta) => {
+        const id = String(meta?.id || '').trim();
+        if (!id) return;
+        const existing = byId.get(id) || {};
+        const merged = {
+          ...existing,
+          ...meta,
+          id,
+          _id: id,
+          name: existing?.name || meta.name || '',
+          sku: existing?.sku || meta.sku || '',
+          price: existing?.price ?? meta.price ?? null,
+          originalPrice: existing?.originalPrice ?? meta.originalPrice ?? null,
+          images: existing?.images || (meta.image ? [meta.image] : []),
+          image: meta.image || existing?.image || '',
+        };
+        merged.image = resolveEmailProductImage(merged) || merged.image || '';
+        byId.set(id, merged);
+      });
+    });
+    return Array.from(byId.values());
+  }, [blocks, previewProducts]);
+
   const previewHtml = useMemo(
     () => {
       const html = renderEmailFromBlocks(blocks, {
-        products: previewProducts,
+        products: productsForPreview,
         recipientEmail: 'preview@example.com',
         preheader,
         fontFamily,
@@ -2164,7 +2545,7 @@ export default function EmailCampaignBuilder({
       if (typeof window === 'undefined') return html;
       return rewriteEmailPreviewMediaUrls(html, window.location.origin);
     },
-    [blocks, preheader, previewProducts, fontFamily],
+    [blocks, preheader, productsForPreview, fontFamily],
   );
 
   const selectBlockFromPreview = (blockId) => {
@@ -2174,9 +2555,15 @@ export default function EmailCampaignBuilder({
     window.setTimeout(() => {
       const node = blockEditorRefs.current[blockId];
       if (node?.scrollIntoView) {
-        node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    }, 80);
+      if (node?.classList) {
+        node.classList.add('ring-2', 'ring-teal-500', 'ring-offset-2');
+        window.setTimeout(() => {
+          node.classList.remove('ring-2', 'ring-teal-500', 'ring-offset-2');
+        }, 1200);
+      }
+    }, 60);
     try {
       previewFrameRef.current?.contentWindow?.postMessage({
         type: 'email-preview-select-block',
@@ -2190,7 +2577,7 @@ export default function EmailCampaignBuilder({
   useEffect(() => {
     const onMessage = (event) => {
       if (event.data?.type === 'email-preview-block-click') {
-        selectBlockFromPreview(event.data.blockId);
+        selectBlockFromPreview(String(event.data.blockId || ''));
         return;
       }
       if (event.data?.type === 'email-preview-link-click') {
@@ -2224,14 +2611,12 @@ export default function EmailCampaignBuilder({
     const frame = previewFrameRef.current;
     if (!frame) return undefined;
 
-    const writePreview = () => {
-      const doc = frame.contentDocument;
-      if (!doc) return;
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://store1920.com';
-      const html = buildPreviewIframeDocument(previewHtml, origin);
-      // srcdoc inherits parent better for media loading than about:blank + document.write
-      frame.removeAttribute('src');
-      frame.srcdoc = html;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://store1920.com';
+    const html = buildPreviewIframeDocument(previewHtml, origin);
+
+    // Avoid rewriting the same document — setting srcdoc fires "load" and was
+    // re-entering this effect path, which made the live preview blink.
+    if (lastPreviewDocRef.current === html) {
       if (expandedBlockId) {
         try {
           frame.contentWindow?.postMessage({
@@ -2242,17 +2627,34 @@ export default function EmailCampaignBuilder({
           // ignore
         }
       }
-    };
-
-    if (frame.contentDocument?.readyState === 'complete') {
-      writePreview();
       return undefined;
     }
 
-    frame.addEventListener('load', writePreview);
-    writePreview();
-    return () => frame.removeEventListener('load', writePreview);
-  }, [previewHtml]);
+    lastPreviewDocRef.current = html;
+    frame.removeAttribute('src');
+    frame.srcdoc = html;
+
+    const notifySelection = () => {
+      if (!expandedBlockId) return;
+      try {
+        frame.contentWindow?.postMessage({
+          type: 'email-preview-select-block',
+          blockId: expandedBlockId,
+        }, '*');
+      } catch {
+        // ignore
+      }
+    };
+
+    // One-shot after the new document is ready — never write srcdoc from "load"
+    // or we get an infinite reload loop.
+    const onLoad = () => {
+      frame.removeEventListener('load', onLoad);
+      notifySelection();
+    };
+    frame.addEventListener('load', onLoad);
+    return () => frame.removeEventListener('load', onLoad);
+  }, [previewHtml, expandedBlockId]);
 
   const updateBlock = (index, next) => {
     const copy = blocks.map((block, i) => (i === index ? { ...next } : block));
@@ -2324,11 +2726,7 @@ export default function EmailCampaignBuilder({
                 onDragStart={() => setPaletteDragType(item.type)}
                 onDragEnd={() => setPaletteDragType(null)}
                 onClick={() => addBlock(item.type)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                  item.type.startsWith('product')
-                    ? 'border-teal-300 bg-teal-50 text-teal-900'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
+                className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                 title={item.description}
               >
                 + {item.label}

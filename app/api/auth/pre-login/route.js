@@ -36,12 +36,13 @@ export async function POST(request) {
     }
 
     const google = await verifyGoogleRecaptcha(body.recaptchaToken, getClientIp(request));
-    let captchaOk = false;
-    if (google.ok) {
-      captchaOk = true;
-    } else if (!google.skipped) {
-      return NextResponse.json({ error: 'CAPTCHA verification failed' }, { status: 400 });
-    } else {
+    let captchaOk = google.ok;
+    if (!captchaOk) {
+      // Prefer math when Google is skipped or token missing; only hard-fail
+      // Google when a token was sent and siteverify rejected it.
+      if (!google.skipped && body.recaptchaToken) {
+        return NextResponse.json({ error: 'CAPTCHA verification failed' }, { status: 400 });
+      }
       captchaOk = verifyMathCaptcha(body.captchaChallengeId, body.captchaAnswer);
     }
 

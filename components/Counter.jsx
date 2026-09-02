@@ -1,5 +1,5 @@
 'use client'
-import { Minus, Plus, Trash2 } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import { useDispatch, useSelector } from "react-redux";
 import {
   isBulkBundleProduct,
@@ -28,7 +28,6 @@ const Counter = ({ productId, maxQty, product, variant = 'default', onDecrease }
       ? Math.max(0, maxQty)
       : (matrixMaxPacks != null ? matrixMaxPacks : (bulkMaxPacks != null ? bulkMaxPacks : null));
     const canIncrement = normalizedMaxQty === null ? true : quantity < normalizedMaxQty;
-    const showTrashOnDecrease = quantity <= 1;
 
     const addToCartHandler = () => {
         incrementCartItem(dispatch, {
@@ -55,9 +54,9 @@ const Counter = ({ productId, maxQty, product, variant = 'default', onDecrease }
                     type="button"
                     onClick={removeFromCartHandler}
                     className="inline-flex w-10 items-center justify-center text-slate-600 transition hover:bg-slate-50"
-                    aria-label={showTrashOnDecrease ? 'Remove from cart' : 'Decrease quantity'}
+                    aria-label="Decrease quantity"
                 >
-                    {showTrashOnDecrease ? <Trash2 size={15} className="text-red-500" /> : <Minus size={15} />}
+                    <Minus size={15} />
                 </button>
                 <span className="flex min-w-[2.5rem] items-center justify-center border-x border-slate-200 bg-slate-50 px-2 text-sm font-semibold tabular-nums text-slate-900">
                     {displayQuantity}

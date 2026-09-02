@@ -6,7 +6,6 @@ import ReduxProvider from "@/lib/ReduxProvider";
 import Navbar from "@/components/Navbar";
 import TopBar from "@/components/TopBar";
 import Footer from "@/components/Footer";
-import SupportBar from "@/components/SupportBar";
 import DynamicMetaTags from "@/components/DynamicMetaTags";
 import MetaPixel from "@/components/MetaPixel";
 import TikTokPixel from "@/components/TikTokPixel";
@@ -91,7 +90,6 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
       {!hideStorefrontChrome && (
         <>
           <DeferredWidgets />
-          <SupportBar />
           <Footer />
         </>
       )}

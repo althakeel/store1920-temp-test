@@ -33,7 +33,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [countryCode, setCountryCode] = useState('+91');
+  const [countryCode, setCountryCode] = useState('+971');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');

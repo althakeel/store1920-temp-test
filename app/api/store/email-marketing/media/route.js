@@ -8,13 +8,20 @@ const ALLOWED_HOST_SUFFIXES = [
   'ik.imagekit.io',
   'googleusercontent.com',
   'cloudfront.net',
+  'digitaloceanspaces.com',
+  'cdn.shopify.com',
+  'supabase.co',
+  'r2.dev',
+  'localhost',
 ];
 
-function isAllowedMediaUrl(raw = '') {
+function isAllowedMediaUrl(raw = '', requestHost = '') {
   try {
     const url = new URL(String(raw || '').trim());
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
     const host = url.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    if (requestHost && host === String(requestHost).toLowerCase()) return true;
     return ALLOWED_HOST_SUFFIXES.some(
       (suffix) => host === suffix || host.endsWith(`.${suffix}`),
     );
@@ -31,7 +38,8 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const target = String(searchParams.get('url') || '').trim();
-    if (!target || !isAllowedMediaUrl(target)) {
+    const requestHost = request.headers.get('host')?.split(':')[0] || '';
+    if (!target || !isAllowedMediaUrl(target, requestHost)) {
       return NextResponse.json({ error: 'Invalid media URL' }, { status: 400 });
     }
 

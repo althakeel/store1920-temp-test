@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Mail, AlertCircle, CheckCircle, Clock, LayoutTemplate, PenLine, Users, Eye, X, Sparkles, FolderOpen, Layers, Search, CheckSquare, Square } from 'lucide-react';
+import { Mail, AlertCircle, CheckCircle, Clock, LayoutTemplate, PenLine, Users, Eye, X, Sparkles, FolderOpen, Layers, Search, CheckSquare, Square, Inbox } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import Loading from '@/components/Loading';
 import EmailCampaignBuilder from '@/components/store/EmailCampaignBuilder';
@@ -15,8 +15,12 @@ const TABS = [
   { id: 'send', label: 'Send campaign', icon: Mail },
   { id: 'gallery', label: 'Template gallery', icon: LayoutTemplate },
   { id: 'builder', label: 'Create / customize', icon: PenLine },
+  { id: 'leads', label: 'Leads', icon: Inbox },
   { id: 'history', label: 'History', icon: Clock },
 ];
+
+/** Recipients per request so large campaigns send in a queue without timing out. */
+const SEND_BATCH_SIZE = 15;
 
 const GALLERY_LIBRARY_TABS = [
   { id: 'shop', label: 'Shop templates' },
@@ -76,6 +80,16 @@ export default function PromotionalEmailsPage() {
   const [sending, setSending] = useState(false);
   const [sendStatus, setSendStatus] = useState('');
   const [sendProgress, setSendProgress] = useState({ done: 0, total: 0 });
+  const [sendSubject, setSendSubject] = useState('');
+  const [sendSubjectTouched, setSendSubjectTouched] = useState(false);
+
+  const [leads, setLeads] = useState([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadsStats, setLeadsStats] = useState({ new: 0, contacted: 0, converted: 0, archived: 0, total: 0 });
+  const [leadsPage, setLeadsPage] = useState(1);
+  const [leadsTotal, setLeadsTotal] = useState(0);
+  const [leadsStatusFilter, setLeadsStatusFilter] = useState('all');
+  const [leadsSearch, setLeadsSearch] = useState('');
 
   useEffect(() => {
     loadHistory(1);
@@ -88,7 +102,8 @@ export default function PromotionalEmailsPage() {
   useEffect(() => {
     if (tab === 'history') loadHistory(page);
     if (tab === 'send') loadActiveCampaigns();
-  }, [page, statusFilter, tab]);
+    if (tab === 'leads') loadLeads(leadsPage);
+  }, [page, statusFilter, tab, leadsPage, leadsStatusFilter]);
 
   const authHeaders = async () => {
     const token = await getToken();
@@ -188,6 +203,50 @@ export default function PromotionalEmailsPage() {
     }
   };
 
+  const loadLeads = async (pageNumber = 1) => {
+    try {
+      setLeadsLoading(true);
+      const headers = await authHeaders();
+      const params = new URLSearchParams({
+        page: String(pageNumber),
+        limit: '25',
+        status: leadsStatusFilter,
+      });
+      if (leadsSearch.trim()) params.set('q', leadsSearch.trim());
+      const { data } = await axios.get(`/api/store/email-marketing/leads?${params}`, { headers });
+      setLeads(data.leads || []);
+      setLeadsStats(data.stats || { new: 0, contacted: 0, converted: 0, archived: 0, total: 0 });
+      setLeadsTotal(data.pagination?.total || 0);
+      setLeadsPage(pageNumber);
+    } catch (error) {
+      console.error('Error loading leads:', error);
+      setLeads([]);
+      setSendStatus(error?.response?.data?.error || 'Failed to load leads.');
+    } finally {
+      setLeadsLoading(false);
+    }
+  };
+
+  const updateLeadStatus = async (id, status) => {
+    try {
+      const headers = await authHeaders();
+      await axios.patch('/api/store/email-marketing/leads', { id, status }, { headers });
+      loadLeads(leadsPage);
+    } catch (error) {
+      setSendStatus(error?.response?.data?.error || 'Failed to update lead.');
+    }
+  };
+
+  const deleteLead = async (id) => {
+    try {
+      const headers = await authHeaders();
+      await axios.delete(`/api/store/email-marketing/leads?id=${encodeURIComponent(id)}`, { headers });
+      loadLeads(leadsPage);
+    } catch (error) {
+      setSendStatus(error?.response?.data?.error || 'Failed to delete lead.');
+    }
+  };
+
   const stopCampaign = async (campaignId) => {
     try {
       const headers = await authHeaders();
@@ -206,6 +265,46 @@ export default function PromotionalEmailsPage() {
     () => presets.filter((item) => item.category === 'Classic'),
     [presets],
   );
+
+  const defaultSendSubject = useMemo(() => {
+    if (templateSource === 'builder') return String(builderSubject || '').trim();
+    if (templateSource === 'custom' && selectedCustomId) {
+      const saved = customTemplates.find((item) => String(item._id) === String(selectedCustomId));
+      return String(saved?.subject || builderSubject || '').trim();
+    }
+    if (templateSource === 'gallery' && selectedPresetId) {
+      const preset = presets.find((item) => item.id === selectedPresetId);
+      return String(builderSubject || preset?.subject || '').trim();
+    }
+    if (templateSource === 'classic' && selectedClassicId) {
+      const classic = classicTemplates.find((item) => (
+        item.classicId === selectedClassicId
+        || item.id === `classic:${selectedClassicId}`
+        || item.id === selectedClassicId
+      ));
+      return String(classic?.subject || '').trim();
+    }
+    return String(builderSubject || '').trim();
+  }, [
+    templateSource,
+    builderSubject,
+    selectedCustomId,
+    selectedPresetId,
+    selectedClassicId,
+    customTemplates,
+    presets,
+    classicTemplates,
+  ]);
+
+  useEffect(() => {
+    setSendSubjectTouched(false);
+  }, [templateSource, selectedClassicId, selectedPresetId, selectedCustomId]);
+
+  useEffect(() => {
+    if (!sendSubjectTouched) {
+      setSendSubject(defaultSendSubject);
+    }
+  }, [defaultSendSubject, sendSubjectTouched]);
 
   const galleryPresets = useMemo(() => {
     const query = gallerySearch.trim().toLowerCase();
@@ -278,6 +377,7 @@ export default function PromotionalEmailsPage() {
       recipientEmail: 'preview@example.com',
       preheader: previewModal.preheader || '',
       fontFamily: previewModal.fontFamily || builderFontFamily || 'helvetica',
+      previewMode: true,
     });
   }, [previewModal, customTemplates, previewProducts, builderFontFamily]);
 
@@ -295,6 +395,7 @@ export default function PromotionalEmailsPage() {
       recipientEmail: 'preview@example.com',
       preheader: '',
       fontFamily: selectedGalleryPreset?.fontFamily || 'helvetica',
+      previewMode: true,
     });
   }, [templateSource, selectedPresetId, previewProducts, selectedGalleryPreset]);
 
@@ -390,14 +491,12 @@ export default function PromotionalEmailsPage() {
   }, [filteredCustomers, selectAllCustomers, excludedSet, selectedSet]);
 
   const selectedEmails = useMemo(() => {
-    if (selectAllCustomers) {
-      return filteredCustomers
-        .filter((customer) => !excludedSet.has(String(customer.id)))
-        .map((customer) => customer.email)
-        .filter(Boolean);
-    }
-    return filteredCustomers
-      .filter((customer) => selectedSet.has(String(customer.id)))
+    const rows = selectAllCustomers
+      ? filteredCustomers.filter((customer) => !excludedSet.has(String(customer.id)))
+      : filteredCustomers.filter((customer) => selectedSet.has(String(customer.id)));
+
+    return rows
+      .filter((customer) => !customer.promotionalOptOut)
       .map((customer) => customer.email)
       .filter(Boolean);
   }, [filteredCustomers, selectAllCustomers, excludedSet, selectedSet]);
@@ -558,24 +657,28 @@ export default function PromotionalEmailsPage() {
   };
 
   const buildSendPayload = () => {
+    const subject = String(sendSubject || defaultSendSubject || '').trim();
     if (templateSource === 'builder' || (templateSource === 'custom' && builderBlocks.length && !selectedCustomId)) {
       return {
         blocks: builderBlocks,
-        subject: builderSubject,
+        subject,
         preheader: builderPreheader,
         fontFamily: builderFontFamily,
         customTemplateId: editingCustomId || undefined,
       };
     }
     if (templateSource === 'custom' && selectedCustomId) {
-      return { customTemplateId: selectedCustomId };
+      return {
+        customTemplateId: selectedCustomId,
+        subject,
+        preheader: builderPreheader,
+      };
     }
     if (templateSource === 'gallery' && selectedPresetId) {
       const blocks = getPresetBlocks(selectedPresetId);
-      const preset = presets.find((item) => item.id === selectedPresetId);
       return {
         blocks: blocks || builderBlocks,
-        subject: builderSubject || preset?.subject,
+        subject,
         preheader: builderPreheader,
         fontFamily: builderFontFamily || 'helvetica',
         templateId: selectedPresetId,
@@ -583,7 +686,14 @@ export default function PromotionalEmailsPage() {
     }
     return {
       templateId: selectedClassicId ? `classic:${selectedClassicId}` : selectedClassicId,
+      subject,
     };
+  };
+
+  const clearAudienceSelection = () => {
+    setSelectedCustomers([]);
+    setExcludedCustomers([]);
+    setSelectAllCustomers(false);
   };
 
   const handleSendPromotional = async () => {
@@ -596,6 +706,10 @@ export default function PromotionalEmailsPage() {
 
     if (!hasTemplate) {
       setSendStatus('Please choose a template, gallery preset, or build a custom email.');
+      return;
+    }
+    if (!String(payload.subject || '').trim()) {
+      setSendStatus('Please enter an email subject.');
       return;
     }
     if (selectedEmails.length === 0) {
@@ -611,9 +725,12 @@ export default function PromotionalEmailsPage() {
       return;
     }
 
+    const emailsToSend = [...selectedEmails];
+
     try {
       setSending(true);
       setSendStatus('');
+      setSendProgress({ done: 0, total: emailsToSend.length });
       const headers = await authHeaders();
 
       if (scheduleMode === 'auto') {
@@ -622,27 +739,67 @@ export default function PromotionalEmailsPage() {
           name: payload.subject || builderName || 'Daily campaign',
           scheduleMode: 'daily',
           dailyTimes: autoTimes,
-          customerEmails: selectedEmails,
+          customerEmails: emailsToSend,
           audience,
           timezone: 'Asia/Dubai',
         }, { headers });
+        clearAudienceSelection();
+        setSendProgress({ done: emailsToSend.length, total: emailsToSend.length });
         setSendStatus(
           data.message
-          || `Daily campaign started for ${selectedEmails.length} customer(s). It will keep sending until you disable it.`,
+          || `Daily campaign started for ${emailsToSend.length} customer(s). It will keep sending until you disable it.`,
+        );
+        loadActiveCampaigns();
+      } else if (scheduleMode === 'schedule') {
+        const { data } = await axios.post('/api/store/email-marketing/campaigns', {
+          ...payload,
+          name: payload.subject || builderName || 'Scheduled campaign',
+          scheduleMode: 'once',
+          onceAtList: [scheduleTime],
+          customerEmails: emailsToSend,
+          audience,
+          timezone: 'Asia/Dubai',
+        }, { headers });
+        clearAudienceSelection();
+        setSendProgress({ done: emailsToSend.length, total: emailsToSend.length });
+        setSendStatus(
+          data.message
+          || `Queued for ${emailsToSend.length} customer(s) at ${new Date(scheduleTime).toLocaleString()}.`,
         );
         loadActiveCampaigns();
       } else {
-        await axios.post('/api/promotional-emails', {
-          ...payload,
-          customerEmails: selectedEmails,
-          limit: selectedEmails.length,
-          audience,
-          scheduleTime: scheduleMode === 'schedule' ? scheduleTime : null,
-        }, { headers });
+        let sent = 0;
+        let failed = 0;
+        const total = emailsToSend.length;
+        const batches = Math.ceil(total / SEND_BATCH_SIZE);
+
+        for (let index = 0; index < total; index += SEND_BATCH_SIZE) {
+          const chunk = emailsToSend.slice(index, index + SEND_BATCH_SIZE);
+          const batchNumber = Math.floor(index / SEND_BATCH_SIZE) + 1;
+          setSendStatus(
+            total > SEND_BATCH_SIZE
+              ? `Sending queue… batch ${batchNumber} of ${batches} (${Math.min(index + chunk.length, total)} / ${total})`
+              : 'Sending…',
+          );
+
+          const { data } = await axios.post('/api/promotional-emails', {
+            ...payload,
+            customerEmails: chunk,
+            limit: chunk.length,
+            audience,
+            scheduleTime: null,
+          }, { headers });
+
+          sent += Number(data.emailsSent || 0);
+          failed += Number(data.emailsFailed || 0);
+          setSendProgress({ done: Math.min(index + chunk.length, total), total });
+        }
+
+        clearAudienceSelection();
         setSendStatus(
-          scheduleMode === 'schedule'
-            ? `Scheduled to ${selectedEmails.length} customer(s) at ${new Date(scheduleTime).toLocaleString()}.`
-            : `Sent to ${selectedEmails.length} customer(s).`,
+          failed > 0
+            ? `Sent ${sent} of ${total} customer(s). ${failed} failed — check History.`
+            : `Sent to ${sent} customer(s).`,
         );
       }
       loadHistory(1);
@@ -985,6 +1142,15 @@ export default function PromotionalEmailsPage() {
                 {activeAudience?.description && (
                   <p className="mt-1.5 text-xs text-slate-500">{activeAudience.description}</p>
                 )}
+                {audience === 'unsubscribed' ? (
+                  <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    These customers opted out. They cannot be selected for promotional sends.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    Unsubscribed customers are hidden from send lists. Open audience “Unsubscribed (promotional)” to review them.
+                  </p>
+                )}
               </div>
 
               <input
@@ -1016,24 +1182,38 @@ export default function PromotionalEmailsPage() {
                       </div>
                     ) : (
                       filteredCustomers.map((customer) => {
-                        const checked = selectedCustomers.includes(customer.id);
+                        const checked = isCustomerSelected(customer.id);
+                        const optedOut = Boolean(customer.promotionalOptOut);
                         return (
                           <label
                             key={customer.id}
                             className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition ${
-                              checked
-                                ? 'border-teal-300 bg-white shadow-sm'
-                                : 'border-transparent bg-white/70 hover:border-slate-200'
+                              optedOut
+                                ? 'border-amber-200 bg-amber-50/70 opacity-90'
+                                : checked
+                                  ? 'border-teal-300 bg-white shadow-sm'
+                                  : 'border-transparent bg-white/70 hover:border-slate-200'
                             }`}
                           >
                             <input
                               type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleCustomer(customer.id)}
-                              className="h-4 w-4 accent-teal-600"
+                              checked={checked && !optedOut}
+                              disabled={optedOut}
+                              onChange={() => {
+                                if (optedOut) return;
+                                toggleCustomer(customer.id);
+                              }}
+                              className="h-4 w-4 accent-teal-600 disabled:cursor-not-allowed"
                             />
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium text-slate-900">{customer.name}</div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="truncate text-sm font-medium text-slate-900">{customer.name}</div>
+                                {optedOut ? (
+                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                                    Unsubscribed
+                                  </span>
+                                ) : null}
+                              </div>
                               <div className="truncate text-xs text-slate-500">{customer.email}</div>
                             </div>
                             <div className="shrink-0 text-right text-[11px] text-slate-400">
@@ -1051,6 +1231,25 @@ export default function PromotionalEmailsPage() {
           </div>
 
           <section className="sticky bottom-3 z-20 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur">
+            <div className="mb-3">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Email subject
+              </label>
+              <input
+                type="text"
+                value={sendSubject}
+                onChange={(e) => {
+                  setSendSubjectTouched(true);
+                  setSendSubject(e.target.value);
+                }}
+                placeholder="Subject line for this send"
+                className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Defaults from the template — edit only for this send if you want.
+              </p>
+            </div>
+
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -1133,7 +1332,9 @@ export default function PromotionalEmailsPage() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="text-sm text-slate-600">
-                  {selectedEmails.length > 0 ? (
+                  {sending && sendProgress.total > 0 ? (
+                    <>Queue <strong className="text-slate-900">{sendProgress.done}</strong> / {sendProgress.total}</>
+                  ) : selectedEmails.length > 0 ? (
                     <>Ready for <strong className="text-slate-900">{selectedEmails.length}</strong> customer{selectedEmails.length === 1 ? '' : 's'}</>
                   ) : (
                     <span className="text-slate-400">Select customers to continue</span>
@@ -1146,7 +1347,9 @@ export default function PromotionalEmailsPage() {
                   className="rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {sending
-                    ? 'Processing...'
+                    ? (sendProgress.total > SEND_BATCH_SIZE
+                      ? `Queue ${sendProgress.done}/${sendProgress.total}`
+                      : 'Processing...')
                     : scheduleMode === 'send'
                       ? 'Send campaign'
                       : scheduleMode === 'auto'
@@ -1155,6 +1358,14 @@ export default function PromotionalEmailsPage() {
                 </button>
               </div>
             </div>
+            {sending && sendProgress.total > 0 ? (
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-teal-600 transition-all"
+                  style={{ width: `${Math.min(100, Math.round((sendProgress.done / sendProgress.total) * 100))}%` }}
+                />
+              </div>
+            ) : null}
           </section>
 
           {(campaignsLoading || activeCampaigns.length > 0) && (
@@ -1502,6 +1713,159 @@ export default function PromotionalEmailsPage() {
         </div>
       )}
 
+      {tab === 'leads' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <StatCard icon={Inbox} title="Total" value={leadsStats.total} color="teal" />
+            <StatCard icon={Mail} title="New" value={leadsStats.new} color="blue" />
+            <StatCard icon={Users} title="Contacted" value={leadsStats.contacted} color="orange" />
+            <StatCard icon={CheckCircle} title="Converted" value={leadsStats.converted} color="green" />
+            <StatCard icon={Clock} title="Archived" value={leadsStats.archived} color="gray" />
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Signup leads</h3>
+              <p className="text-sm text-slate-500">
+                From /welcome-offer and email signup buttons
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={leadsSearch}
+                onChange={(e) => setLeadsSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') loadLeads(1);
+                }}
+                placeholder="Search email, name, phone…"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <select
+                value={leadsStatusFilter}
+                onChange={(e) => {
+                  setLeadsStatusFilter(e.target.value);
+                  setLeadsPage(1);
+                }}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              >
+                <option value="all">All status</option>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="converted">Converted</option>
+                <option value="archived">Archived</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => loadLeads(1)}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Contact</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Source</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Submitted</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leadsLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">Loading leads…</td>
+                  </tr>
+                ) : leads.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                      No leads yet. When someone signs up on /welcome-offer, they appear here.
+                    </td>
+                  </tr>
+                ) : (
+                  leads.map((lead) => (
+                    <tr key={lead._id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-900">{lead.email || '—'}</div>
+                        {(lead.name || lead.phone) ? (
+                          <div className="text-xs text-slate-500">
+                            {[lead.name, lead.phone].filter(Boolean).join(' · ')}
+                          </div>
+                        ) : null}
+                        {lead.heading ? (
+                          <div className="mt-0.5 text-[11px] text-slate-400">{lead.heading}</div>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {lead.source || 'welcome_offer'}
+                        {lead.formStyle ? (
+                          <div className="text-[11px] text-slate-400">{lead.formStyle}</div>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={lead.status || 'new'}
+                          onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
+                          className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                        >
+                          <option value="new">New</option>
+                          <option value="contacted">Contacted</option>
+                          <option value="converted">Converted</option>
+                          <option value="archived">Archived</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {new Date(lead.lastSubmittedAt || lead.createdAt).toLocaleString()}
+                        {lead.submittedCount > 1 ? (
+                          <div className="text-[11px] text-slate-400">{lead.submittedCount} times</div>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => deleteLead(lead._id)}
+                          className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {Math.ceil(leadsTotal / 25) > 1 ? (
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => loadLeads(Math.max(1, leadsPage - 1))}
+                disabled={leadsPage <= 1}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-slate-600">
+                Page {leadsPage} of {Math.max(1, Math.ceil(leadsTotal / 25))}
+              </span>
+              <button
+                type="button"
+                onClick={() => loadLeads(leadsPage + 1)}
+                disabled={leadsPage >= Math.ceil(leadsTotal / 25)}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {tab === 'history' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1686,15 +2050,18 @@ function StatCard({ icon: IconComponent, title, value, color }) {
     green: 'border-green-200 bg-green-50 text-green-600',
     red: 'border-red-200 bg-red-50 text-red-600',
     orange: 'border-orange-200 bg-orange-50 text-orange-600',
+    teal: 'border-teal-200 bg-teal-50 text-teal-600',
+    blue: 'border-blue-200 bg-blue-50 text-blue-600',
+    gray: 'border-slate-200 bg-slate-50 text-slate-600',
   };
 
   return (
-    <div className={`space-y-2 rounded-lg border p-4 ${colorClasses[color]}`}>
+    <div className={`space-y-2 rounded-lg border p-4 ${colorClasses[color] || colorClasses.gray}`}>
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-gray-700">{title}</span>
         {IconComponent && <IconComponent className="h-5 w-5" />}
       </div>
-      <div className="text-3xl font-bold">{value}</div>
+      <div className="text-3xl font-bold">{value ?? 0}</div>
     </div>
   );
 }

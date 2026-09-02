@@ -60,14 +60,19 @@ export async function PATCH(request) {
     applyBooleanDirective(updateData, 'inStock', body?.inStock)
     applyBooleanDirective(updateData, 'fastDelivery', body?.fastDelivery)
     applyBooleanDirective(updateData, 'freeShippingEligible', body?.freeShippingEligible)
+    applyBooleanDirective(updateData, 'published', body?.published)
 
     const stockQuantity = parseOptionalNumber(body?.stockQuantity)
     const price = parseOptionalNumber(body?.price)
     const aed = parseOptionalNumber(body?.AED)
+    const brand = typeof body?.brand === 'string' ? body.brand.trim() : undefined
 
     if (stockQuantity !== undefined) {
       updateData.stockQuantity = stockQuantity
       updateData.stockUpdatedAt = new Date()
+    }
+    if (brand !== undefined && brand !== '') {
+      updateData.brand = brand
     }
     if (price !== undefined || aed !== undefined) {
       if (!canChangePrice) {

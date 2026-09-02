@@ -2,9 +2,11 @@
 
 import Image from '@/components/SafeNextImage';
 import Link from 'next/link';
-import { Minus, Plus, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import Counter from '@/components/Counter';
 import { getProductSubtitle } from '@/lib/productDisplay';
+import { resolveCartLinePriceDisplay } from '@/lib/cartPriceDisplay';
+import { getProductThumbnailUrl } from '@/lib/productMedia';
 
 const LINE_TOTAL_CLASS =
   'shrink-0 min-w-[7.5rem] text-right tabular-nums text-base font-bold text-slate-900 sm:text-lg';
@@ -34,10 +36,9 @@ export default function CartLineItem({
   productHref,
 }) {
   const cartKey = item._cartKey || item._id;
-  const unitPrice = item._cartPrice ?? item.price ?? 0;
-  const lineTotal = item._lineTotal ?? unitPrice * (item.quantity || 0);
+  const pricing = resolveCartLinePriceDisplay(item);
   const subtitle = getItemSubtitle(item);
-  const imageSrc = item.images?.[0] || '/placeholder.png';
+  const imageSrc = getProductThumbnailUrl(item) || item.images?.[0] || '/placeholder.png';
 
   return (
     <article
@@ -80,10 +81,22 @@ export default function CartLineItem({
               ) : null}
 
               {!item._isFreeGift ? (
-                <p className="mt-2 text-sm font-semibold text-orange-600 sm:text-base">
-                  {formatMoney(currency, unitPrice)}
-                  <span className="ml-1 text-xs font-medium text-slate-400">each</span>
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="text-sm font-semibold text-orange-600 sm:text-base">
+                    {formatMoney(currency, pricing.saleUnit)}
+                    <span className="ml-1 text-xs font-medium text-slate-400">each</span>
+                  </p>
+                  {pricing.hasDiscount ? (
+                    <>
+                      <span className="text-sm text-slate-400 line-through tabular-nums">
+                        {formatMoney(currency, pricing.regularUnit)}
+                      </span>
+                      <span className="inline-flex rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-red-600">
+                        {pricing.discountPercent}% off
+                      </span>
+                    </>
+                  ) : null}
+                </div>
               ) : (
                 <p className="mt-2 text-sm font-semibold text-emerald-600">FREE</p>
               )}
@@ -127,9 +140,20 @@ export default function CartLineItem({
               <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:text-xs">
                 Subtotal
               </p>
-              <p className={LINE_TOTAL_CLASS}>
-                {item._isFreeGift ? 'FREE' : formatMoney(currency, lineTotal)}
-              </p>
+              {item._isFreeGift ? (
+                <p className={LINE_TOTAL_CLASS}>FREE</p>
+              ) : (
+                <>
+                  <p className={LINE_TOTAL_CLASS}>
+                    {formatMoney(currency, pricing.saleLineTotal)}
+                  </p>
+                  {pricing.hasDiscount ? (
+                    <p className="text-xs text-slate-400 line-through tabular-nums">
+                      {formatMoney(currency, pricing.regularLineTotal)}
+                    </p>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
         </div>

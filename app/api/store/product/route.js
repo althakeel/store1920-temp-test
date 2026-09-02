@@ -502,14 +502,43 @@ export async function GET(request) {
         if (isPaginated) {
             const page = Math.max(1, Number.parseInt(pageParam || '1', 10) || 1);
             const manage = searchParams.get('manage') === 'true';
+            if (manage && searchParams.get('distinct') === 'brands') {
+                const storeKey = String(storeId || '').trim();
+                const [brands, brandsAr] = await Promise.all([
+                    Product.distinct('brand', {
+                        storeId: storeKey,
+                        brand: { $nin: [null, ''] },
+                    }),
+                    Product.distinct('brandAr', {
+                        storeId: storeKey,
+                        brandAr: { $nin: [null, ''] },
+                    }),
+                ]);
+                const cleaned = Array.from(
+                    new Set(
+                        [...(brands || []), ...(brandsAr || [])]
+                            .map((brand) => String(brand || '').trim())
+                            .filter(Boolean),
+                    ),
+                ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+                return NextResponse.json(
+                    { brands: cleaned },
+                    { headers: { 'Cache-Control': 'private, no-cache, no-store, must-revalidate' } },
+                );
+            }
             const maxLimit = manage ? 500 : 48;
             const limit = Math.min(maxLimit, Math.max(1, Number.parseInt(searchParams.get('limit') || '24', 10) || 24));
             const sort = searchParams.get('sort') || 'newest';
             const category = String(searchParams.get('category') || '').trim();
             const media = searchParams.get('media') === 'true';
             const detailsProgress = String(searchParams.get('detailsProgress') || 'all').trim();
+            const minPrice = String(searchParams.get('minPrice') || '').trim();
+            const maxPrice = String(searchParams.get('maxPrice') || '').trim();
+            const sku = String(searchParams.get('sku') || '').trim();
+            const brand = String(searchParams.get('brand') || '').trim();
+            const inStock = String(searchParams.get('inStock') || '').trim();
             const pickerResult = await fetchPickerPage(Product, {
-                storeId,
+                storeId: String(storeId || '').trim(),
                 page,
                 limit,
                 search,
@@ -518,6 +547,11 @@ export async function GET(request) {
                 mode: manage ? 'manage' : media ? 'media' : 'picker',
                 detailsProgress: manage ? detailsProgress : 'all',
                 Category: manage || search ? Category : null,
+                minPrice,
+                maxPrice,
+                sku,
+                brand,
+                inStock,
             });
 
             if (manage) {

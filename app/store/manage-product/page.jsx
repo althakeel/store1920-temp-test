@@ -31,6 +31,23 @@ const DETAILS_PROGRESS_FILTERS = [
     { value: 'incomplete', label: 'Incomplete' },
 ]
 
+const PRODUCT_SORT_OPTIONS = [
+    { value: 'newest', label: 'Newest first' },
+    { value: 'oldest', label: 'Oldest first' },
+    { value: 'name', label: 'Name A–Z' },
+    { value: 'name_desc', label: 'Name Z–A' },
+    { value: 'price_asc', label: 'Price: low to high' },
+    { value: 'price_desc', label: 'Price: high to low' },
+    { value: 'brand', label: 'Brand A–Z' },
+    { value: 'brand_desc', label: 'Brand Z–A' },
+]
+
+const STOCK_FILTER_OPTIONS = [
+    { value: 'all', label: 'All stock' },
+    { value: 'in', label: 'In stock' },
+    { value: 'out', label: 'Out of stock' },
+]
+
 const MANAGE_PRODUCT_SELECT_CLASS =
     'h-10 w-full appearance-none rounded-lg border border-gray-300 bg-white pl-3 pr-9 text-sm leading-none text-slate-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500'
 
@@ -238,6 +255,14 @@ export default function StoreManageProducts() {
     const [categoryMap, setCategoryMap] = useState({}) // Map of category ID to name
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedCategory, setSelectedCategory] = useState('') // Category filter
+    const [selectedBrand, setSelectedBrand] = useState('')
+    const [brandOptions, setBrandOptions] = useState([])
+    const [minPrice, setMinPrice] = useState('')
+    const [maxPrice, setMaxPrice] = useState('')
+    const [debouncedMinPrice, setDebouncedMinPrice] = useState('')
+    const [debouncedMaxPrice, setDebouncedMaxPrice] = useState('')
+    const [stockFilter, setStockFilter] = useState('all')
+    const [sortBy, setSortBy] = useState('newest')
     const [detailsProgressFilter, setDetailsProgressFilter] = useState('all')
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(20)
@@ -246,6 +271,11 @@ export default function StoreManageProducts() {
         const categoryFromUrl = searchParams.get('category');
         if (categoryFromUrl) {
             setSelectedCategory(categoryFromUrl);
+            setCurrentPage(1);
+        }
+        const brandFromUrl = searchParams.get('brand');
+        if (brandFromUrl) {
+            setSelectedBrand(brandFromUrl);
             setCurrentPage(1);
         }
     }, [searchParams]);
@@ -274,10 +304,19 @@ export default function StoreManageProducts() {
         inStock: 'keep',
         fastDelivery: 'keep',
         freeShippingEligible: 'keep',
+        published: 'keep',
+        brand: '',
         stockQuantity: '',
         price: '',
         AED: '',
     })
+    const [categoryActionModal, setCategoryActionModal] = useState({
+        open: false,
+        mode: 'add', // add | replace
+    })
+    const [categoryActionIds, setCategoryActionIds] = useState([])
+    const [categoryActionPrimary, setCategoryActionPrimary] = useState('')
+    const [categoryActionSaving, setCategoryActionSaving] = useState(false)
     const [aiAutofillRunning, setAiAutofillRunning] = useState(false)
     const [aiAutofillProgress, setAiAutofillProgress] = useState(null)
     const [bulkAutofillJob, setBulkAutofillJob] = useState(null)
@@ -290,11 +329,23 @@ export default function StoreManageProducts() {
 
     const detailsFilterActive = detailsProgressFilter !== 'all'
 
-    const fetchStoreProducts = useCallback(async ({ page = currentPage, search = debouncedSearch, category = selectedCategory, silent = false, detailsFilter = detailsProgressFilter } = {}) => {
+    const fetchStoreProducts = useCallback(async ({
+        page = currentPage,
+        search = debouncedSearch,
+        category = selectedCategory,
+        brand = selectedBrand,
+        min = debouncedMinPrice,
+        max = debouncedMaxPrice,
+        stock = stockFilter,
+        sort = sortBy,
+        silent = false,
+        detailsFilter = detailsProgressFilter,
+    } = {}) => {
         try {
             if (silent) setListLoading(true)
             else setInitialLoading(true)
              const token = await getToken()
+             const hasSearch = Boolean(search && String(search).trim().length >= 2)
              const { data } = await axios.get('/api/store/product', {
                 headers: { Authorization: `Bearer ${token}` },
                 params: {
@@ -302,8 +353,12 @@ export default function StoreManageProducts() {
                     limit: pageSize,
                     search: search || undefined,
                     category: category || undefined,
+                    brand: brand || undefined,
+                    minPrice: String(min || '').trim() !== '' ? String(min).trim() : undefined,
+                    maxPrice: String(max || '').trim() !== '' ? String(max).trim() : undefined,
+                    inStock: stock && stock !== 'all' ? stock : undefined,
                     manage: 'true',
-                    sort: search && String(search).trim().length >= 2 ? 'relevance' : 'newest',
+                    sort: hasSearch && sort === 'newest' ? 'relevance' : (sort || 'newest'),
                     detailsProgress: detailsFilter && detailsFilter !== 'all' ? detailsFilter : undefined,
                 },
              })
@@ -320,7 +375,33 @@ export default function StoreManageProducts() {
             setInitialLoading(false)
             setListLoading(false)
         }
-    }, [currentPage, debouncedSearch, selectedCategory, pageSize, detailsProgressFilter, getToken])
+    }, [
+        currentPage,
+        debouncedSearch,
+        selectedCategory,
+        selectedBrand,
+        debouncedMinPrice,
+        debouncedMaxPrice,
+        stockFilter,
+        sortBy,
+        pageSize,
+        detailsProgressFilter,
+        getToken,
+    ])
+
+    const loadBrandOptions = useCallback(async () => {
+        try {
+            const token = await getToken()
+            if (!token) return
+            const { data } = await axios.get('/api/store/product', {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { manage: 'true', page: 1, limit: 1, distinct: 'brands' },
+            })
+            setBrandOptions(Array.isArray(data?.brands) ? data.brands : [])
+        } catch (error) {
+            console.error('Failed to load brands', error)
+        }
+    }, [getToken])
 
     const fetchFbtSearchResults = useCallback(async (search = '') => {
         const query = String(search || '').trim()
@@ -821,8 +902,9 @@ export default function StoreManageProducts() {
     useEffect(() => {
         if(user){
             fetchCategories()
+            loadBrandOptions()
         }
-    }, [user])
+    }, [user, loadBrandOptions])
 
     useEffect(() => {
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
@@ -833,6 +915,14 @@ export default function StoreManageProducts() {
             if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
         }
     }, [searchQuery])
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedMinPrice(String(minPrice || '').trim())
+            setDebouncedMaxPrice(String(maxPrice || '').trim())
+        }, 350)
+        return () => clearTimeout(timer)
+    }, [minPrice, maxPrice])
 
     useEffect(() => {
         if (searchFbtDebounceRef.current) clearTimeout(searchFbtDebounceRef.current)
@@ -855,20 +945,49 @@ export default function StoreManageProducts() {
             page: currentPage,
             search: debouncedSearch,
             category: selectedCategory,
+            brand: selectedBrand,
+            min: debouncedMinPrice,
+            max: debouncedMaxPrice,
+            stock: stockFilter,
+            sort: sortBy,
             detailsFilter: detailsProgressFilter,
             silent: hasLoadedOnceRef.current,
         })
         hasLoadedOnceRef.current = true
-    }, [user, currentPage, debouncedSearch, selectedCategory, pageSize, detailsProgressFilter, fetchStoreProducts])
+    }, [
+        user,
+        currentPage,
+        debouncedSearch,
+        selectedCategory,
+        selectedBrand,
+        debouncedMinPrice,
+        debouncedMaxPrice,
+        stockFilter,
+        sortBy,
+        pageSize,
+        detailsProgressFilter,
+        fetchStoreProducts,
+    ])
 
     const handleImportComplete = async () => {
         await fetchStoreProducts({ silent: true, detailsFilter: detailsProgressFilter })
         dispatch(fetchProductsAction(STOREFRONT_CATALOG_FETCH))
+        loadBrandOptions()
     }
 
     useEffect(() => {
         setCurrentPage(1)
-    }, [debouncedSearch, selectedCategory, pageSize, detailsProgressFilter])
+    }, [
+        debouncedSearch,
+        selectedCategory,
+        selectedBrand,
+        debouncedMinPrice,
+        debouncedMaxPrice,
+        stockFilter,
+        sortBy,
+        pageSize,
+        detailsProgressFilter,
+    ])
 
     const filteredProducts = products
     const listTotal = totalProducts
@@ -1106,10 +1225,91 @@ export default function StoreManageProducts() {
             inStock: 'keep',
             fastDelivery: 'keep',
             freeShippingEligible: 'keep',
+            published: 'keep',
+            brand: '',
             stockQuantity: '',
             price: '',
             AED: '',
         })
+    }
+
+    const openCategoryActionModal = (mode = 'add') => {
+        if (!selectedProductIds.length) {
+            toast.error('Select products first')
+            return
+        }
+        setCategoryActionIds([])
+        setCategoryActionPrimary('')
+        setCategoryActionModal({ open: true, mode })
+    }
+
+    const closeCategoryActionModal = () => {
+        if (categoryActionSaving) return
+        setCategoryActionModal({ open: false, mode: 'add' })
+        setCategoryActionIds([])
+        setCategoryActionPrimary('')
+    }
+
+    const toggleCategoryActionId = (categoryId) => {
+        const id = String(categoryId)
+        setCategoryActionIds((prev) => {
+            const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+            if (categoryActionPrimary && !next.includes(categoryActionPrimary)) {
+                setCategoryActionPrimary(next[0] || '')
+            } else if (!categoryActionPrimary && next.length) {
+                setCategoryActionPrimary(next[0])
+            }
+            return next
+        })
+    }
+
+    const saveCategoryAction = async () => {
+        if (!selectedProductIds.length) {
+            toast.error('Select products first')
+            return
+        }
+
+        try {
+            setCategoryActionSaving(true)
+            const token = await getToken()
+            if (!token) return
+
+            if (categoryActionModal.mode === 'add') {
+                const categoryId = String(categoryActionIds[0] || categoryActionPrimary || '').trim()
+                if (!categoryId) {
+                    toast.error('Choose a category to add')
+                    return
+                }
+                const { data } = await axios.post('/api/store/product/add-to-category', {
+                    categoryId,
+                    productIds: selectedProductIds,
+                }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                toast.success(data?.message || 'Products added to category')
+            } else {
+                if (!categoryActionIds.length) {
+                    toast.error('Choose at least one category')
+                    return
+                }
+                const { data } = await axios.post('/api/store/product/set-categories', {
+                    productIds: selectedProductIds,
+                    categoryIds: categoryActionIds,
+                    primaryCategoryId: categoryActionPrimary || categoryActionIds[0],
+                }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                toast.success(data?.message || 'Product categories updated')
+            }
+
+            await fetchStoreProducts({ silent: true })
+            dispatch(fetchProductsAction(STOREFRONT_CATALOG_FETCH))
+            closeCategoryActionModal()
+        } catch (error) {
+            toast.error(error?.response?.data?.error || error.message || 'Failed to update categories')
+        } finally {
+            setCategoryActionSaving(false)
+        }
     }
 
     const saveBulkEdit = async () => {
@@ -1128,6 +1328,7 @@ export default function StoreManageProducts() {
             toast.success(data?.message || 'Products updated successfully')
             await fetchStoreProducts({ silent: true })
             dispatch(fetchProductsAction(STOREFRONT_CATALOG_FETCH))
+            if (bulkEditForm.brand) loadBrandOptions()
             closeBulkEditModal()
         } catch (error) {
             toast.error(error?.response?.data?.error || error.message || 'Failed to bulk update products')
@@ -1243,7 +1444,7 @@ export default function StoreManageProducts() {
             ) : (
             <>
             {/* Search Bar and Category Filter */}
-            <div className="mb-6 flex w-full flex-wrap items-center gap-3">
+            <div className="mb-4 flex w-full flex-wrap items-center gap-3">
                 <div className="flex-1 min-w-xs">
                     <input
                         type="search"
@@ -1269,6 +1470,29 @@ export default function StoreManageProducts() {
                     <option value="">All Categories</option>
                     {categoryFilterOptions.map(({ id, name }) => (
                         <option key={id} value={id}>{name}</option>
+                    ))}
+                </ManageProductSelect>
+
+                <ManageProductSelect
+                    wrapperClassName="min-w-[10rem] shrink-0"
+                    value={selectedBrand}
+                    onChange={(e) => setSelectedBrand(e.target.value)}
+                    aria-label="Filter by brand"
+                >
+                    <option value="">All brands{brandOptions.length ? ` (${brandOptions.length})` : ''}</option>
+                    {brandOptions.map((brand) => (
+                        <option key={brand} value={brand}>{brand}</option>
+                    ))}
+                </ManageProductSelect>
+
+                <ManageProductSelect
+                    wrapperClassName="min-w-[10rem] shrink-0"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    aria-label="Sort products"
+                >
+                    {PRODUCT_SORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                 </ManageProductSelect>
 
@@ -1307,6 +1531,60 @@ export default function StoreManageProducts() {
                 >
                     {aiAutofillRunning ? 'AI Auto Fill...' : 'AI Auto Fill Queue'}
                 </button>
+            </div>
+
+            <div className="mb-6 flex w-full flex-wrap items-end gap-3">
+                <label className="space-y-1">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Price from</span>
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={minPrice}
+                        onChange={(e) => setMinPrice(e.target.value)}
+                        placeholder="0"
+                        className="h-10 w-28 rounded-lg border border-gray-300 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </label>
+                <label className="space-y-1">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Price to</span>
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={maxPrice}
+                        onChange={(e) => setMaxPrice(e.target.value)}
+                        placeholder="Any"
+                        className="h-10 w-28 rounded-lg border border-gray-300 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </label>
+                <label className="space-y-1">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Stock</span>
+                    <ManageProductSelect
+                        wrapperClassName="min-w-[9rem]"
+                        value={stockFilter}
+                        onChange={(e) => setStockFilter(e.target.value)}
+                    >
+                        {STOCK_FILTER_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                    </ManageProductSelect>
+                </label>
+                {(selectedBrand || minPrice || maxPrice || stockFilter !== 'all' || sortBy !== 'newest') ? (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelectedBrand('')
+                            setMinPrice('')
+                            setMaxPrice('')
+                            setStockFilter('all')
+                            setSortBy('newest')
+                        }}
+                        className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                        Clear filters
+                    </button>
+                ) : null}
             </div>
             {selectedCategory ? (
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
@@ -1583,6 +1861,20 @@ export default function StoreManageProducts() {
                         </button>
                         <button
                             type="button"
+                            onClick={() => openCategoryActionModal('add')}
+                            className="px-3 py-2 rounded-lg bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 transition"
+                        >
+                            Add to Category
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => openCategoryActionModal('replace')}
+                            className="px-3 py-2 rounded-lg bg-cyan-700 text-white text-xs font-semibold hover:bg-cyan-800 transition"
+                        >
+                            Edit Categories
+                        </button>
+                        <button
+                            type="button"
                             onClick={runAiAutofillQueue}
                             disabled={aiAutofillRunning}
                             className="px-3 py-2 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 transition disabled:cursor-not-allowed disabled:opacity-60"
@@ -1638,6 +1930,7 @@ export default function StoreManageProducts() {
                         </th>
                         <th className="px-4 py-3">Name</th>
                         <th className="px-4 py-3 hidden md:table-cell">Details</th>
+                        <th className="px-4 py-3 hidden lg:table-cell">Brand</th>
                         <th className="px-4 py-3 hidden lg:table-cell">SKU</th>
                         <th className={`px-4 py-3 ${showDetailColumns ? '' : 'hidden'}`}>Categories</th>
                         <th className={`px-4 py-3 ${showDetailColumns ? '' : 'hidden'}`}>Description</th>
@@ -1700,6 +1993,9 @@ export default function StoreManageProducts() {
                             </td>
                             <td className="px-4 py-3 hidden md:table-cell align-top">
                                 <ProductDetailCompletenessDots product={product} />
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 hidden lg:table-cell">
+                                {product.brand || product.brandAr || '-'}
                             </td>
                             <td className="px-4 py-3 text-slate-600 hidden lg:table-cell">{product.sku || '-'}</td>
                             <td className={`px-4 py-3 align-top ${showDetailColumns ? '' : 'hidden'}`}>
@@ -1909,6 +2205,14 @@ export default function StoreManageProducts() {
                                     </select>
                                 </label>
                                 <label className="space-y-2">
+                                    <span className="block text-sm font-medium text-slate-700">Online / published</span>
+                                    <select value={bulkEditForm.published} onChange={(e) => setBulkEditForm((prev) => ({ ...prev, published: e.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2.5">
+                                        <option value="keep">Keep current</option>
+                                        <option value="enable">Publish online</option>
+                                        <option value="disable">Unpublish</option>
+                                    </select>
+                                </label>
+                                <label className="space-y-2">
                                     <span className="block text-sm font-medium text-slate-700">Fast delivery</span>
                                     <select value={bulkEditForm.fastDelivery} onChange={(e) => setBulkEditForm((prev) => ({ ...prev, fastDelivery: e.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2.5">
                                         <option value="keep">Keep current</option>
@@ -1923,6 +2227,22 @@ export default function StoreManageProducts() {
                                         <option value="enable">Enable</option>
                                         <option value="disable">Disable</option>
                                     </select>
+                                </label>
+                                <label className="space-y-2 md:col-span-2">
+                                    <span className="block text-sm font-medium text-slate-700">Brand</span>
+                                    <input
+                                        type="text"
+                                        list="manage-product-bulk-brands"
+                                        value={bulkEditForm.brand}
+                                        onChange={(e) => setBulkEditForm((prev) => ({ ...prev, brand: e.target.value }))}
+                                        className="w-full rounded-lg border border-slate-300 px-3 py-2.5"
+                                        placeholder="Leave blank to keep current"
+                                    />
+                                    <datalist id="manage-product-bulk-brands">
+                                        {brandOptions.map((brand) => (
+                                            <option key={brand} value={brand} />
+                                        ))}
+                                    </datalist>
                                 </label>
                                 <label className="space-y-2">
                                     <span className="block text-sm font-medium text-slate-700">Stock quantity</span>
@@ -1944,6 +2264,97 @@ export default function StoreManageProducts() {
                                     {bulkEditSaving ? 'Saving...' : 'Apply Bulk Edit'}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {categoryActionModal.open && (
+                <div className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center p-4" onClick={closeCategoryActionModal}>
+                    <div className="w-full max-w-lg max-h-[88vh] overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                            <div>
+                                <h2 className="text-xl font-semibold text-slate-900">
+                                    {categoryActionModal.mode === 'add' ? 'Add to Category' : 'Edit Categories'}
+                                </h2>
+                                <p className="text-sm text-slate-600">
+                                    {categoryActionModal.mode === 'add'
+                                        ? `Add ${selectedProductIds.length} product(s) to a category (keeps existing categories).`
+                                        : `Replace categories on ${selectedProductIds.length} product(s).`}
+                                </p>
+                            </div>
+                            <button type="button" onClick={closeCategoryActionModal} className="text-sm text-slate-500 hover:text-slate-800">Close</button>
+                        </div>
+
+                        <div className="max-h-[50vh] space-y-2 overflow-y-auto px-5 py-4">
+                            {categoryFilterOptions.length === 0 ? (
+                                <p className="text-sm text-slate-500">No categories found.</p>
+                            ) : categoryFilterOptions.map(({ id, name }) => {
+                                const checked = categoryActionIds.includes(id)
+                                return (
+                                    <label
+                                        key={id}
+                                        className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 ${
+                                            checked ? 'border-teal-300 bg-teal-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <input
+                                            type={categoryActionModal.mode === 'add' ? 'radio' : 'checkbox'}
+                                            name="category-action"
+                                            checked={checked}
+                                            onChange={() => {
+                                                if (categoryActionModal.mode === 'add') {
+                                                    setCategoryActionIds([id])
+                                                    setCategoryActionPrimary(id)
+                                                } else {
+                                                    toggleCategoryActionId(id)
+                                                }
+                                            }}
+                                            className="h-4 w-4"
+                                        />
+                                        <span className="min-w-0 flex-1 text-sm font-medium text-slate-800">{name}</span>
+                                        {categoryActionModal.mode === 'replace' && checked ? (
+                                            <button
+                                                type="button"
+                                                onClick={(event) => {
+                                                    event.preventDefault()
+                                                    setCategoryActionPrimary(id)
+                                                }}
+                                                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                                    categoryActionPrimary === id
+                                                        ? 'bg-slate-900 text-white'
+                                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                                }`}
+                                            >
+                                                {categoryActionPrimary === id ? 'Primary' : 'Set primary'}
+                                            </button>
+                                        ) : null}
+                                    </label>
+                                )
+                            })}
+                        </div>
+
+                        <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
+                            <button
+                                type="button"
+                                onClick={closeCategoryActionModal}
+                                disabled={categoryActionSaving}
+                                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={saveCategoryAction}
+                                disabled={categoryActionSaving || !categoryActionIds.length}
+                                className="rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {categoryActionSaving
+                                    ? 'Saving…'
+                                    : categoryActionModal.mode === 'add'
+                                        ? 'Add to category'
+                                        : 'Save categories'}
+                            </button>
                         </div>
                     </div>
                 </div>
