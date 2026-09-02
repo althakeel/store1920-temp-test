@@ -131,7 +131,7 @@ export default function ShowcaseProductBanners({ banners = [] }) {
   }
 
   return (
-    <div className="shop-showcase-product-grid">
+    <div className={`shop-showcase-product-grid shop-showcase-product-grid--count-${visibleBanners.length}`}>
       {visibleBanners.map((banner, index) => (
         <ProductBannerCard key={`desktop-showcase-banner-${index}`} banner={banner} />
       ))}

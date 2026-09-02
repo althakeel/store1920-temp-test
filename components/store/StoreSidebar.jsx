@@ -114,7 +114,7 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
 
         { name: 'Product Notifications', href: '/store/product-notifications', icon: BellIcon },
 
-        { name: 'Promotional Emails', href: '/store/promotional-emails', icon: MailIcon },
+        { name: 'Email Marketing', href: '/store/email-marketing', icon: MailIcon },
 
         { name: 'Ad Tracking', href: '/store/ads-tracking', icon: BarChart3 },
 
@@ -180,7 +180,7 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
 
                 '/store/spin-wheel',
 
-                '/store/promotional-emails',
+                '/store/email-marketing',
 
                 '/store/customer-tracking',
 
@@ -291,6 +291,12 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
         if (href.includes('#')) {
 
             return pathname === href.split('#')[0];
+
+        }
+
+        if (href === '/store/email-marketing') {
+
+            return pathname === '/store/email-marketing' || pathname === '/store/promotional-emails';
 
         }
 

@@ -517,6 +517,7 @@ export async function GET(request) {
                 category,
                 mode: manage ? 'manage' : media ? 'media' : 'picker',
                 detailsProgress: manage ? detailsProgress : 'all',
+                Category: manage || search ? Category : null,
             });
 
             if (manage) {
@@ -556,6 +557,7 @@ export async function GET(request) {
                 search,
                 sort: 'relevance',
                 mode: 'picker',
+                Category,
             });
 
             return NextResponse.json(

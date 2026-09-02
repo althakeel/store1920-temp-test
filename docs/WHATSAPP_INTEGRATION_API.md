@@ -1,7 +1,7 @@
 # Store1920 WhatsApp Integration API
 
 Last updated: 2026-06-16  
-Base URL: `https://store1920.store`
+Base URL: `https://store1920.com`
 
 This document is for the WhatsApp / Elastic WABA integration team.
 
@@ -44,7 +44,7 @@ GET /api/whatsapp/product?productId={mongo_product_id}
 ### Example request
 
 ```http
-GET https://store1920.store/api/whatsapp/product?slug=neck-face-massager
+GET https://store1920.com/api/whatsapp/product?slug=neck-face-massager
 Authorization: Bearer <ORDER_CONFIRM_WEBHOOK_SECRET>
 ```
 
@@ -62,11 +62,11 @@ Authorization: Bearer <ORDER_CONFIRM_WEBHOOK_SECRET>
     "originalPrice": 249,
     "currency": "AED",
     "imageUrl": "https://www.store1920.com/static/media/10.25166b26357ac6cfe3ef.webp",
-    "productUrl": "https://store1920.store/product/neck-face-massager",
-    "cartUrl": "https://store1920.store/cart",
-    "checkoutUrl": "https://store1920.store/checkout",
-    "ordersUrl": "https://store1920.store/orders",
-    "homeUrl": "https://store1920.store/",
+    "productUrl": "https://store1920.com/product/neck-face-massager",
+    "cartUrl": "https://store1920.com/cart",
+    "checkoutUrl": "https://store1920.com/checkout",
+    "ordersUrl": "https://store1920.com/orders",
+    "homeUrl": "https://store1920.com/",
     "freeShipping": true,
     "freeShippingLabel": "Available",
     "inStock": true,
@@ -96,13 +96,13 @@ Use this webhook when Store1920 should send an order-related WhatsApp notificati
 ### Health check
 
 ```http
-GET https://store1920.store/api/order-confirm-webhook
+GET https://store1920.com/api/order-confirm-webhook
 ```
 
 ### Trigger notification
 
 ```http
-POST https://store1920.store/api/order-confirm-webhook
+POST https://store1920.com/api/order-confirm-webhook
 Authorization: Bearer <ORDER_CONFIRM_WEBHOOK_SECRET>
 Content-Type: application/json
 ```
@@ -187,7 +187,7 @@ Authorization: Bearer {WABA_TOKEN_CART_REMINDER}
   "product": {
     "name": "Neck & Face Massager",
     "slug": "neck-face-massager",
-    "productUrl": "https://store1920.store/product/neck-face-massager",
+    "productUrl": "https://store1920.com/product/neck-face-massager",
     "imageUrl": "https://...",
     "price": 199,
     "currency": "AED",
@@ -218,13 +218,13 @@ Authorization: Bearer {WABA_TOKEN_CART_REMINDER}
 ### Product card header link
 
 ```text
-https://store1920.store/product/{{1}}
+https://store1920.com/product/{{1}}
 ```
 
 Example:
 
 ```text
-https://store1920.store/product/neck-face-massager
+https://store1920.com/product/neck-face-massager
 ```
 
 ---
@@ -233,13 +233,13 @@ https://store1920.store/product/neck-face-massager
 
 ```text
 Product API:
-GET https://store1920.store/api/whatsapp/product?slug=neck-face-massager
+GET https://store1920.com/api/whatsapp/product?slug=neck-face-massager
 
 Order webhook:
-POST https://store1920.store/api/order-confirm-webhook
+POST https://store1920.com/api/order-confirm-webhook
 
 Webhook health:
-GET https://store1920.store/api/order-confirm-webhook
+GET https://store1920.com/api/order-confirm-webhook
 ```
 
 ---

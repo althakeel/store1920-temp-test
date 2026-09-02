@@ -732,46 +732,8 @@ export default function ShopShowcaseSection({
         </div>
 
         {/* 4-grid product/banner section below main banners */}
-        <div className="shop-showcase-product-grid lg:col-span-2 lg:row-start-2" onMouseEnter={closeCategoryFlyout}>
-          {[0,1,2,3].map((i) => (
-            (() => {
-              const banner = data.config?.productBanners?.[i] || {}
-              const link = String(banner.link || '').trim()
-              const Card = link ? Link : 'div'
-
-              return (
-                <Card
-                  key={i}
-                  href={link || undefined}
-                  className="shop-showcase-product-card"
-                >
-              <img
-                className="shop-showcase-product-image"
-                src={banner.image || '/assets/placeholder.png'}
-                alt={banner.title || 'Product'}
-              />
-              <div className="shop-showcase-product-overlay" />
-              <div className="shop-showcase-product-content">
-                {String(banner.title || '').trim() ? (
-                  <div className="shop-showcase-product-title">
-                    {banner.title}
-                  </div>
-                ) : null}
-                {String(banner.subtitle || '').trim() ? (
-                  <div className="shop-showcase-product-subtitle">
-                    {banner.subtitle}
-                  </div>
-                ) : null}
-                {String(banner.buttonText || '').trim() ? (
-                  <span className="shop-showcase-product-button">
-                    {banner.buttonText}
-                  </span>
-                ) : null}
-              </div>
-                </Card>
-              )
-            })()
-          ))}
+        <div className="lg:col-span-2 lg:row-start-2" onMouseEnter={closeCategoryFlyout}>
+          <ShowcaseProductBanners banners={data.config?.productBanners} />
         </div>
       </div>
     </section>

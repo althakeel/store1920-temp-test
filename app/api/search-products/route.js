@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
-import Category from '@/models/Category';
 import {
   buildProductSearchFilter,
-  escapeRegex,
   mapSearchProduct,
-  mergeCategorySearchIntoFilter,
   normalizeSearchKeyword,
   productTitleMatchesKeyword,
   rankProductsByTitleMatch,
@@ -18,35 +15,6 @@ import {
   dedupeProductsBySku,
   fetchProductsDedupedBySku,
 } from '@/lib/productSkuDedupe';
-
-async function resolveCategorySearchValues(keyword = '') {
-  const normalized = normalizeSearchKeyword(keyword);
-  if (!normalized || normalized.length < 2) return [];
-
-  const termRegex = new RegExp(escapeRegex(normalized), 'i');
-  const categories = await Category.find({
-    $or: [
-      { name: termRegex },
-      { nameAr: termRegex },
-      { slug: termRegex },
-    ],
-  })
-    .select('_id slug name')
-    .limit(20)
-    .lean();
-
-  const values = new Set();
-  for (const category of categories) {
-    if (category?._id) {
-      values.add(category._id);
-      values.add(String(category._id));
-    }
-    if (category?.slug) values.add(category.slug);
-    if (category?.name) values.add(category.name);
-  }
-
-  return [...values];
-}
 
 export async function GET(request) {
   try {
@@ -106,10 +74,9 @@ export async function GET(request) {
       }, { status: 400 });
     }
 
-    const searchFilter = mergeCategorySearchIntoFilter(
-      buildProductSearchFilter(keyword, { includeOutOfStock }),
-      await resolveCategorySearchValues(keyword),
-    );
+    // Title / brand / SKU only — do not OR in whole categories (that returned
+    // unrelated products whose titles did not match the typed keyword).
+    const searchFilter = buildProductSearchFilter(keyword, { includeOutOfStock });
     const total = await countProductsDedupedBySku(Product, searchFilter);
 
     let products = await fetchProductsDedupedBySku(Product, searchFilter, {

@@ -303,7 +303,7 @@ export default function StoreManageProducts() {
                     search: search || undefined,
                     category: category || undefined,
                     manage: 'true',
-                    sort: 'newest',
+                    sort: search && String(search).trim().length >= 2 ? 'relevance' : 'newest',
                     detailsProgress: detailsFilter && detailsFilter !== 'all' ? detailsFilter : undefined,
                 },
              })
@@ -1247,7 +1247,7 @@ export default function StoreManageProducts() {
                 <div className="flex-1 min-w-xs">
                     <input
                         type="search"
-                        placeholder="Search products by name, SKU, category, tags, or description..."
+                        placeholder="Search products by name, SKU, brand, category, or tags..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         autoComplete="off"

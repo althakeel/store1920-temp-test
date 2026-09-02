@@ -141,17 +141,16 @@ function normalizeSecondaryBannerSliderPlacement(value) {
 function normalizeProductBanners(items) {
   if (!Array.isArray(items)) return DEFAULT_SHOWCASE.productBanners
 
-  const normalized = items
+  return items
     .slice(0, 4)
-    .map((item, index) => ({
+    .map((item) => ({
       image: (item?.image || '').toString().trim(),
       title: (item?.title || '').toString().trim(),
       subtitle: (item?.subtitle || '').toString().trim(),
       buttonText: (item?.buttonText || '').toString().trim(),
       link: (item?.link || '').toString().trim(),
     }))
-
-  return normalized.length ? normalized : DEFAULT_SHOWCASE.productBanners
+    .filter((item) => item.image)
 }
 
 function normalize(data = {}) {

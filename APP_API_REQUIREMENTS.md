@@ -19,7 +19,7 @@ Use this as the working handoff document for backend and mobile integration.
 
 ## 2. API Basics
 
-- Base URL: `https://store1920.store`
+- Base URL: `https://store1920.com`
 - Default content type: `application/json`
 - Auth type: Firebase ID token
 - Auth header: `Authorization: Bearer <firebase_id_token>`

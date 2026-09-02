@@ -171,7 +171,7 @@ export async function POST(req) {
     // Calculate discounted price
     const discountedPrice = offer.calculateDiscountedPrice(product.price);
 
-    // Customer-facing offer URL (maps store1920.store → store1920.com).
+    // Customer-facing offer URL (store1920.com).
     // Include token so the page can validate the exact offer, then it strips ?token= from the URL.
     const productSlug = String(product.slug || "").trim();
     const offerUrl = productSlug

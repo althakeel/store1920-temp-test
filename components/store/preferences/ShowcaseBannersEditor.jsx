@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import Image from 'next/image'
-import { Loader2, Plus, Save, Trash2, Upload } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, Plus, Save, Trash2, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/lib/useAuth'
 import { createLargeBannerSlide, normalizeLargeBannerSliderItemsForEditor } from '@/lib/shopShowcaseLargeBanners'
@@ -168,24 +168,42 @@ function buildShowcaseFormState(showcase = {}, previousForm = null) {
     })(),
     topBannerFile: null,
     bottomBannerFile: null,
-    productBanners: Array.from({ length: 4 }, (_, index) => {
-      const current = savedBanners[index] || {}
-      const fallbackTitle = `Product Title ${index + 1}`
-      const normalizedTitle = String(current.title || '').trim()
-      const normalizedSubtitle = String(current.subtitle || '').trim()
-      const normalizedButtonText = String(current.buttonText || '').trim()
-      const normalizedLink = String(current.link || '').trim()
+    productBanners: (() => {
+      const mapped = Array.from({ length: Math.max(1, Math.min(4, savedBanners.length || 1)) }, (_, index) => {
+        const current = savedBanners[index] || {}
+        const fallbackTitle = `Product Title ${index + 1}`
+        const normalizedTitle = String(current.title || '').trim()
+        const normalizedSubtitle = String(current.subtitle || '').trim()
+        const normalizedButtonText = String(current.buttonText || '').trim()
+        const normalizedLink = String(current.link || '').trim()
 
-      return createBanner({
-        image: sanitizeImageUrl(current.image || ''),
-        title: normalizedTitle && normalizedTitle !== fallbackTitle ? normalizedTitle : '',
-        subtitle: normalizedSubtitle && normalizedSubtitle !== 'Order now' ? normalizedSubtitle : '',
-        buttonText: normalizedButtonText && normalizedButtonText !== 'Order now' ? normalizedButtonText : '',
-        link: normalizedLink && normalizedLink !== '/shop' ? normalizedLink : '',
-        file: null,
-        previewUrl: sanitizeImageUrl(current.image || ''),
+        return createBanner({
+          image: sanitizeImageUrl(current.image || ''),
+          title: normalizedTitle && normalizedTitle !== fallbackTitle ? normalizedTitle : '',
+          subtitle: normalizedSubtitle && normalizedSubtitle !== 'Order now' ? normalizedSubtitle : '',
+          buttonText: normalizedButtonText && normalizedButtonText !== 'Order now' ? normalizedButtonText : '',
+          link: normalizedLink && normalizedLink !== '/shop' ? normalizedLink : '',
+          file: null,
+          previewUrl: sanitizeImageUrl(current.image || ''),
+        })
       })
-    }),
+
+      if (previousForm?.productBanners?.length && previousForm.productBanners.length === mapped.length) {
+        return previousForm.productBanners.map((localBanner, index) => {
+          const serverBanner = mapped[index]
+          const image = sanitizeImageUrl(serverBanner?.image || localBanner.image || localBanner.previewUrl || '')
+          return {
+            ...localBanner,
+            ...serverBanner,
+            image,
+            previewUrl: localBanner.previewUrl || image,
+            file: null,
+          }
+        })
+      }
+
+      return mapped
+    })(),
   }
 }
 
@@ -231,6 +249,42 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
     }))
   }
 
+  const addProductBanner = () => {
+    setForm((prev) => {
+      if (prev.productBanners.length >= 4) return prev
+      return {
+        ...prev,
+        productBanners: [...prev.productBanners, createBanner()],
+      }
+    })
+  }
+
+  const removeProductBanner = (index) => {
+    setForm((prev) => {
+      if (prev.productBanners.length <= 1) {
+        return {
+          ...prev,
+          productBanners: [createBanner()],
+        }
+      }
+      return {
+        ...prev,
+        productBanners: prev.productBanners.filter((_, bannerIndex) => bannerIndex !== index),
+      }
+    })
+  }
+
+  const moveProductBanner = (index, direction) => {
+    setForm((prev) => {
+      const items = [...prev.productBanners]
+      const targetIndex = index + direction
+      if (targetIndex < 0 || targetIndex >= items.length) return prev
+      const [item] = items.splice(index, 1)
+      items.splice(targetIndex, 0, item)
+      return { ...prev, productBanners: items }
+    })
+  }
+
   const updateLargeBannerSlide = (itemsKey, index, key, value) => {
     setForm((prev) => ({
       ...prev,
@@ -258,6 +312,17 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
       ...prev,
       [itemsKey]: prev[itemsKey].filter((_, slideIndex) => slideIndex !== index),
     }))
+  }
+
+  const moveLargeBannerSlide = (itemsKey, index, direction) => {
+    setForm((prev) => {
+      const items = [...prev[itemsKey]]
+      const targetIndex = index + direction
+      if (targetIndex < 0 || targetIndex >= items.length) return prev
+      const [item] = items.splice(index, 1)
+      items.splice(targetIndex, 0, item)
+      return { ...prev, [itemsKey]: items }
+    })
   }
 
   const uploadLargeBannerSlide = async (itemsKey, index, file) => {
@@ -322,10 +387,11 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
 
       const productBanners = []
       for (const banner of currentForm.productBanners) {
-        let image = sanitizeImageUrl(banner.image)
+        let image = sanitizeImageUrl(banner.image || banner.previewUrl)
         if (banner.file) {
           image = sanitizeImageUrl(await uploadImage(banner.file, token))
         }
+        if (!image) continue
 
         productBanners.push({
           image,
@@ -494,7 +560,13 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className={`grid gap-2 ${(() => {
+                const count = form.productBanners.filter((banner) => banner.previewUrl || banner.image).length || form.productBanners.length
+                if (count <= 1) return 'grid-cols-1'
+                if (count === 2) return 'grid-cols-2'
+                if (count === 3) return 'grid-cols-3'
+                return 'grid-cols-2 sm:grid-cols-4'
+              })()}`}>
                 {form.productBanners.map((banner, index) => (
                   <div key={`layout-slot-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-2">
                     <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
@@ -548,7 +620,9 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-base font-semibold text-slate-900">Top Large Banner</h2>
-            <p className="mb-3 text-xs font-medium text-slate-500">Layout slot: Row 1 right side · upload multiple images for a slider</p>
+            <p className="mb-3 text-xs font-medium text-slate-500">
+              Layout slot: Row 1 right side · upload multiple images for a slider · Slide 1 plays first
+            </p>
 
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
               <span className="text-sm text-slate-700">Enable banner slider</span>
@@ -575,16 +649,47 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
             <div className="space-y-4">
               {form.topBannerSliderItems.map((slide, index) => (
                 <div key={slide.id || `top-slide-${index}`} className="rounded-xl border border-slate-200 p-3">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-slate-900">Slide {index + 1}</h3>
-                    <button
-                      type="button"
-                      onClick={() => removeLargeBannerSlide('topBannerSliderItems', index)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      <Trash2 size={14} />
-                      Remove
-                    </button>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold text-slate-900">Slide {index + 1}</h3>
+                      {index === 0 ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                          1st in slider
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                          {index + 1}{index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'} in slider
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveLargeBannerSlide('topBannerSliderItems', index, -1)}
+                        disabled={index === 0}
+                        title="Move up (earlier in slider)"
+                        className="inline-flex items-center rounded-lg border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronUp size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveLargeBannerSlide('topBannerSliderItems', index, 1)}
+                        disabled={index === form.topBannerSliderItems.length - 1}
+                        title="Move down (later in slider)"
+                        className="inline-flex items-center rounded-lg border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronDown size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeLargeBannerSlide('topBannerSliderItems', index)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <Trash2 size={14} />
+                        Remove
+                      </button>
+                    </div>
                   </div>
                   <div className="relative mb-3 overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
                     <div className="relative aspect-[3054/1080] w-full">
@@ -711,7 +816,9 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-base font-semibold text-slate-900">Bottom Large Banner</h2>
-            <p className="mb-3 text-xs font-medium text-slate-500">Layout slot: Row 2 right side · upload multiple images for a slider</p>
+            <p className="mb-3 text-xs font-medium text-slate-500">
+              Layout slot: Row 2 right side · upload multiple images for a slider · Slide 1 plays first
+            </p>
 
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
               <span className="text-sm text-slate-700">Enable banner slider</span>
@@ -738,16 +845,47 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
             <div className="space-y-4">
               {form.bottomBannerSliderItems.map((slide, index) => (
                 <div key={slide.id || `bottom-slide-${index}`} className="rounded-xl border border-slate-200 p-3">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-slate-900">Slide {index + 1}</h3>
-                    <button
-                      type="button"
-                      onClick={() => removeLargeBannerSlide('bottomBannerSliderItems', index)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      <Trash2 size={14} />
-                      Remove
-                    </button>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold text-slate-900">Slide {index + 1}</h3>
+                      {index === 0 ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                          1st in slider
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                          {index + 1}{index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'} in slider
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveLargeBannerSlide('bottomBannerSliderItems', index, -1)}
+                        disabled={index === 0}
+                        title="Move up (earlier in slider)"
+                        className="inline-flex items-center rounded-lg border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronUp size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveLargeBannerSlide('bottomBannerSliderItems', index, 1)}
+                        disabled={index === form.bottomBannerSliderItems.length - 1}
+                        title="Move down (later in slider)"
+                        className="inline-flex items-center rounded-lg border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronDown size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeLargeBannerSlide('bottomBannerSliderItems', index)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <Trash2 size={14} />
+                        Remove
+                      </button>
+                    </div>
                   </div>
                   <div className="relative mb-3 overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
                     <div className="relative aspect-[3054/370] w-full">
@@ -875,13 +1013,60 @@ export default function ShowcaseBannersEditor({ embedded = false }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <div className="lg:col-span-2 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Product banner cards</h2>
+            <p className="text-xs text-slate-500">
+              Up to 4 cards · remove empty slots · storefront auto-resizes to 1–4 columns
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={addProductBanner}
+            disabled={form.productBanners.length >= 4}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus size={16} />
+            Add banner card
+          </button>
+        </div>
         {form.productBanners.map((banner, index) => (
-          <div key={index} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Banner {index + 1}</h2>
-              <span className="text-xs font-medium text-slate-500">Card {index + 1}</span>
+          <div key={`product-banner-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-slate-900">Banner {index + 1}</h2>
+                <span className="text-xs font-medium text-slate-500">{PRODUCT_SLOT_LABELS[index] || `Card ${index + 1}`}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => moveProductBanner(index, -1)}
+                  disabled={index === 0}
+                  title="Move left (earlier)"
+                  className="inline-flex items-center rounded-lg border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveProductBanner(index, 1)}
+                  disabled={index === form.productBanners.length - 1}
+                  title="Move right (later)"
+                  className="inline-flex items-center rounded-lg border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronDown size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeProductBanner(index)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 size={14} />
+                  Remove
+                </button>
+              </div>
             </div>
-            <p className="mb-3 text-xs font-medium text-slate-500">Layout slot: Bottom row {PRODUCT_SLOT_LABELS[index] || `Card ${index + 1}`}</p>
+            <p className="mb-3 text-xs font-medium text-slate-500">Cards without an image are hidden on the storefront</p>
 
             <label className="mb-4 block">
               <span className="mb-2 block text-sm font-medium text-slate-700">Banner image</span>
