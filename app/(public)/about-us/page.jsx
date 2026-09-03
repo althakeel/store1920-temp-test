@@ -129,7 +129,7 @@ export default function AboutUsPage() {
     <div
       dir={isArabic ? 'rtl' : 'ltr'}
       className="about-us-page w-full overflow-x-clip bg-[#f3eee6] text-[#1a1c1e]"
-      style={{ fontFamily: 'Poppins, Montserrat, sans-serif' }}
+      style={{ fontFamily: 'var(--font-poppins), var(--font-montserrat), system-ui, sans-serif' }}
     >
       <style jsx>{`
         .about-us-page {

@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+/* next/font CSS variables → family names used in blog HTML / older inline styles */
+@layer base {
+  .font-poppins,
+  [style*="Poppins"] {
+    font-family: var(--font-poppins), system-ui, sans-serif !important;
+  }
+
+  .font-montserrat,
+  [style*="Montserrat"] {
+    font-family: var(--font-montserrat), system-ui, sans-serif !important;
+  }
+
+  .font-shadows-into-light,
+  [style*="Shadows Into Light"] {
+    font-family: var(--font-shadows-into-light), cursive !important;
+  }
+}
+
 @layer components {
     @keyframes marqueeScroll {
         0% {

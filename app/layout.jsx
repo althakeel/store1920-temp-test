@@ -2,6 +2,7 @@ import "./globals.css";
 import Script from "next/script";
 import React from "react";
 import { cookies, headers } from "next/headers";
+import { Montserrat, Poppins, Shadows_Into_Light } from "next/font/google";
 import ClientLayout from "./ClientLayout";
 import StorefrontLanguageInitScript from "@/components/StorefrontLanguageInitScript";
 import EarlyHeadScripts from "@/components/EarlyHeadScripts";
@@ -15,6 +16,30 @@ import { TIKTOK_PIXEL_ID, getTikTokPixelBootstrapScript } from "@/lib/tiktokPixe
 import { GOOGLE_ADS_ID, getGoogleAdsGtagInitScript, getGoogleAdsGtagSrc } from "@/lib/googleAdsConfig";
 import OrganizationJsonLd from "@/components/OrganizationJsonLd";
 import { SITE_URL } from "@/lib/sitemapData";
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-poppins",
+  preload: true,
+});
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-montserrat",
+  preload: false,
+});
+
+const shadowsIntoLight = Shadows_Into_Light({
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+  variable: "--font-shadows-into-light",
+  preload: false,
+});
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
@@ -59,6 +84,7 @@ export default async function RootLayout({ children }) {
     <html
       lang={storefrontLanguage}
       dir={isArabic ? 'rtl' : 'ltr'}
+      className={`${poppins.variable} ${montserrat.variable} ${shadowsIntoLight.variable}`}
       suppressHydrationWarning
     >
       <head>
@@ -75,13 +101,6 @@ export default async function RootLayout({ children }) {
             <link rel="preconnect" href={imageKitOrigin} crossOrigin="anonymous" />
           </>
         )}
-        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Shadows+Into+Light&display=swap"
-        />
         <link rel="dns-prefetch" href="https://connect.facebook.net" />
         <link rel="preconnect" href="https://connect.facebook.net" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
@@ -90,7 +109,7 @@ export default async function RootLayout({ children }) {
         <link rel="preconnect" href="https://analytics.tiktok.com" crossOrigin="anonymous" />
         <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
       </head>
-      <body className="overflow-x-clip antialiased" suppressHydrationWarning>
+      <body className={`${poppins.className} overflow-x-clip antialiased`} suppressHydrationWarning>
         <EarlyHeadScripts />
         <Script
           id="google-tag-manager"

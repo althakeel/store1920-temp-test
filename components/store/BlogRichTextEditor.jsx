@@ -30,9 +30,9 @@ import { compressImageForUpload } from '@/lib/compressImageForUpload'
 
 const FONT_FAMILIES = [
   { label: 'Default', value: '' },
-  { label: 'Poppins', value: 'Poppins, sans-serif' },
-  { label: 'Montserrat', value: 'Montserrat, sans-serif' },
-  { label: 'Shadows Into Light', value: '"Shadows Into Light", cursive' },
+  { label: 'Poppins', value: 'var(--font-poppins), system-ui, sans-serif' },
+  { label: 'Montserrat', value: 'var(--font-montserrat), system-ui, sans-serif' },
+  { label: 'Shadows Into Light', value: 'var(--font-shadows-into-light), cursive' },
   { label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
   { label: 'Helvetica', value: 'Helvetica, Arial, sans-serif' },
   { label: 'Georgia', value: 'Georgia, serif' },
@@ -46,29 +46,6 @@ const FONT_FAMILIES = [
   { label: 'Segoe UI', value: '"Segoe UI", Tahoma, sans-serif' },
   { label: 'System UI', value: 'system-ui, -apple-system, sans-serif' },
 ]
-
-const BLOG_GOOGLE_FONTS_HREF =
-  'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Shadows+Into+Light&display=swap'
-
-function ensureBlogGoogleFonts() {
-  if (typeof document === 'undefined') return
-  const id = 'blog-google-fonts'
-  if (document.getElementById(id)) return
-  const preconnect1 = document.createElement('link')
-  preconnect1.rel = 'preconnect'
-  preconnect1.href = 'https://fonts.googleapis.com'
-  document.head.appendChild(preconnect1)
-  const preconnect2 = document.createElement('link')
-  preconnect2.rel = 'preconnect'
-  preconnect2.href = 'https://fonts.gstatic.com'
-  preconnect2.crossOrigin = 'anonymous'
-  document.head.appendChild(preconnect2)
-  const link = document.createElement('link')
-  link.id = id
-  link.rel = 'stylesheet'
-  link.href = BLOG_GOOGLE_FONTS_HREF
-  document.head.appendChild(link)
-}
 
 const FONT_SIZES = ['', '12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px']
 
@@ -283,10 +260,6 @@ export default function BlogRichTextEditor({
   const fileInputRef = useRef(null)
   const savedSelectionRef = useRef(null)
   const [uploading, setUploading] = useState(false)
-
-  useEffect(() => {
-    ensureBlogGoogleFonts()
-  }, [])
 
   const editor = useEditor({
     extensions: [

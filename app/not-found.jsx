@@ -75,7 +75,7 @@ export default function NotFound() {
         <section className="relative overflow-hidden rounded-2xl border border-[#e7e0d8] bg-[#fffdfb]/90 px-6 py-10 shadow-[0_24px_60px_rgba(28,25,23,0.06)] sm:px-10 sm:py-14 lg:px-14">
           <p
             className="pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2 select-none text-[9rem] font-black leading-none text-[#8f3404]/[0.07] sm:text-[12rem] lg:right-6 lg:text-[14rem]"
-            style={{ fontFamily: 'Poppins, Montserrat, system-ui, sans-serif' }}
+            style={{ fontFamily: 'var(--font-poppins), var(--font-montserrat), system-ui, sans-serif' }}
             aria-hidden
           >
             404
@@ -90,7 +90,7 @@ export default function NotFound() {
 
           <h1
             className="mt-4 max-w-2xl text-4xl font-black tracking-tight text-[#1c1917] sm:text-5xl lg:text-6xl"
-            style={{ fontFamily: 'Poppins, Montserrat, system-ui, sans-serif', animation: 'nfRise 560ms ease 60ms both' }}
+            style={{ fontFamily: 'var(--font-poppins), var(--font-montserrat), system-ui, sans-serif', animation: 'nfRise 560ms ease 60ms both' }}
           >
             Lost the aisle.
             <span className="mt-1 block font-semibold text-[#57534e]">Found better picks.</span>
@@ -147,7 +147,7 @@ export default function NotFound() {
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8f3404]">Still shopping</p>
               <h2
                 className="mt-1 text-2xl font-black text-[#1c1917] sm:text-3xl"
-                style={{ fontFamily: 'Poppins, Montserrat, system-ui, sans-serif' }}
+                style={{ fontFamily: 'var(--font-poppins), var(--font-montserrat), system-ui, sans-serif' }}
               >
                 Popular right now
               </h2>

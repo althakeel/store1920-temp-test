@@ -19,18 +19,6 @@ export default function BlogPostPage() {
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (typeof document === 'undefined') return
-    const id = 'blog-google-fonts'
-    if (document.getElementById(id)) return
-    const link = document.createElement('link')
-    link.id = id
-    link.rel = 'stylesheet'
-    link.href =
-      'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Shadows+Into+Light&display=swap'
-    document.head.appendChild(link)
-  }, [])
-
-  useEffect(() => {
     if (!slug) return undefined
     let cancelled = false
     ;(async () => {
