@@ -51,6 +51,7 @@ export async function PUT(req, { params }) {
             description,
             discount,
             discountType,
+            maxDiscount,
             minPrice,
             minProductCount,
             specificProducts,
@@ -74,6 +75,11 @@ export async function PUT(req, { params }) {
             updateData.discountValue = parseFloat(discount); // Sync new field
         }
         if (discountType !== undefined) updateData.discountType = discountType;
+        if (maxDiscount !== undefined) {
+            updateData.maxDiscount = maxDiscount !== '' && maxDiscount !== null
+                ? parseFloat(maxDiscount)
+                : null;
+        }
         if (minPrice !== undefined) {
             updateData.minPrice = parseFloat(minPrice);
             updateData.minOrderValue = parseFloat(minPrice); // Sync new field

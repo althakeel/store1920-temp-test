@@ -83,6 +83,7 @@ export async function POST(req) {
             description,
             discount,
             discountType,
+            maxDiscount,
             minPrice,
             minProductCount,
             specificProducts,
@@ -117,6 +118,9 @@ export async function POST(req) {
             discount: parseFloat(discount),
             discountType: discountType || 'percentage',
             discountValue: parseFloat(discount), // Add new field
+            maxDiscount: maxDiscount !== undefined && maxDiscount !== '' && maxDiscount !== null
+                ? parseFloat(maxDiscount)
+                : undefined,
             minPrice: minPrice ? parseFloat(minPrice) : 0,
             minOrderValue: minPrice ? parseFloat(minPrice) : 0, // Add new field
             minProductCount: minProductCount ? parseInt(minProductCount) : null,
