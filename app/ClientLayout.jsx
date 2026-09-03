@@ -66,22 +66,39 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
       )}
       <Toaster
         position="top-center"
-        containerClassName="storefront-toaster"
+        containerClassName={hideStorefrontChrome ? 'store-toaster' : 'storefront-toaster'}
         containerStyle={{
-          top: 88,
+          top: hideStorefrontChrome ? 24 : 88,
           zIndex: 2147483000,
           pointerEvents: 'none',
         }}
-        toastOptions={{
-          style: {
-            zIndex: 2147483000,
-            background: 'transparent',
-            boxShadow: 'none',
-            padding: 0,
-            maxWidth: '28rem',
-            pointerEvents: 'none',
-          },
-        }}
+        toastOptions={
+          hideStorefrontChrome
+            ? {
+                duration: 2500,
+                style: {
+                  zIndex: 2147483000,
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 10px 30px rgba(15, 23, 42, 0.12)',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  maxWidth: '28rem',
+                  pointerEvents: 'auto',
+                },
+              }
+            : {
+                style: {
+                  zIndex: 2147483000,
+                  background: 'transparent',
+                  boxShadow: 'none',
+                  padding: 0,
+                  maxWidth: '28rem',
+                  pointerEvents: 'none',
+                },
+              }
+        }
       />
       <DynamicMetaTags />
       <AuthSessionGuard />

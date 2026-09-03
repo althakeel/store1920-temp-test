@@ -22,7 +22,10 @@ import {
     Rows3,
     Columns3,
     Eye,
+    Languages,
 } from 'lucide-react'
+
+const FEATURED_SAVE_TOAST_ID = 'featured-section-saved'
 
 const SOURCE_OPTIONS = [
     { id: 'manual', label: 'Manual', icon: Package, description: 'Pick products yourself' },
@@ -111,6 +114,9 @@ export default function HomePreferences() {
     const skipNextProductsFetchRef = useRef(false)
     const [featuredSectionTitle, setFeaturedSectionTitle] = useState('Craziest sale of the year!')
     const [featuredSectionSubtitle, setFeaturedSectionSubtitle] = useState('Select products to display in the featured section on your home page')
+    const [featuredSectionTitleAr, setFeaturedSectionTitleAr] = useState('')
+    const [featuredSectionSubtitleAr, setFeaturedSectionSubtitleAr] = useState('')
+    const [translatingCopy, setTranslatingCopy] = useState(false)
 
     const [designSettings, setDesignSettings] = useState({
         categorySliders: { enabled: true, title: 'Featured Collections', description: 'Browse our curated collections' },
@@ -235,13 +241,20 @@ export default function HomePreferences() {
             setSelectedTagsText(Array.isArray(featuredData.tags) ? featuredData.tags.join(', ') : '')
             if (featuredData.sectionTitle) setFeaturedSectionTitle(featuredData.sectionTitle)
             if (featuredData.sectionDescription) setFeaturedSectionSubtitle(featuredData.sectionDescription)
+            setFeaturedSectionTitleAr(featuredData.sectionTitleAr || '')
+            setFeaturedSectionSubtitleAr(featuredData.sectionDescriptionAr || '')
 
             if (data.appearance?.homeMenuCategories) {
+                const nextLayout = data.appearance.homeMenuCategories
+                const nextStyle = nextLayout.style === 'carousel' || nextLayout.style === 'horizontal'
+                    ? 'carousel'
+                    : 'grid'
                 setDesignSettings((prev) => ({
                     ...prev,
                     homeMenuCategories: {
                         ...prev.homeMenuCategories,
-                        ...data.appearance.homeMenuCategories,
+                        ...nextLayout,
+                        style: nextStyle,
                     },
                 }))
             }
@@ -357,7 +370,56 @@ export default function HomePreferences() {
         ))
     }
 
+    const translateFeaturedCopyToArabic = async () => {
+        const englishTitle = String(featuredSectionTitle || '').trim()
+        const englishSubtitle = String(featuredSectionSubtitle || '').trim()
+        if (!englishTitle && !englishSubtitle) {
+            toast.error('Enter English title or subtitle first')
+            return
+        }
+
+        try {
+            setTranslatingCopy(true)
+            const token = await getToken()
+            if (!token) {
+                toast.error('Please sign in again')
+                return
+            }
+
+            const translateText = async (text) => {
+                if (!text) return ''
+                const { data } = await axios.post(
+                    '/api/store/categories/translate-arabic',
+                    { text },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                )
+                return String(data?.descriptionAr || '').trim()
+            }
+
+            const [titleAr, subtitleAr] = await Promise.all([
+                translateText(englishTitle),
+                translateText(englishSubtitle),
+            ])
+
+            if (!titleAr && !subtitleAr) {
+                toast.error('Could not translate to Arabic')
+                return
+            }
+
+            if (titleAr) setFeaturedSectionTitleAr(titleAr)
+            if (subtitleAr) setFeaturedSectionSubtitleAr(subtitleAr)
+            toast.success('Arabic fields updated', { id: 'featured-copy-translated' })
+        } catch (error) {
+            console.error('Translate featured copy failed:', error)
+            toast.error(error?.response?.data?.error || 'Failed to translate to Arabic')
+        } finally {
+            setTranslatingCopy(false)
+        }
+    }
+
     const saveFeaturedProducts = async () => {
+        if (saving) return
+
         try {
             const normalizedTags = selectedTagsText
                 .split(',')
@@ -381,6 +443,10 @@ export default function HomePreferences() {
 
             setSaving(true)
             const token = await getToken()
+            const layoutStyle = designSettings.homeMenuCategories?.style === 'carousel' ? 'carousel' : 'grid'
+            const layoutRows = layoutStyle === 'carousel'
+                ? 1
+                : Number(designSettings.homeMenuCategories?.rows || 2)
             await axios.post('/api/store/featured-products',
                 {
                     productIds: selectedProducts,
@@ -389,6 +455,8 @@ export default function HomePreferences() {
                     tags: normalizedTags,
                     sectionTitle: featuredSectionTitle,
                     sectionDescription: featuredSectionSubtitle,
+                    sectionTitleAr: featuredSectionTitleAr,
+                    sectionDescriptionAr: featuredSectionSubtitleAr,
                 },
                 { headers: { Authorization: `Bearer ${token}` } }
             )
@@ -398,8 +466,9 @@ export default function HomePreferences() {
                     ...designSettings,
                     homeMenuCategories: {
                         ...designSettings.homeMenuCategories,
+                        style: layoutStyle,
                         itemsPerRow: Number(designSettings.homeMenuCategories?.itemsPerRow || 5),
-                        rows: Number(designSettings.homeMenuCategories?.rows || 2),
+                        rows: layoutRows,
                     },
                 },
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -409,19 +478,21 @@ export default function HomePreferences() {
                 const payload = {
                     sectionTitle: featuredSectionTitle,
                     sectionDescription: featuredSectionSubtitle,
+                    sectionTitleAr: featuredSectionTitleAr,
+                    sectionDescriptionAr: featuredSectionSubtitleAr,
                     layout: {
-                        style: designSettings.homeMenuCategories?.style || 'grid',
+                        style: layoutStyle,
                         itemsPerRow: Number(designSettings.homeMenuCategories?.itemsPerRow || 5),
-                        rows: Number(designSettings.homeMenuCategories?.rows || 2),
+                        rows: layoutRows,
                     },
                     updatedAt: Date.now(),
                 }
                 window.localStorage.setItem('featuredSectionLive', JSON.stringify(payload))
                 window.dispatchEvent(new CustomEvent('featuredSectionLiveUpdate', { detail: payload }))
             }
-            toast.success('Featured section saved')
+            toast.success('Featured section saved', { id: FEATURED_SAVE_TOAST_ID })
         } catch (error) {
-            toast.error('Failed to save featured products')
+            toast.error('Failed to save featured products', { id: FEATURED_SAVE_TOAST_ID })
             console.error(error)
         } finally {
             setSaving(false)
@@ -545,19 +616,32 @@ export default function HomePreferences() {
                                         ))}
                                     </div>
                                     <p className="mt-3 text-[11px] text-white/50">
-                                        {designSettings.homeMenuCategories?.style || 'grid'} ·{' '}
-                                        {designSettings.homeMenuCategories?.itemsPerRow || 5} per row ·{' '}
-                                        {designSettings.homeMenuCategories?.rows || 2} rows
+                                        {designSettings.homeMenuCategories?.style === 'carousel' ? 'carousel' : 'grid'} ·{' '}
+                                        {designSettings.homeMenuCategories?.itemsPerRow || 5}
+                                        {designSettings.homeMenuCategories?.style === 'carousel'
+                                            ? ' cards visible'
+                                            : ` per row · ${designSettings.homeMenuCategories?.rows || 2} rows`}
                                     </p>
                                 </div>
                             </div>
 
                             {/* Section copy */}
                             <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                                <h2 className="mb-4 text-sm font-semibold text-slate-900">Section copy</h2>
+                                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                                    <h2 className="text-sm font-semibold text-slate-900">Section copy</h2>
+                                    <button
+                                        type="button"
+                                        onClick={translateFeaturedCopyToArabic}
+                                        disabled={translatingCopy}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:border-violet-300 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {translatingCopy ? <Loader size={13} className="animate-spin" /> : <Languages size={13} />}
+                                        Translate to Arabic
+                                    </button>
+                                </div>
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="mb-1.5 block text-xs font-medium text-slate-500">Title</label>
+                                        <label className="mb-1.5 block text-xs font-medium text-slate-500">Title (English)</label>
                                         <input
                                             type="text"
                                             value={featuredSectionTitle}
@@ -567,11 +651,35 @@ export default function HomePreferences() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="mb-1.5 block text-xs font-medium text-slate-500">Subtitle</label>
+                                        <label className="mb-1.5 block text-xs font-medium text-slate-500">Subtitle (English)</label>
                                         <textarea
                                             value={featuredSectionSubtitle}
                                             onChange={(e) => setFeaturedSectionSubtitle(e.target.value)}
                                             placeholder="Grab the best deals before they're gone!"
+                                            rows={2}
+                                            className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-medium text-slate-500">Title (Arabic)</label>
+                                        <input
+                                            type="text"
+                                            dir="rtl"
+                                            lang="ar"
+                                            value={featuredSectionTitleAr}
+                                            onChange={(e) => setFeaturedSectionTitleAr(e.target.value)}
+                                            placeholder="عنوان القسم"
+                                            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-medium text-slate-500">Subtitle (Arabic)</label>
+                                        <textarea
+                                            dir="rtl"
+                                            lang="ar"
+                                            value={featuredSectionSubtitleAr}
+                                            onChange={(e) => setFeaturedSectionSubtitleAr(e.target.value)}
+                                            placeholder="وصف القسم"
                                             rows={2}
                                             className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
                                         />
@@ -676,23 +784,29 @@ export default function HomePreferences() {
                                     <div>
                                         <label className="mb-1.5 block text-xs font-medium text-slate-500">Display style</label>
                                         <select
-                                            value={designSettings.homeMenuCategories.style}
-                                            onChange={(e) => setDesignSettings({
-                                                ...designSettings,
-                                                homeMenuCategories: { ...designSettings.homeMenuCategories, style: e.target.value },
-                                            })}
+                                            value={designSettings.homeMenuCategories.style === 'carousel' ? 'carousel' : 'grid'}
+                                            onChange={(e) => {
+                                                const nextStyle = e.target.value === 'carousel' ? 'carousel' : 'grid'
+                                                setDesignSettings({
+                                                    ...designSettings,
+                                                    homeMenuCategories: {
+                                                        ...designSettings.homeMenuCategories,
+                                                        style: nextStyle,
+                                                        ...(nextStyle === 'carousel' ? { rows: 1 } : {}),
+                                                    },
+                                                })
+                                            }}
                                             className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
                                         >
                                             <option value="grid">Grid</option>
-                                            <option value="list">List</option>
                                             <option value="carousel">Carousel</option>
                                         </select>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className={`grid gap-3 ${designSettings.homeMenuCategories.style === 'carousel' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                         <div>
                                             <label className="mb-1.5 flex items-center gap-1 text-xs font-medium text-slate-500">
                                                 <Columns3 size={12} />
-                                                Per row
+                                                {designSettings.homeMenuCategories.style === 'carousel' ? 'Cards visible' : 'Per row'}
                                             </label>
                                             <input
                                                 type="number"
@@ -709,26 +823,28 @@ export default function HomePreferences() {
                                                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
                                             />
                                         </div>
-                                        <div>
-                                            <label className="mb-1.5 flex items-center gap-1 text-xs font-medium text-slate-500">
-                                                <Rows3 size={12} />
-                                                Rows
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="6"
-                                                value={designSettings.homeMenuCategories.rows || 2}
-                                                onChange={(e) => setDesignSettings({
-                                                    ...designSettings,
-                                                    homeMenuCategories: {
-                                                        ...designSettings.homeMenuCategories,
-                                                        rows: parseInt(e.target.value, 10) || 2,
-                                                    },
-                                                })}
-                                                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                                            />
-                                        </div>
+                                        {designSettings.homeMenuCategories.style !== 'carousel' && (
+                                            <div>
+                                                <label className="mb-1.5 flex items-center gap-1 text-xs font-medium text-slate-500">
+                                                    <Rows3 size={12} />
+                                                    Rows
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="6"
+                                                    value={designSettings.homeMenuCategories.rows || 2}
+                                                    onChange={(e) => setDesignSettings({
+                                                        ...designSettings,
+                                                        homeMenuCategories: {
+                                                            ...designSettings.homeMenuCategories,
+                                                            rows: parseInt(e.target.value, 10) || 2,
+                                                        },
+                                                    })}
+                                                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

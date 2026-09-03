@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import StorePreference from '@/models/StorePreference'
 import authSeller from '@/middlewares/authSeller'
-import { deleteCacheKey } from '@/lib/cache'
+import { deleteCacheKey, invalidateCachePattern } from '@/lib/cache'
 import { DEFAULT_FAST_DELIVERY_PAGE, normalizeFastDeliveryPage } from '@/lib/fastDeliveryPageSettings'
+import { DEFAULT_OFFERS_PAGE, normalizeOffersPage } from '@/lib/offersPageSettings'
 import {
   DEFAULT_WHATSAPP_PRODUCT_WIDGET,
   normalizeWhatsAppProductWidget,
@@ -18,6 +19,7 @@ const DEFAULT_APPEARANCE = {
   navbarMenu: { enabled: true, position: 'top', style: 'horizontal' },
   exploreYourInterests: { enabled: true, productIds: [] },
   fastDeliveryPage: DEFAULT_FAST_DELIVERY_PAGE,
+  offersPage: DEFAULT_OFFERS_PAGE,
   whatsappProductWidget: DEFAULT_WHATSAPP_PRODUCT_WIDGET,
   productPageInfo: {
     returnsText: 'Easy Returns',
@@ -162,6 +164,7 @@ function normalizeAppearance(data = {}) {
   const navbarMenu = data.navbarMenu || {}
   const exploreYourInterests = data.exploreYourInterests || {}
   const fastDeliveryPage = data.fastDeliveryPage || {}
+  const offersPage = data.offersPage || {}
   const productPageInfo = data.productPageInfo || {}
   const pageSeo = normalizePageSeo(data.pageSeo)
 
@@ -188,8 +191,8 @@ function normalizeAppearance(data = {}) {
     },
     homeMenuCategories: {
       enabled: typeof homeMenuCategories.enabled === 'boolean' ? homeMenuCategories.enabled : DEFAULT_APPEARANCE.homeMenuCategories.enabled,
-      style: ['grid', 'list', 'carousel', 'horizontal'].includes(homeMenuCategories.style)
-        ? homeMenuCategories.style
+      style: homeMenuCategories.style === 'carousel' || homeMenuCategories.style === 'horizontal'
+        ? 'carousel'
         : DEFAULT_APPEARANCE.homeMenuCategories.style,
       itemsPerRow: clampNumber(homeMenuCategories.itemsPerRow, 1, 10, DEFAULT_APPEARANCE.homeMenuCategories.itemsPerRow),
       rows: clampNumber(homeMenuCategories.rows, 1, 6, DEFAULT_APPEARANCE.homeMenuCategories.rows)
@@ -215,6 +218,7 @@ function normalizeAppearance(data = {}) {
         : DEFAULT_APPEARANCE.exploreYourInterests.productIds
     },
     fastDeliveryPage: normalizeFastDeliveryPage(fastDeliveryPage),
+    offersPage: normalizeOffersPage(offersPage),
     whatsappProductWidget: normalizeWhatsAppProductWidget(
       data.whatsappProductWidget || DEFAULT_APPEARANCE.whatsappProductWidget,
     ),
@@ -288,6 +292,9 @@ export async function POST(request) {
 
     deleteCacheKey('public:appearance-sections:v1')
     deleteCacheKey('public:appearance-sections:v2')
+    deleteCacheKey('public:appearance-sections:v3')
+    deleteCacheKey('public:appearance-sections:v4')
+    invalidateCachePattern('public:offers')
 
     return NextResponse.json({ message: 'Appearance settings saved', ...appearanceSections })
   } catch (error) {

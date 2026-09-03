@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/useAuth';
 import Loading from '@/components/Loading';
 import EmailCampaignBuilder from '@/components/store/EmailCampaignBuilder';
 import EmailGalleryPresetCard from '@/components/store/EmailGalleryPresetCard';
+import EmailCampaignLandingPages from '@/components/store/EmailCampaignLandingPages';
 import { getPresetBlocks } from '@/lib/emailCampaignPresets';
 import { listStockImagesForPicker } from '@/lib/emailTemplateStockImages';
 import { renderEmailFromBlocks } from '@/lib/emailCampaignBuilder';
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'send', label: 'Send campaign', icon: Mail },
   { id: 'gallery', label: 'Template gallery', icon: LayoutTemplate },
   { id: 'builder', label: 'Create / customize', icon: PenLine },
+  { id: 'pages', label: 'Landing pages', icon: Layers },
   { id: 'leads', label: 'Leads', icon: Inbox },
   { id: 'history', label: 'History', icon: Clock },
 ];
@@ -1802,6 +1804,10 @@ export default function PromotionalEmailsPage() {
             getToken={getToken}
           />
         </div>
+      )}
+
+      {tab === 'pages' && (
+        <EmailCampaignLandingPages getToken={getToken} />
       )}
 
       {tab === 'leads' && (

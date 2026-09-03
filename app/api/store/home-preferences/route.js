@@ -20,6 +20,8 @@ const DEFAULT_FEATURED = {
   tags: [],
   sectionTitle: 'Craziest sale of the year!',
   sectionDescription: "Grab the best deals before they're gone!",
+  sectionTitleAr: '',
+  sectionDescriptionAr: '',
 };
 
 export async function GET(request) {
@@ -60,7 +62,7 @@ export async function GET(request) {
 
     const [store, preference, categories, picker] = await Promise.all([
       Store.findById(storeId)
-        .select('featuredProductIds featuredProductsSource featuredProductsCategoryIds featuredProductsTags featuredSectionTitle featuredSectionDescription')
+        .select('featuredProductIds featuredProductsSource featuredProductsCategoryIds featuredProductsTags featuredSectionTitle featuredSectionDescription featuredSectionTitleAr featuredSectionDescriptionAr')
         .lean(),
       StorePreference.findOne({ storeId }).select('appearanceSections.homeMenuCategories').lean(),
       Category.find({}).select('_id name parentId').sort({ name: 1 }).lean(),
@@ -85,6 +87,8 @@ export async function GET(request) {
         tags: Array.isArray(store?.featuredProductsTags) ? store.featuredProductsTags : [],
         sectionTitle: store?.featuredSectionTitle || DEFAULT_FEATURED.sectionTitle,
         sectionDescription: store?.featuredSectionDescription || DEFAULT_FEATURED.sectionDescription,
+        sectionTitleAr: store?.featuredSectionTitleAr || '',
+        sectionDescriptionAr: store?.featuredSectionDescriptionAr || '',
       },
       appearance: {
         homeMenuCategories: pickHomeLayout(preference?.appearanceSections),

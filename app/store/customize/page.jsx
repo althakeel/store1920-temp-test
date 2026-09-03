@@ -18,6 +18,7 @@ import {
   Search,
   Truck,
   MessageCircle,
+  Tag,
 } from 'lucide-react'
 
 const designPages = [
@@ -113,6 +114,12 @@ const selectionPages = [
     description: 'Edit the Top Picks section title and choose products manually, by category, or by tags.',
     href: '/store/featured-products',
     icon: Package,
+  },
+  {
+    title: 'Today\'s Deals / Offers',
+    description: 'Edit /offers title and subtitle, and choose products by discount, search, or category.',
+    href: '/store/customize/offers',
+    icon: Tag,
   },
   {
     title: 'Top Deals',

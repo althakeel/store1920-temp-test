@@ -3,12 +3,13 @@ import connectDB from '@/lib/mongodb'
 import StorePreference from '@/models/StorePreference'
 import { getCachedData, setCachedData } from '@/lib/cache'
 import { DEFAULT_FAST_DELIVERY_PAGE, normalizeFastDeliveryPage } from '@/lib/fastDeliveryPageSettings'
+import { DEFAULT_OFFERS_PAGE, normalizeOffersPage } from '@/lib/offersPageSettings'
 import {
   DEFAULT_WHATSAPP_PRODUCT_WIDGET,
   normalizeWhatsAppProductWidget,
 } from '@/lib/whatsappProductWidget'
 
-const APPEARANCE_CACHE_KEY = 'public:appearance-sections:v3'
+const APPEARANCE_CACHE_KEY = 'public:appearance-sections:v4'
 
 const DEFAULT_APPEARANCE = {
   categorySliders: { enabled: true, title: 'Featured Collections', description: 'Browse our curated collections' },
@@ -19,6 +20,7 @@ const DEFAULT_APPEARANCE = {
   navbarMenu: { enabled: true, position: 'top', style: 'horizontal' },
   exploreYourInterests: { enabled: true, productIds: [] },
   fastDeliveryPage: DEFAULT_FAST_DELIVERY_PAGE,
+  offersPage: DEFAULT_OFFERS_PAGE,
   whatsappProductWidget: DEFAULT_WHATSAPP_PRODUCT_WIDGET,
   productPageInfo: {
     returnsText: 'Easy Returns',
@@ -147,13 +149,14 @@ function normalizePublic(data = {}) {
   const homeMenuCategories = data.homeMenuCategories || {}
   const exploreYourInterests = data.exploreYourInterests || {}
   const fastDeliveryPage = data.fastDeliveryPage || {}
+  const offersPage = data.offersPage || {}
   const productPageInfo = data.productPageInfo || {}
   const pageSeo = normalizePageSeo(data.pageSeo)
   return {
     homeMenuCategories: {
       enabled: typeof homeMenuCategories.enabled === 'boolean' ? homeMenuCategories.enabled : DEFAULT_APPEARANCE.homeMenuCategories.enabled,
-      style: ['grid', 'list', 'carousel', 'horizontal'].includes(homeMenuCategories.style)
-        ? homeMenuCategories.style
+      style: homeMenuCategories.style === 'carousel' || homeMenuCategories.style === 'horizontal'
+        ? 'carousel'
         : DEFAULT_APPEARANCE.homeMenuCategories.style,
       itemsPerRow: Math.max(1, Math.min(10, Number(homeMenuCategories.itemsPerRow || DEFAULT_APPEARANCE.homeMenuCategories.itemsPerRow))),
       rows: Math.max(1, Math.min(6, Number(homeMenuCategories.rows || DEFAULT_APPEARANCE.homeMenuCategories.rows)))
@@ -174,6 +177,7 @@ function normalizePublic(data = {}) {
         : DEFAULT_APPEARANCE.exploreYourInterests.productIds
     },
     fastDeliveryPage: normalizeFastDeliveryPage(fastDeliveryPage),
+    offersPage: normalizeOffersPage(offersPage),
     whatsappProductWidget: normalizeWhatsAppProductWidget(
       data.whatsappProductWidget || DEFAULT_APPEARANCE.whatsappProductWidget,
     ),

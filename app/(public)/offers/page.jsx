@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
-import { OFFERS_PAGE_SIZE } from '@/lib/offersCatalog';
+import { OFFERS_PAGE_SIZE } from '@/lib/offersPageSettings';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 
 function OffersGridSkeleton() {
@@ -26,6 +26,9 @@ export default function OffersPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [eyebrow, setEyebrow] = useState('Hot Deals');
+  const [title, setTitle] = useState('Special Offers');
+  const [subtitle, setSubtitle] = useState('Products with over 60% discount');
   const [pagination, setPagination] = useState({
     page: 1,
     limit: OFFERS_PAGE_SIZE,
@@ -52,6 +55,9 @@ export default function OffersPage() {
         total: 0,
         totalPages: 1,
       });
+      if (typeof data?.eyebrow === 'string' && data.eyebrow.trim()) setEyebrow(data.eyebrow.trim());
+      if (typeof data?.title === 'string' && data.title.trim()) setTitle(data.title.trim());
+      if (typeof data?.subtitle === 'string' && data.subtitle.trim()) setSubtitle(data.subtitle.trim());
     } catch {
       setProducts([]);
       setPagination({
@@ -105,13 +111,13 @@ export default function OffersPage() {
 
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-red-600">
-              Hot Deals
+              {eyebrow}
             </span>
             <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
-              Special Offers
+              {title}
             </h1>
             <p className="mt-2 text-sm text-gray-600 sm:text-base">
-              Products with over 60% discount
+              {subtitle}
             </p>
           </div>
         </div>

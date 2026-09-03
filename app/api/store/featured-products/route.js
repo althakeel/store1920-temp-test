@@ -14,7 +14,9 @@ const DEFAULT_FEATURED_RESPONSE = {
     categoryIds: [],
     tags: [],
     sectionTitle: 'Craziest sale of the year!',
-    sectionDescription: "Grab the best deals before they're gone!"
+    sectionDescription: "Grab the best deals before they're gone!",
+    sectionTitleAr: '',
+    sectionDescriptionAr: '',
 }
 
 function createFeaturedResponse(payload, cacheable = false) {
@@ -109,6 +111,8 @@ export async function GET(request) {
         const tags = normalizeList(store?.featuredProductsTags)
         const sectionTitle = store?.featuredSectionTitle || 'Craziest sale of the year!'
         const sectionDescription = store?.featuredSectionDescription || "Grab the best deals before they're gone!"
+        const sectionTitleAr = store?.featuredSectionTitleAr || ''
+        const sectionDescriptionAr = store?.featuredSectionDescriptionAr || ''
 
         const resolveProducts = async () => {
             if (isManualFeaturedSelection(sourceMode, productIds)) {
@@ -142,7 +146,9 @@ export async function GET(request) {
                 categoryIds,
                 tags,
                 sectionTitle,
-                sectionDescription
+                sectionDescription,
+                sectionTitleAr,
+                sectionDescriptionAr,
             }
             if (cacheKey) setCachedData(cacheKey, payload, 120)
             return createFeaturedResponse(payload, isPublicRequest)
@@ -163,6 +169,8 @@ export async function GET(request) {
             tags,
             sectionTitle,
             sectionDescription,
+            sectionTitleAr,
+            sectionDescriptionAr,
             products
         }
         if (cacheKey) setCachedData(cacheKey, payload, 120)
@@ -188,7 +196,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Store not found for user' }, { status: 404 })
         }
 
-        const { productIds, sourceMode, categoryIds, tags, sectionTitle, sectionDescription } = await request.json()
+        const { productIds, sourceMode, categoryIds, tags, sectionTitle, sectionDescription, sectionTitleAr, sectionDescriptionAr } = await request.json()
 
         // Validate productIds is an array
         if (!Array.isArray(productIds)) {
@@ -208,7 +216,9 @@ export async function POST(request) {
                 featuredProductsCategoryIds: normalizedCategoryIds,
                 featuredProductsTags: normalizedTags,
                 ...(typeof sectionTitle === 'string' ? { featuredSectionTitle: sectionTitle.trim() } : {}),
-                ...(typeof sectionDescription === 'string' ? { featuredSectionDescription: sectionDescription.trim() } : {})
+                ...(typeof sectionDescription === 'string' ? { featuredSectionDescription: sectionDescription.trim() } : {}),
+                ...(typeof sectionTitleAr === 'string' ? { featuredSectionTitleAr: sectionTitleAr.trim() } : {}),
+                ...(typeof sectionDescriptionAr === 'string' ? { featuredSectionDescriptionAr: sectionDescriptionAr.trim() } : {}),
             },
             { new: true, strict: false }
         )
@@ -222,7 +232,9 @@ export async function POST(request) {
             categoryIds: updatedStore.featuredProductsCategoryIds || [],
             tags: updatedStore.featuredProductsTags || [],
             sectionTitle: updatedStore.featuredSectionTitle,
-            sectionDescription: updatedStore.featuredSectionDescription
+            sectionDescription: updatedStore.featuredSectionDescription,
+            sectionTitleAr: updatedStore.featuredSectionTitleAr || '',
+            sectionDescriptionAr: updatedStore.featuredSectionDescriptionAr || '',
         })
     } catch (error) {
         console.error('Error saving featured products:', error)
