@@ -111,6 +111,15 @@ export async function GET(request) {
 
     console.log('[email-history] Stats:', statsByStatus);
 
+    const recentFailures = await EmailHistory.find({
+      ...statsMatch,
+      status: 'failed',
+    })
+      .sort({ sentAt: -1 })
+      .limit(10)
+      .select('recipientEmail recipientName subject errorMessage sentAt')
+      .lean();
+
     return NextResponse.json({
       history,
       pagination: {
@@ -119,7 +128,8 @@ export async function GET(request) {
         total,
         pages: Math.ceil(total / limit)
       },
-      stats: statsByStatus
+      stats: statsByStatus,
+      recentFailures,
     });
   } catch (error) {
     console.error('[email-history API] Error:', error);

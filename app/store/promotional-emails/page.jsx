@@ -62,6 +62,7 @@ export default function PromotionalEmailsPage() {
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState({ sent: 0, failed: 0, pending: 0, opened: 0, clicked: 0, opens: 0, clicks: 0 });
+  const [recentFailures, setRecentFailures] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -130,10 +131,19 @@ export default function PromotionalEmailsPage() {
   }, []);
 
   useEffect(() => {
-    if (tab === 'history') loadHistory(page);
+    if (tab === 'history') {
+      // Always start at page 1 when switching filter so Failed/Pending aren't empty on a deep page.
+      setSendStatus('');
+      loadHistory(1);
+    }
     if (tab === 'send') loadActiveCampaigns();
-    if (tab === 'leads') loadLeads(leadsPage);
-  }, [page, statusFilter, tab, leadsPage, leadsStatusFilter]);
+    if (tab === 'leads') loadLeads(1);
+  }, [statusFilter, tab, leadsStatusFilter]);
+
+  useEffect(() => {
+    if (tab === 'history' && page > 1) loadHistory(page);
+    if (tab === 'leads' && leadsPage > 1) loadLeads(leadsPage);
+  }, [page, leadsPage]);
 
   const authHeaders = async () => {
     const token = await getToken();
@@ -151,10 +161,12 @@ export default function PromotionalEmailsPage() {
       );
       setHistory(data.history || []);
       setStats(data.stats || { sent: 0, failed: 0, pending: 0, opened: 0, clicked: 0, opens: 0, clicks: 0 });
+      setRecentFailures(Array.isArray(data.recentFailures) ? data.recentFailures : []);
       setTotal(data.pagination?.total || 0);
       setPage(pageNumber);
     } catch (error) {
       console.error('Error loading promotional email history:', error);
+      setSendStatus(error?.response?.data?.error || 'Failed to load email history.');
     } finally {
       setLoading(false);
     }
@@ -2034,15 +2046,47 @@ export default function PromotionalEmailsPage() {
       {tab === 'history' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <StatCard icon={CheckCircle} title="Sent" value={stats.sent} color="green" />
+            <button type="button" onClick={() => setStatusFilter('sent')} className="text-left">
+              <StatCard icon={CheckCircle} title="Sent" value={stats.sent} color="green" />
+            </button>
             <StatCard icon={Eye} title="Opened" value={stats.opened || 0} color="blue" />
             <StatCard icon={MousePointerClick} title="Clicked" value={stats.clicked || 0} color="teal" />
-            <StatCard icon={AlertCircle} title="Failed" value={stats.failed} color="red" />
-            <StatCard icon={Clock} title="Pending" value={stats.pending} color="orange" />
+            <button type="button" onClick={() => setStatusFilter('failed')} className="text-left">
+              <StatCard icon={AlertCircle} title="Failed" value={stats.failed} color="red" />
+            </button>
+            <button type="button" onClick={() => setStatusFilter('pending')} className="text-left">
+              <StatCard icon={Clock} title="Pending" value={stats.pending} color="orange" />
+            </button>
           </div>
           <p className="text-xs text-slate-500">
             Opens and clicks update when customers open the email or tap a link. Total open events: {stats.opens || 0}. Total click events: {stats.clicks || 0}.
+            {' '}Click Sent / Failed / Pending cards to filter the table.
           </p>
+
+          {Number(stats.failed) > 0 ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold">{stats.failed} email(s) failed to send</p>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('failed')}
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-red-700 ring-1 ring-red-200"
+                >
+                  Show failed only
+                </button>
+              </div>
+              {recentFailures.length ? (
+                <ul className="mt-2 space-y-1.5 text-xs">
+                  {recentFailures.map((row) => (
+                    <li key={row._id || `${row.recipientEmail}-${row.sentAt}`}>
+                      <span className="font-medium">{row.recipientEmail}</span>
+                      {row.errorMessage ? ` — ${row.errorMessage}` : ' — Unknown error'}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between">
             <div>
