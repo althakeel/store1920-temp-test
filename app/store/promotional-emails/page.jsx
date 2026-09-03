@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { Mail, AlertCircle, CheckCircle, Clock, LayoutTemplate, PenLine, Users, Eye, X, Sparkles, FolderOpen, Layers, Search, CheckSquare, Square, Inbox } from 'lucide-react';
+import { Mail, AlertCircle, CheckCircle, Clock, LayoutTemplate, PenLine, Users, Eye, X, Sparkles, FolderOpen, Layers, Search, CheckSquare, Square, Inbox, StopCircle } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import Loading from '@/components/Loading';
 import EmailCampaignBuilder from '@/components/store/EmailCampaignBuilder';
@@ -110,6 +110,8 @@ export default function PromotionalEmailsPage() {
   const [sendProgress, setSendProgress] = useState({ done: 0, total: 0 });
   const [sendSubject, setSendSubject] = useState('');
   const [sendSubjectTouched, setSendSubjectTouched] = useState(false);
+  const sendAbortRef = useRef(null);
+  const sendCancelRequestedRef = useRef(false);
 
   const [leads, setLeads] = useState([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
@@ -724,6 +726,13 @@ export default function PromotionalEmailsPage() {
     setSelectAllCustomers(false);
   };
 
+  const cancelSendQueue = () => {
+    if (!sending) return;
+    sendCancelRequestedRef.current = true;
+    sendAbortRef.current?.abort?.();
+    setSendStatus('Cancelling send… finishing the current batch, then stopping.');
+  };
+
   const handleSendPromotional = async () => {
     const payload = buildSendPayload();
     const hasTemplate = Boolean(
@@ -772,6 +781,9 @@ export default function PromotionalEmailsPage() {
     }
 
     const emailsToSend = [...selectedEmails];
+    sendCancelRequestedRef.current = false;
+    const abortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    sendAbortRef.current = abortController;
 
     try {
       setSending(true);
@@ -788,7 +800,11 @@ export default function PromotionalEmailsPage() {
           customerEmails: emailsToSend,
           audience,
           timezone: 'Asia/Dubai',
-        }, { headers });
+        }, { headers, signal: abortController?.signal });
+        if (sendCancelRequestedRef.current) {
+          setSendStatus('Send cancelled before the daily campaign was created.');
+          return;
+        }
         clearAudienceSelection();
         setSendProgress({ done: emailsToSend.length, total: emailsToSend.length });
         setSendStatus(
@@ -805,7 +821,11 @@ export default function PromotionalEmailsPage() {
           customerEmails: emailsToSend,
           audience,
           timezone: 'Asia/Dubai',
-        }, { headers });
+        }, { headers, signal: abortController?.signal });
+        if (sendCancelRequestedRef.current) {
+          setSendStatus('Send cancelled before the schedule was created.');
+          return;
+        }
         clearAudienceSelection();
         setSendProgress({ done: emailsToSend.length, total: emailsToSend.length });
         const whenLabel = upcomingScheduleTimes
@@ -819,10 +839,16 @@ export default function PromotionalEmailsPage() {
       } else {
         let sent = 0;
         let failed = 0;
+        let cancelled = false;
         const total = emailsToSend.length;
         const batches = Math.ceil(total / SEND_BATCH_SIZE);
 
         for (let index = 0; index < total; index += SEND_BATCH_SIZE) {
+          if (sendCancelRequestedRef.current) {
+            cancelled = true;
+            break;
+          }
+
           const chunk = emailsToSend.slice(index, index + SEND_BATCH_SIZE);
           const batchNumber = Math.floor(index / SEND_BATCH_SIZE) + 1;
           setSendStatus(
@@ -838,25 +864,42 @@ export default function PromotionalEmailsPage() {
             totalRecipients: total,
             audience,
             scheduleTime: null,
-          }, { headers });
+          }, { headers, signal: abortController?.signal });
 
           sent += Number(data.emailsSent || 0);
           failed += Number(data.emailsFailed || 0);
           setSendProgress({ done: Math.min(index + chunk.length, total), total });
         }
 
-        clearAudienceSelection();
-        setSendStatus(
-          failed > 0
-            ? `Sent ${sent} of ${total} customer(s). ${failed} failed — check History.`
-            : `Sent to ${sent} customer(s).`,
-        );
+        if (cancelled || sendCancelRequestedRef.current) {
+          setSendStatus(
+            `Send cancelled. ${sent} of ${total} email(s) already went out`
+            + (failed > 0 ? ` (${failed} failed).` : '.'),
+          );
+        } else {
+          clearAudienceSelection();
+          setSendStatus(
+            failed > 0
+              ? `Sent ${sent} of ${total} customer(s). ${failed} failed — check History.`
+              : `Sent to ${sent} customer(s).`,
+          );
+        }
       }
       loadHistory(1);
     } catch (error) {
-      const msg = error?.response?.data?.error || error?.response?.data?.message || error.message;
-      setSendStatus(msg || 'Failed to send promotional emails.');
+      const canceled = sendCancelRequestedRef.current
+        || error?.code === 'ERR_CANCELED'
+        || error?.name === 'CanceledError'
+        || error?.name === 'AbortError';
+      if (canceled) {
+        setSendStatus('Send cancelled. Emails already sent in earlier batches will still be delivered.');
+      } else {
+        const msg = error?.response?.data?.error || error?.response?.data?.message || error.message;
+        setSendStatus(msg || 'Failed to send promotional emails.');
+      }
     } finally {
+      sendAbortRef.current = null;
+      sendCancelRequestedRef.current = false;
       setSending(false);
     }
   };
@@ -919,12 +962,24 @@ export default function PromotionalEmailsPage() {
       </div>
 
       {sendStatus && (
-        <div className={`rounded-xl px-4 py-3 text-sm ${
-          sendStatus.includes('Failed') || sendStatus.includes('Please')
-            ? 'border border-red-200 bg-red-50 text-red-800'
+        <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm ${
+          sendStatus.includes('Failed') || sendStatus.includes('Please') || sendStatus.includes('cancelled') || sendStatus.includes('Cancelling')
+            ? sendStatus.includes('Cancelling') || sendStatus.includes('cancelled')
+              ? 'border border-amber-200 bg-amber-50 text-amber-900'
+              : 'border border-red-200 bg-red-50 text-red-800'
             : 'border border-emerald-200 bg-emerald-50 text-emerald-800'
         }`}>
-          {sendStatus}
+          <span>{sendStatus}</span>
+          {sending ? (
+            <button
+              type="button"
+              onClick={cancelSendQueue}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50"
+            >
+              <StopCircle className="h-3.5 w-3.5" />
+              Cancel send
+            </button>
+          ) : null}
         </div>
       )}
 
@@ -1427,6 +1482,16 @@ export default function PromotionalEmailsPage() {
                     <span className="text-slate-400">Select customers to continue</span>
                   )}
                 </div>
+                {sending ? (
+                  <button
+                    type="button"
+                    onClick={cancelSendQueue}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-white px-5 py-2.5 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-50"
+                  >
+                    <StopCircle className="h-4 w-4" />
+                    Cancel send
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleSendPromotional}

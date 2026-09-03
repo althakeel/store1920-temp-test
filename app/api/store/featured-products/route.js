@@ -81,7 +81,7 @@ export async function GET(request) {
         }
 
         const isPublicRequest = !userId
-        const cacheKey = isPublicRequest ? `public:featured-products:api:v1:${includeProducts}:${limit}` : null
+        const cacheKey = isPublicRequest ? `public:featured-products:api:v2:${includeProducts}:${limit}` : null
         if (cacheKey) {
             const cached = getCachedData(cacheKey)
             if (cached) {

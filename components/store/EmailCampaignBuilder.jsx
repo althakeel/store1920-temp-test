@@ -2901,12 +2901,7 @@ export default function EmailCampaignBuilder({
       if (event.data?.type === 'email-preview-link-click') {
         const href = String(event.data.href || '').trim();
         if (!href || href === '#') return;
-        const label = href.startsWith('mailto:')
-          ? 'Open your email app for this address?'
-          : 'Open this link in a new tab?';
-        if (window.confirm(label)) {
-          window.open(href, '_blank', 'noopener,noreferrer');
-        }
+        window.open(href, '_blank', 'noopener,noreferrer');
       }
     };
     window.addEventListener('message', onMessage);

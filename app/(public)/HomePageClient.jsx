@@ -106,8 +106,12 @@ export default function HomePageClient({ initialData }) {
         ) : null}
         <LatestProducts
           initialProducts={featuredProducts.products}
-          initialSectionTitle={featuredProducts.sectionTitle}
-          initialSectionDescription={featuredProducts.sectionDescription}
+          initialSectionTitle={featuredProducts.sectionTitleEn || featuredProducts.sectionTitle}
+          initialSectionDescription={
+            featuredProducts.sectionDescriptionEn || featuredProducts.sectionDescription
+          }
+          initialSectionTitleAr={featuredProducts.sectionTitleAr || ''}
+          initialSectionDescriptionAr={featuredProducts.sectionDescriptionAr || ''}
           initialLayout={appearance?.homeMenuCategories}
         />
         {featuredSectionsCount === 0 && <BannerSlider config={shopShowcaseConfig} />}

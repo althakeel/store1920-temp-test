@@ -34,6 +34,8 @@ const BestSelling = ({
   initialProducts = null,
   initialSectionTitle = null,
   initialSectionDescription = null,
+  initialSectionTitleAr = null,
+  initialSectionDescriptionAr = null,
   initialLayout = null,
 }) => {
   const hasInitialProducts = Array.isArray(initialProducts) && initialProducts.length > 0
@@ -44,8 +46,8 @@ const BestSelling = ({
   const [error, setError] = useState(null)
   const [sectionTitle, setSectionTitle] = useState(initialSectionTitle || 'Craziest sale of the year!')
   const [sectionDescription, setSectionDescription] = useState(initialSectionDescription || "Grab the best deals before they're gone!")
-  const [sectionTitleAr, setSectionTitleAr] = useState('')
-  const [sectionDescriptionAr, setSectionDescriptionAr] = useState('')
+  const [sectionTitleAr, setSectionTitleAr] = useState(String(initialSectionTitleAr || ''))
+  const [sectionDescriptionAr, setSectionDescriptionAr] = useState(String(initialSectionDescriptionAr || ''))
   const [layoutSettings, setLayoutSettings] = useState(() => {
     const homeMenu = initialLayout || {}
     return {
@@ -192,11 +194,13 @@ const BestSelling = ({
   }, [])
 
   useEffect(() => {
+    if (authLoading && !hasInitialProducts) return
     if (skipInitialFetchRef.current) {
       skipInitialFetchRef.current = false
+      // SSR already has products; still refresh copy (EN/AR) without blocking.
+      fetchFeaturedAndSectionText()
       return
     }
-    if (authLoading && !hasInitialProducts) return
     fetchFeaturedAndSectionText()
   }, [fetchFeaturedAndSectionText, user?.uid, authLoading, hasInitialProducts])
 

@@ -7,8 +7,7 @@ import EmailHistory from '@/models/EmailHistory';
 import EmailTemplate from '@/models/EmailTemplate';
 import { sendMail } from '@/lib/email';
 import { getRandomTemplate, getTemplateById, getAllTemplateIds } from '@/lib/promotionalEmailTemplates';
-import { withBrandEmailLogo } from '@/lib/brandLogo';
-import { mapProductsForEmail, renderEmailFromBlocks } from '@/lib/emailCampaignBuilder';
+import { mapProductsForEmail, renderEmailFromBlocks, absolutizeEmailHtmlImages } from '@/lib/emailCampaignBuilder';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
 import { assertMarketingRecipientLimit, assertMarketingRecipientCount } from '@/lib/emailMarketingLimits';
 import mongoose from 'mongoose';
@@ -173,7 +172,7 @@ export async function GET() {
 
     for (const customer of customers) {
       try {
-        const htmlContent = withBrandEmailLogo(template.template(products, customer.email));
+        const htmlContent = absolutizeEmailHtmlImages(template.template(products, customer.email));
         const customerFirstName = customer.name ? customer.name.split(' ')[0] : 'there';
         const personalizedSubject = `HEY ${customerFirstName.toUpperCase()}! ${template.subject}`;
 
@@ -287,7 +286,7 @@ export async function POST(request) {
     const results = [];
     for (const customer of customers) {
       try {
-        const htmlContent = withBrandEmailLogo(campaign.render(customer.email));
+        const htmlContent = absolutizeEmailHtmlImages(campaign.render(customer.email));
         const customerFirstName = customer.name ? String(customer.name).split(' ')[0] : 'there';
         const personalizedSubject = `HEY ${customerFirstName.toUpperCase()}! ${campaign.subject}`;
 

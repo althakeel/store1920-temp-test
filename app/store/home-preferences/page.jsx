@@ -599,8 +599,18 @@ export default function HomePreferences() {
                                     Storefront preview
                                 </div>
                                 <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-violet-900 p-5 text-white">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-white/50">English</p>
                                     <p className="text-lg font-bold leading-tight">{featuredSectionTitle || 'Section title'}</p>
                                     <p className="mt-1 text-sm text-white/70">{featuredSectionSubtitle || 'Section subtitle'}</p>
+                                    <div className="mt-4 border-t border-white/10 pt-3">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-white/50">Arabic</p>
+                                        <p dir="rtl" lang="ar" className="mt-1 text-lg font-bold leading-tight">
+                                            {featuredSectionTitleAr || 'عنوان القسم'}
+                                        </p>
+                                        <p dir="rtl" lang="ar" className="mt-1 text-sm text-white/70">
+                                            {featuredSectionSubtitleAr || 'وصف القسم'}
+                                        </p>
+                                    </div>
                                     <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
                                         {(previewItems.length ? previewItems : [1, 2, 3, 4, 5]).map((item, index) => (
                                             <div
