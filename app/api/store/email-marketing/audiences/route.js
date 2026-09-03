@@ -14,6 +14,7 @@ import {
   normalizeEmailAudience,
   summarizeEmailAudiences,
   toEmailAudienceRecipient,
+  dedupeEmailAudienceRecipients,
 } from '@/lib/emailAudiences';
 
 async function getStoreId(request) {
@@ -94,8 +95,9 @@ export async function GET(request) {
     });
 
     const audiences = summarizeEmailAudiences(withPrefs);
-    const filtered = filterCustomersByEmailAudience(withPrefs, audience)
-      .map(toEmailAudienceRecipient);
+    const filtered = dedupeEmailAudienceRecipients(
+      filterCustomersByEmailAudience(withPrefs, audience).map(toEmailAudienceRecipient),
+    );
 
     return NextResponse.json({
       success: true,

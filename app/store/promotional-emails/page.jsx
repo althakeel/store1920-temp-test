@@ -522,48 +522,65 @@ export default function PromotionalEmailsPage() {
     ));
   }, [customers, customerSearch]);
 
-  const excludedSet = useMemo(() => new Set(excludedCustomers.map(String)), [excludedCustomers]);
-  const selectedSet = useMemo(() => new Set(selectedCustomers.map(String)), [selectedCustomers]);
+  const excludedSet = useMemo(
+    () => new Set(excludedCustomers.map((item) => String(item).toLowerCase())),
+    [excludedCustomers],
+  );
+  const selectedSet = useMemo(
+    () => new Set(selectedCustomers.map((item) => String(item).toLowerCase())),
+    [selectedCustomers],
+  );
 
   const selectedCount = useMemo(() => {
     if (selectAllCustomers) {
-      return Math.max(0, filteredCustomers.length - filteredCustomers.filter((c) => excludedSet.has(String(c.id))).length);
+      return Math.max(0, filteredCustomers.length - filteredCustomers.filter((c) => excludedSet.has(String(c.id).toLowerCase())).length);
     }
-    return filteredCustomers.filter((c) => selectedSet.has(String(c.id))).length;
-  }, [filteredCustomers, selectAllCustomers, excludedSet, selectedSet]);
+    // Count across full audience, not only the current search filter.
+    return selectedCustomers.length;
+  }, [filteredCustomers, selectAllCustomers, excludedSet, selectedCustomers]);
 
   const selectedEmails = useMemo(() => {
-    const rows = selectAllCustomers
-      ? filteredCustomers.filter((customer) => !excludedSet.has(String(customer.id)))
-      : filteredCustomers.filter((customer) => selectedSet.has(String(customer.id)));
+    if (selectAllCustomers) {
+      return filteredCustomers
+        .filter((customer) => !excludedSet.has(String(customer.id).toLowerCase()))
+        .filter((customer) => !customer.promotionalOptOut)
+        .map((customer) => String(customer.email || '').trim().toLowerCase())
+        .filter((email) => email.includes('@'));
+    }
+    // selectedCustomers already stores unique lowercase emails
+    return selectedCustomers
+      .map((email) => String(email || '').trim().toLowerCase())
+      .filter((email) => email.includes('@'));
+  }, [filteredCustomers, selectAllCustomers, excludedSet, selectedCustomers]);
 
-    return rows
-      .filter((customer) => !customer.promotionalOptOut)
-      .map((customer) => customer.email)
-      .filter(Boolean);
-  }, [filteredCustomers, selectAllCustomers, excludedSet, selectedSet]);
-
-  const isCustomerSelected = (customerId) => {
-    const id = String(customerId);
+  const isCustomerSelected = (customer) => {
+    const id = String(customer?.id || customer?.email || '').trim().toLowerCase();
+    if (!id) return false;
     if (selectAllCustomers) return !excludedSet.has(id);
     return selectedSet.has(id);
   };
 
-  const toggleCustomer = (customerId) => {
-    const id = String(customerId);
+  const toggleCustomer = (customerOrId) => {
+    const id = typeof customerOrId === 'object' && customerOrId
+      ? String(customerOrId.id || customerOrId.email || '').trim().toLowerCase()
+      : String(customerOrId || '').trim().toLowerCase();
+    if (!id || !id.includes('@')) return;
+
     if (selectAllCustomers) {
       setExcludedCustomers((prev) => (
-        prev.map(String).includes(id)
-          ? prev.filter((item) => String(item) !== id)
+        prev.map((item) => String(item).toLowerCase()).includes(id)
+          ? prev.filter((item) => String(item).toLowerCase() !== id)
           : [...prev, id]
       ));
       return;
     }
-    setSelectedCustomers((prev) => (
-      prev.map(String).includes(id)
-        ? prev.filter((item) => String(item) !== id)
-        : [...prev, id]
-    ));
+    setSelectedCustomers((prev) => {
+      const normalized = prev.map((item) => String(item).toLowerCase());
+      if (normalized.includes(id)) {
+        return prev.filter((item) => String(item).toLowerCase() !== id);
+      }
+      return [...prev, id];
+    });
   };
 
   const handleSelectAll = (checked) => {
@@ -1302,11 +1319,12 @@ export default function PromotionalEmailsPage() {
                       </div>
                     ) : (
                       filteredCustomers.map((customer) => {
-                        const checked = isCustomerSelected(customer.id);
+                        const checked = isCustomerSelected(customer);
                         const optedOut = Boolean(customer.promotionalOptOut);
+                        const rowKey = String(customer.id || customer.email || '').toLowerCase();
                         return (
                           <label
-                            key={customer.id}
+                            key={rowKey}
                             className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition ${
                               optedOut
                                 ? 'border-amber-200 bg-amber-50/70 opacity-90'
@@ -1319,9 +1337,10 @@ export default function PromotionalEmailsPage() {
                               type="checkbox"
                               checked={checked && !optedOut}
                               disabled={optedOut}
-                              onChange={() => {
+                              onChange={(e) => {
+                                e.stopPropagation();
                                 if (optedOut) return;
-                                toggleCustomer(customer.id);
+                                toggleCustomer(customer);
                               }}
                               className="h-4 w-4 accent-teal-600 disabled:cursor-not-allowed"
                             />
