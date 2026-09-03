@@ -120,6 +120,36 @@ export async function GET(request) {
       .select('recipientEmail recipientName subject errorMessage sentAt')
       .lean();
 
+    const clickRows = await EmailHistory.find({
+      ...statsMatch,
+      status: 'sent',
+      clickCount: { $gt: 0 },
+    })
+      .sort({ lastClickedAt: -1 })
+      .limit(80)
+      .select('recipientEmail recipientName subject clickCount lastClickedAt lastClickedUrl recentClicks firstClickedAt')
+      .lean();
+
+    const recentClicks = clickRows.flatMap((row) => {
+      const events = Array.isArray(row.recentClicks) && row.recentClicks.length
+        ? row.recentClicks
+        : (row.lastClickedUrl || row.lastClickedAt
+          ? [{ url: row.lastClickedUrl || '', at: row.lastClickedAt || row.firstClickedAt }]
+          : []);
+      return events
+        .slice()
+        .reverse()
+        .map((event) => ({
+          id: `${row._id}-${event.at || ''}-${event.url || ''}`,
+          recipientEmail: row.recipientEmail,
+          recipientName: row.recipientName || '',
+          subject: row.subject,
+          url: String(event.url || row.lastClickedUrl || '').trim(),
+          at: event.at || row.lastClickedAt || row.firstClickedAt,
+          clickCount: row.clickCount || 0,
+        }));
+    }).slice(0, 120);
+
     return NextResponse.json({
       history,
       pagination: {
@@ -130,6 +160,7 @@ export async function GET(request) {
       },
       stats: statsByStatus,
       recentFailures,
+      recentClicks,
     });
   } catch (error) {
     console.error('[email-history API] Error:', error);
