@@ -309,6 +309,8 @@ export default function StoreManageProducts() {
         stockQuantity: '',
         price: '',
         AED: '',
+        addCategoryId: '',
+        removeCategoryId: '',
     })
     const [categoryActionModal, setCategoryActionModal] = useState({
         open: false,
@@ -1230,6 +1232,8 @@ export default function StoreManageProducts() {
             stockQuantity: '',
             price: '',
             AED: '',
+            addCategoryId: '',
+            removeCategoryId: '',
         })
     }
 
@@ -1313,19 +1317,70 @@ export default function StoreManageProducts() {
     }
 
     const saveBulkEdit = async () => {
+        const addCategoryId = String(bulkEditForm.addCategoryId || '').trim()
+        const removeCategoryId = String(bulkEditForm.removeCategoryId || '').trim()
+        const hasFieldUpdates = (
+            bulkEditForm.inStock !== 'keep'
+            || bulkEditForm.fastDelivery !== 'keep'
+            || bulkEditForm.freeShippingEligible !== 'keep'
+            || bulkEditForm.published !== 'keep'
+            || String(bulkEditForm.brand || '').trim() !== ''
+            || String(bulkEditForm.stockQuantity || '').trim() !== ''
+            || String(bulkEditForm.price || '').trim() !== ''
+            || String(bulkEditForm.AED || '').trim() !== ''
+        )
+
+        if (!hasFieldUpdates && !addCategoryId && !removeCategoryId) {
+            toast.error('Choose at least one field or category change')
+            return
+        }
+
+        if (addCategoryId && removeCategoryId && addCategoryId === removeCategoryId) {
+            toast.error('Add and remove category cannot be the same')
+            return
+        }
+
         try {
             setBulkEditSaving(true)
             const token = await getToken()
-            const payload = {
-                productIds: selectedProductIds,
-                ...bulkEditForm,
+            const messages = []
+
+            if (hasFieldUpdates) {
+                const {
+                    addCategoryId: _add,
+                    removeCategoryId: _remove,
+                    ...fieldPayload
+                } = bulkEditForm
+                const { data } = await axios.patch('/api/store/product/bulk-update', {
+                    productIds: selectedProductIds,
+                    ...fieldPayload,
+                }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                messages.push(data?.message || 'Product fields updated')
             }
 
-            const { data } = await axios.patch('/api/store/product/bulk-update', payload, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
+            if (addCategoryId) {
+                const { data } = await axios.post('/api/store/product/add-to-category', {
+                    categoryId: addCategoryId,
+                    productIds: selectedProductIds,
+                }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                messages.push(data?.message || 'Category added')
+            }
 
-            toast.success(data?.message || 'Products updated successfully')
+            if (removeCategoryId) {
+                const { data } = await axios.post('/api/store/product/remove-from-category', {
+                    categoryId: removeCategoryId,
+                    productIds: selectedProductIds,
+                }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                messages.push(data?.message || 'Category removed')
+            }
+
+            toast.success(messages.filter(Boolean).join(' · ') || 'Products updated successfully')
             await fetchStoreProducts({ silent: true })
             dispatch(fetchProductsAction(STOREFRONT_CATALOG_FETCH))
             if (bulkEditForm.brand) loadBrandOptions()
@@ -2256,6 +2311,41 @@ export default function StoreManageProducts() {
                                     <span className="block text-sm font-medium text-slate-700">AED / MRP</span>
                                     <input type="number" min="0" step="0.01" value={bulkEditForm.AED} onChange={(e) => setBulkEditForm((prev) => ({ ...prev, AED: e.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2.5" placeholder="Leave blank to keep current" />
                                 </label>
+                            </div>
+
+                            <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4">
+                                <p className="text-sm font-semibold text-teal-950">Categories</p>
+                                <p className="mt-1 text-xs text-teal-800">
+                                    Add keeps existing categories. Remove only clears that category (products must keep at least one).
+                                </p>
+                                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                                    <label className="space-y-2">
+                                        <span className="block text-sm font-medium text-slate-700">Add category</span>
+                                        <select
+                                            value={bulkEditForm.addCategoryId}
+                                            onChange={(e) => setBulkEditForm((prev) => ({ ...prev, addCategoryId: e.target.value }))}
+                                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5"
+                                        >
+                                            <option value="">Don’t add</option>
+                                            {categoryFilterOptions.map(({ id, name }) => (
+                                                <option key={`bulk-add-${id}`} value={id}>{name}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="space-y-2">
+                                        <span className="block text-sm font-medium text-slate-700">Remove category</span>
+                                        <select
+                                            value={bulkEditForm.removeCategoryId}
+                                            onChange={(e) => setBulkEditForm((prev) => ({ ...prev, removeCategoryId: e.target.value }))}
+                                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5"
+                                        >
+                                            <option value="">Don’t remove</option>
+                                            {categoryFilterOptions.map(({ id, name }) => (
+                                                <option key={`bulk-remove-${id}`} value={id}>{name}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                </div>
                             </div>
 
                             <div className="flex justify-end gap-3">

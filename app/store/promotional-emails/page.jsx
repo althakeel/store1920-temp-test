@@ -21,6 +21,32 @@ const TABS = [
 
 /** Recipients per request so large campaigns send in a queue without timing out. */
 const SEND_BATCH_SIZE = 15;
+const MAX_CAMPAIGN_RECIPIENTS = 10000;
+
+function pad2(value) {
+  return String(value).padStart(2, '0');
+}
+
+/** Local datetime-local value a few hours ahead (upcoming only). */
+function defaultUpcomingDateTime(hoursAhead = 2) {
+  const date = new Date(Date.now() + hoursAhead * 60 * 60 * 1000);
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function datetimeLocalMin() {
+  const date = new Date(Date.now() + 2 * 60 * 1000);
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function normalizeScheduleTimes(values = []) {
+  return Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean),
+    ),
+  ).sort();
+}
 
 const GALLERY_LIBRARY_TABS = [
   { id: 'shop', label: 'Shop templates' },
@@ -73,7 +99,7 @@ export default function PromotionalEmailsPage() {
   const [visibleCustomerLimit, setVisibleCustomerLimit] = useState(60);
 
   const [scheduleMode, setScheduleMode] = useState('send'); // send | schedule | auto
-  const [scheduleTime, setScheduleTime] = useState('');
+  const [scheduleTimes, setScheduleTimes] = useState(() => [defaultUpcomingDateTime(2)]);
   const [autoTimes, setAutoTimes] = useState(['09:00']);
   const [activeCampaigns, setActiveCampaigns] = useState([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
@@ -716,9 +742,27 @@ export default function PromotionalEmailsPage() {
       setSendStatus('Please select at least one customer with an email.');
       return;
     }
-    if (scheduleMode === 'schedule' && !scheduleTime) {
-      setSendStatus('Please select a schedule time.');
+    if (selectedEmails.length > MAX_CAMPAIGN_RECIPIENTS) {
+      setSendStatus(
+        `Too many recipients (${selectedEmails.length.toLocaleString()}). Maximum is ${MAX_CAMPAIGN_RECIPIENTS.toLocaleString()} emails per send. Narrow the audience and try again.`,
+      );
       return;
+    }
+    const upcomingScheduleTimes = normalizeScheduleTimes(scheduleTimes);
+    if (scheduleMode === 'schedule') {
+      if (!upcomingScheduleTimes.length) {
+        setSendStatus('Add at least one upcoming date and time.');
+        return;
+      }
+      const nowMs = Date.now();
+      const hasPast = upcomingScheduleTimes.some((value) => {
+        const at = new Date(value);
+        return Number.isNaN(at.getTime()) || at.getTime() <= nowMs;
+      });
+      if (hasPast) {
+        setSendStatus('Schedule times must be upcoming date and times (in the future).');
+        return;
+      }
     }
     if (scheduleMode === 'auto' && !autoTimes.filter(Boolean).length) {
       setSendStatus('Add at least one daily send time.');
@@ -755,16 +799,19 @@ export default function PromotionalEmailsPage() {
           ...payload,
           name: payload.subject || builderName || 'Scheduled campaign',
           scheduleMode: 'once',
-          onceAtList: [scheduleTime],
+          onceAtList: upcomingScheduleTimes,
           customerEmails: emailsToSend,
           audience,
           timezone: 'Asia/Dubai',
         }, { headers });
         clearAudienceSelection();
         setSendProgress({ done: emailsToSend.length, total: emailsToSend.length });
+        const whenLabel = upcomingScheduleTimes
+          .map((value) => new Date(value).toLocaleString())
+          .join(' · ');
         setSendStatus(
           data.message
-          || `Queued for ${emailsToSend.length} customer(s) at ${new Date(scheduleTime).toLocaleString()}.`,
+          || `Queued for ${emailsToSend.length} customer(s) at ${whenLabel}.`,
         );
         loadActiveCampaigns();
       } else {
@@ -786,6 +833,7 @@ export default function PromotionalEmailsPage() {
             ...payload,
             customerEmails: chunk,
             limit: chunk.length,
+            totalRecipients: total,
             audience,
             scheduleTime: null,
           }, { headers });
@@ -1272,7 +1320,7 @@ export default function PromotionalEmailsPage() {
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  Schedule once
+                  Schedule
                 </button>
                 <button
                   type="button"
@@ -1286,12 +1334,45 @@ export default function PromotionalEmailsPage() {
                   Daily until disabled
                 </button>
                 {scheduleMode === 'schedule' && (
-                  <input
-                    type="datetime-local"
-                    value={scheduleTime}
-                    onChange={(e) => setScheduleTime(e.target.value)}
-                    className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
-                  />
+                  <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+                    {scheduleTimes.map((value, index) => (
+                      <div key={`schedule-time-${index}`} className="flex items-center gap-1">
+                        <input
+                          type="datetime-local"
+                          min={datetimeLocalMin()}
+                          value={value}
+                          onChange={(e) => {
+                            const next = [...scheduleTimes];
+                            next[index] = e.target.value;
+                            setScheduleTimes(next);
+                          }}
+                          className="rounded-xl border border-slate-300 px-2 py-1.5 text-sm"
+                        />
+                        {scheduleTimes.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => setScheduleTimes(scheduleTimes.filter((_, i) => i !== index))}
+                            className="rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setScheduleTimes([
+                        ...scheduleTimes,
+                        defaultUpcomingDateTime(24 * (scheduleTimes.length + 1)),
+                      ])}
+                      className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                    >
+                      + Add date
+                    </button>
+                    <span className="text-[11px] text-slate-500">
+                      Asia/Dubai · pick upcoming day(s) and time — add as many as you need
+                    </span>
+                  </div>
                 )}
                 {scheduleMode === 'auto' && (
                   <div className="flex flex-wrap items-center gap-2">
@@ -1334,6 +1415,10 @@ export default function PromotionalEmailsPage() {
                 <div className="text-sm text-slate-600">
                   {sending && sendProgress.total > 0 ? (
                     <>Queue <strong className="text-slate-900">{sendProgress.done}</strong> / {sendProgress.total}</>
+                  ) : selectedEmails.length > MAX_CAMPAIGN_RECIPIENTS ? (
+                    <span className="text-red-600">
+                      Max {MAX_CAMPAIGN_RECIPIENTS.toLocaleString()} recipients — narrow audience
+                    </span>
                   ) : selectedEmails.length > 0 ? (
                     <>Ready for <strong className="text-slate-900">{selectedEmails.length}</strong> customer{selectedEmails.length === 1 ? '' : 's'}</>
                   ) : (
@@ -1343,7 +1428,7 @@ export default function PromotionalEmailsPage() {
                 <button
                   type="button"
                   onClick={handleSendPromotional}
-                  disabled={sending || selectedEmails.length === 0}
+                  disabled={sending || selectedEmails.length === 0 || selectedEmails.length > MAX_CAMPAIGN_RECIPIENTS}
                   className="rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {sending
@@ -1372,8 +1457,8 @@ export default function PromotionalEmailsPage() {
             <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Active daily campaigns</h3>
-                  <p className="text-xs text-slate-500">These keep sending every day until you disable them</p>
+                  <h3 className="text-sm font-semibold text-slate-900">Active scheduled campaigns</h3>
+                  <p className="text-xs text-slate-500">Daily and one-time schedules stay here until disabled or finished</p>
                 </div>
                 <button
                   type="button"
@@ -1386,7 +1471,7 @@ export default function PromotionalEmailsPage() {
               {campaignsLoading ? (
                 <div className="mt-3 text-sm text-slate-500">Loading campaigns...</div>
               ) : activeCampaigns.length === 0 ? (
-                <div className="mt-3 text-sm text-slate-500">No active daily campaigns</div>
+                <div className="mt-3 text-sm text-slate-500">No active scheduled campaigns</div>
               ) : (
                 <div className="mt-3 space-y-2">
                   {activeCampaigns.map((campaign) => (
@@ -1397,7 +1482,13 @@ export default function PromotionalEmailsPage() {
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-slate-900">{campaign.name || campaign.subject}</div>
                         <div className="mt-0.5 text-xs text-slate-500">
-                          Daily at {(campaign.dailyTimes || []).join(', ') || '—'} · {(campaign.customerEmails || []).length} recipients
+                          {campaign.scheduleMode === 'once'
+                            ? `Once · ${(Array.isArray(campaign.onceAtList) ? campaign.onceAtList : [])
+                              .map((value) => new Date(value).toLocaleString())
+                              .join(' · ') || '—'}`
+                            : `Daily at ${(campaign.dailyTimes || []).join(', ') || '—'}`}
+                          {' · '}
+                          {(campaign.customerEmails || []).length} recipients
                           {campaign.lastRunAt ? ` · last run ${new Date(campaign.lastRunAt).toLocaleString()}` : ''}
                         </div>
                       </div>

@@ -10,6 +10,7 @@ import { getRandomTemplate, getTemplateById, getAllTemplateIds } from '@/lib/pro
 import { withBrandEmailLogo } from '@/lib/brandLogo';
 import { mapProductsForEmail, renderEmailFromBlocks } from '@/lib/emailCampaignBuilder';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
+import { assertMarketingRecipientLimit, assertMarketingRecipientCount } from '@/lib/emailMarketingLimits';
 import mongoose from 'mongoose';
 
 async function loadFeaturedProducts() {
@@ -239,7 +240,31 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { customerEmails, limit = 50, audience = null } = body;
+    const { customerEmails, limit = 50, audience = null, totalRecipients = null } = body;
+
+    // Block oversized campaigns even when the UI sends in smaller chunks.
+    const plannedTotal = Number(totalRecipients);
+    if (Number.isFinite(plannedTotal) && plannedTotal > 0) {
+      const totalCheck = assertMarketingRecipientCount(plannedTotal);
+      if (!totalCheck.ok) {
+        return NextResponse.json({
+          success: false,
+          error: totalCheck.error,
+          maxRecipients: totalCheck.max,
+          recipientCount: plannedTotal,
+        }, { status: 400 });
+      }
+    }
+
+    const recipientCheck = assertMarketingRecipientLimit(customerEmails);
+    if (!recipientCheck.ok) {
+      return NextResponse.json({
+        success: false,
+        error: recipientCheck.error,
+        maxRecipients: recipientCheck.max,
+        recipientCount: recipientCheck.count,
+      }, { status: 400 });
+    }
 
     await connectDB();
     const storeObjectId = await resolveStoreObjectId();
@@ -254,7 +279,7 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    const customers = await resolveRecipients(customerEmails, limit);
+    const customers = await resolveRecipients(recipientCheck.emails, limit);
     if (!customers.length) {
       return NextResponse.json({ success: false, message: 'No customers found' }, { status: 404 });
     }

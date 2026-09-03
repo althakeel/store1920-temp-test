@@ -5,6 +5,7 @@ import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
 import { uniqueDailyTimes } from '@/lib/emailMarketingSchedule';
 import { getPresetBlocks } from '@/lib/emailCampaignPresets';
+import { assertMarketingRecipientLimit } from '@/lib/emailMarketingLimits';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,13 +56,15 @@ export async function POST(request) {
 
     const body = await request.json();
     const scheduleMode = body.scheduleMode === 'once' ? 'once' : 'daily';
-    const customerEmails = Array.from(
-      new Set(
-        (Array.isArray(body.customerEmails) ? body.customerEmails : [])
-          .map((email) => String(email || '').trim().toLowerCase())
-          .filter((email) => email.includes('@')),
-      ),
-    );
+    const recipientCheck = assertMarketingRecipientLimit(body.customerEmails);
+    if (!recipientCheck.ok) {
+      return NextResponse.json({
+        error: recipientCheck.error,
+        maxRecipients: recipientCheck.max,
+        recipientCount: recipientCheck.count,
+      }, { status: 400 });
+    }
+    const customerEmails = recipientCheck.emails;
 
     if (!customerEmails.length) {
       return NextResponse.json({ error: 'Select at least one customer email' }, { status: 400 });
@@ -117,7 +120,7 @@ export async function POST(request) {
       campaign,
       message: scheduleMode === 'daily'
         ? `Daily campaign active. Sends at ${dailyTimes.join(', ')} (Asia/Dubai) until you disable it.`
-        : 'One-time campaign scheduled.',
+        : `Scheduled campaign queued for ${onceAtList.length} send time${onceAtList.length === 1 ? '' : 's'}.`,
     }, { status: 201 });
   } catch (error) {
     console.error('[email-marketing campaigns POST]', error);

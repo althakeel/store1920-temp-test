@@ -250,11 +250,170 @@ function ImageField({
   );
 }
 
+/** Upload an image and copy its public URL / <img> tag into Custom HTML. */
+function HtmlImageLinkTools({
+  getToken,
+  heroImages = [],
+  onUploaded,
+  onInsertHtml,
+}) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const [url, setUrl] = useState('');
+  const [copied, setCopied] = useState('');
+  const recent = useMemo(
+    () => [...new Set((heroImages || []).filter(Boolean))].slice(0, 12),
+    [heroImages],
+  );
+
+  const imgSnippet = url
+    ? `<img src="${url}" alt="" width="560" style="width:100%;max-width:100%;height:auto;display:block;border:0;" />`
+    : '';
+
+  const copyText = async (text, key) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      window.setTimeout(() => setCopied(''), 1800);
+    } catch {
+      setError('Could not copy — select the link and copy manually.');
+    }
+  };
+
+  const handleUpload = async (file) => {
+    if (!file) return;
+    try {
+      setUploading(true);
+      setError('');
+      setCopied('');
+      const uploaded = await uploadStoreImage(file, getToken, 'email-marketing');
+      setUrl(uploaded);
+      if (typeof onUploaded === 'function') onUploaded(uploaded);
+    } catch (err) {
+      setError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 space-y-3">
+      <div>
+        <div className="text-xs font-semibold text-slate-900">Upload image → get link</div>
+        <p className="mt-0.5 text-[11px] text-slate-500">
+          Upload once, copy the URL or image tag, then paste into your HTML below.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading || !getToken}
+          className="rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
+        >
+          {uploading ? 'Uploading…' : 'Upload image'}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => handleUpload(e.target.files?.[0])}
+        />
+      </div>
+
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+
+      {url ? (
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2.5">
+          <div className="flex items-start gap-2">
+            <img
+              src={url}
+              alt=""
+              className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover bg-slate-50"
+            />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <label className="block text-[11px] font-medium text-slate-600">
+                Image link
+                <input
+                  readOnly
+                  value={url}
+                  onFocus={(e) => e.target.select()}
+                  className="mt-1 w-full rounded border border-slate-300 bg-slate-50 px-2 py-1.5 font-mono text-[11px] text-slate-800"
+                />
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => copyText(url, 'url')}
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-50"
+                >
+                  {copied === 'url' ? 'Copied link' : 'Copy link'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyText(imgSnippet, 'img')}
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-50"
+                >
+                  {copied === 'img' ? 'Copied tag' : 'Copy <img> tag'}
+                </button>
+                {typeof onInsertHtml === 'function' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onInsertHtml(imgSnippet);
+                      setCopied('insert');
+                      window.setTimeout(() => setCopied(''), 1800);
+                    }}
+                    className="rounded-md bg-teal-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-teal-800"
+                  >
+                    {copied === 'insert' ? 'Inserted' : 'Insert into HTML'}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {recent.length > 0 ? (
+        <div>
+          <div className="mb-1 text-[11px] font-medium text-slate-600">Recent / library — click to use</div>
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+            {recent.map((item, index) => (
+              <button
+                key={`${item}-${index}`}
+                type="button"
+                title="Use this image"
+                onClick={() => {
+                  setUrl(item);
+                  setCopied('');
+                  setError('');
+                }}
+                className={`h-12 w-12 shrink-0 overflow-hidden rounded-lg border-2 ${
+                  url === item ? 'border-violet-600' : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <img src={item} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const BLOCK_LABELS = {
   header: 'Logo header',
   hero: 'Hero banner',
   badge: 'Offer badge',
   text: 'Text',
+  html: 'Custom HTML',
   two_column: '2-column',
   button: 'Button',
   form: 'Signup form',
@@ -803,7 +962,15 @@ function ProductBlockFields({ block, onChange, previewProducts = [], categories 
                 min={2}
                 max={8}
                 value={block.limit || 4}
-                onChange={(e) => set('limit', Number(e.target.value) || 4)}
+                onChange={(e) => {
+                  const nextLimit = Math.min(8, Math.max(2, Number(e.target.value) || 4));
+                  const cols = Number(block.gridColumns) === 1 ? 1 : 2;
+                  onChange({
+                    ...block,
+                    limit: nextLimit,
+                    gridRows: Math.ceil(nextLimit / cols),
+                  });
+                }}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </label>
@@ -837,7 +1004,16 @@ function ProductBlockFields({ block, onChange, previewProducts = [], categories 
                 <FieldLabel>Columns</FieldLabel>
                 <select
                   value={Number(block.gridColumns) === 1 ? 1 : 2}
-                  onChange={(e) => set('gridColumns', Number(e.target.value) || 2)}
+                  onChange={(e) => {
+                    const cols = Number(e.target.value) || 2;
+                    const limit = Math.max(Number(block.limit) || 4, cols);
+                    onChange({
+                      ...block,
+                      gridColumns: cols,
+                      limit,
+                      gridRows: Math.ceil(limit / cols),
+                    });
+                  }}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
                   {GRID_COLUMN_OPTIONS.map((option) => (
@@ -851,7 +1027,7 @@ function ProductBlockFields({ block, onChange, previewProducts = [], categories 
                   type="number"
                   min={1}
                   max={6}
-                  value={block.gridRows || 2}
+                  value={block.gridRows || Math.ceil((Number(block.limit) || 4) / (Number(block.gridColumns) === 1 ? 1 : 2))}
                   onChange={(e) => {
                     const rows = Number(e.target.value) || 2;
                     const cols = Number(block.gridColumns) === 1 ? 1 : 2;
@@ -1907,6 +2083,148 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
           Message
           <textarea rows={3} value={block.html || ''} onChange={(e) => set('html', e.target.value)} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
         </label>
+      );
+    case 'html':
+      return (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2 text-[11px] leading-relaxed text-violet-900">
+            Supports links, images, tables, video tags, SVG, inline styles, and <code className="rounded bg-white/70 px-1">&lt;style&gt;</code>.
+            Use the CSS box for animations / classes. Scripts and event handlers are stripped for safety.
+            Note: many inboxes strip CSS animations — they still show in preview and in clients that allow them (e.g. Apple Mail).
+          </div>
+
+          <HtmlImageLinkTools
+            getToken={getToken}
+            heroImages={heroImages}
+            onUploaded={onUploaded}
+            onInsertHtml={(snippet) => {
+              const current = String(block.html || '');
+              const next = current.trim()
+                ? `${current.replace(/\s*$/, '')}\n${snippet}\n`
+                : `${snippet}\n`;
+              set('html', next);
+            }}
+          />
+
+          <label className="block text-xs text-gray-600">
+            HTML
+            <textarea
+              rows={12}
+              value={block.html || ''}
+              onChange={(e) => set('html', e.target.value)}
+              spellCheck={false}
+              className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 font-mono text-[12px] leading-5 text-slate-800"
+              placeholder={'<a href="https://…">Link</a>\n<img src="https://…" alt="" />\n<table>…</table>'}
+            />
+          </label>
+          <label className="block text-xs text-gray-600">
+            CSS (optional — animations, classes, @keyframes)
+            <textarea
+              rows={8}
+              value={block.css || ''}
+              onChange={(e) => set('css', e.target.value)}
+              spellCheck={false}
+              className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 font-mono text-[12px] leading-5 text-slate-800"
+              placeholder={'.email-html-block .hero { … }\n@keyframes fadeIn { … }'}
+            />
+          </label>
+          <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={block.padding !== false}
+              onChange={(e) => set('padding', e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-violet-700"
+            />
+            Wrap in email container padding
+          </label>
+
+          <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-3 space-y-3">
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-teal-950">
+              <input
+                type="checkbox"
+                checked={Boolean(block.showCta)}
+                onChange={(e) => set('showCta', e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-teal-700"
+              />
+              Call to action button
+            </label>
+            {block.showCta ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs text-gray-600 sm:col-span-2">
+                  Button label
+                  <input
+                    value={block.ctaLabel || ''}
+                    onChange={(e) => set('ctaLabel', e.target.value)}
+                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                    placeholder="Shop now"
+                  />
+                </label>
+                <label className="block text-xs text-gray-600 sm:col-span-2">
+                  Button link
+                  <input
+                    value={block.ctaUrl || ''}
+                    onChange={(e) => set('ctaUrl', e.target.value)}
+                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                    placeholder="https://store1920.com"
+                  />
+                </label>
+                <label className="block text-xs text-gray-600">
+                  Position
+                  <select
+                    value={block.ctaPosition || 'below'}
+                    onChange={(e) => set('ctaPosition', e.target.value)}
+                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  >
+                    <option value="below">Below HTML</option>
+                    <option value="above">Above HTML</option>
+                  </select>
+                </label>
+                <label className="block text-xs text-gray-600">
+                  Align
+                  <select
+                    value={block.ctaAlign || 'center'}
+                    onChange={(e) => set('ctaAlign', e.target.value)}
+                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                  </select>
+                </label>
+                <label className="block text-xs text-gray-600">
+                  Style
+                  <select
+                    value={block.ctaStyle || 'filled'}
+                    onChange={(e) => set('ctaStyle', e.target.value)}
+                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  >
+                    <option value="filled">Filled</option>
+                    <option value="outline">Outline</option>
+                    <option value="text">Text link</option>
+                  </select>
+                </label>
+                <label className="block text-xs text-gray-600">
+                  Button color
+                  <input
+                    type="color"
+                    value={block.ctaColor || '#0f766e'}
+                    onChange={(e) => set('ctaColor', e.target.value)}
+                    className="mt-1 h-9 w-full rounded border border-gray-300 bg-white"
+                  />
+                </label>
+                <label className="block text-xs text-gray-600">
+                  Text color
+                  <input
+                    type="color"
+                    value={block.ctaTextColor || '#ffffff'}
+                    onChange={(e) => set('ctaTextColor', e.target.value)}
+                    className="mt-1 h-9 w-full rounded border border-gray-300 bg-white"
+                  />
+                </label>
+              </div>
+            ) : null}
+          </div>
+        </div>
       );
     case 'two_column':
       return (
