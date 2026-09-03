@@ -4,11 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search, Truck } from 'lucide-react';
 import { useInfiniteBannerCarousel } from '@/lib/useInfiniteBannerCarousel';
+import { withImageKitDelivery } from '@/lib/imageKitDelivery';
 
-function getOriginalImageUrl(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  return raw.replace(/\/tr:[^/]+\//i, '/');
+function getDisplayImageUrl(value, width = 1400) {
+  return withImageKitDelivery(value, { width, quality: 72 });
 }
 
 function buildSlidesSignature(slides = []) {
@@ -30,14 +29,24 @@ export default function ShowcaseLargeBannerSlider({
     bannerVariant === 'secondary' ? 'shop-showcase-banner-row--secondary' : '',
   ].filter(Boolean).join(' ');
 
+  const desktopWidth = bannerVariant === 'secondary' ? 1100 : 1400;
+
   const activeSlides = useMemo(
     () => slides
-      .map((slide) => ({
-        ...slide,
-        image: getOriginalImageUrl(slide.image),
-      }))
-      .filter((slide) => slide.image),
-    [slides],
+      .map((slide) => {
+        const original = String(slide.image || '').trim();
+        if (!original) return null;
+        return {
+          ...slide,
+          image: getDisplayImageUrl(original, desktopWidth),
+          imageSrcSet: [
+            `${getDisplayImageUrl(original, 800)} 800w`,
+            `${getDisplayImageUrl(original, desktopWidth)} ${desktopWidth}w`,
+          ].join(', '),
+        };
+      })
+      .filter(Boolean),
+    [slides, desktopWidth],
   );
 
   const slidesSignature = useMemo(
@@ -158,8 +167,11 @@ export default function ShowcaseLargeBannerSlider({
             >
               <img
                 src={slide.image}
+                srcSet={slide.imageSrcSet}
+                sizes="(max-width: 640px) 100vw, (max-width: 1400px) 70vw, 980px"
                 alt={slide.alt || fallback?.title || 'Showcase banner'}
-                loading="eager"
+                loading={slideIndex <= 1 ? 'eager' : 'lazy'}
+                fetchPriority={slideIndex === 0 ? 'high' : 'auto'}
                 decoding="async"
                 draggable={false}
                 onError={() => handleImageError(slide.image)}

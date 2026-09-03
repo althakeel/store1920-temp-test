@@ -2,13 +2,23 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { withImageKitDelivery } from '@/lib/imageKitDelivery'
 
 const MOBILE_AUTO_SCROLL_MS = 3500
 
 function ProductBannerCard({ banner, className = '' }) {
   const link = String(banner?.link || '').trim()
   const Card = link ? Link : 'div'
-  const image = String(banner?.image || '').trim()
+  const original = String(banner?.image || '').trim()
+  const image = original
+    ? withImageKitDelivery(original, { width: 640, quality: 72 })
+    : ''
+  const imageSrcSet = original
+    ? [
+      `${withImageKitDelivery(original, { width: 360, quality: 72 })} 360w`,
+      `${withImageKitDelivery(original, { width: 640, quality: 72 })} 640w`,
+    ].join(', ')
+    : undefined
   const hasImage = Boolean(image)
   const hasTextOverlay =
     !hasImage &&
@@ -21,6 +31,8 @@ function ProductBannerCard({ banner, className = '' }) {
       <img
         className="shop-showcase-product-image"
         src={image || '/assets/placeholder.png'}
+        srcSet={imageSrcSet}
+        sizes="(max-width: 639px) 90vw, 280px"
         alt={banner?.title || 'Promotional banner'}
         loading="lazy"
         decoding="async"

@@ -99,12 +99,6 @@ function isIconImageUrl(value) {
   return icon.startsWith('http://') || icon.startsWith('https://') || icon.startsWith('/') || icon.startsWith('data:image/')
 }
 
-function getOriginalImageUrl(value) {
-  const raw = String(value || '').trim()
-  if (!raw) return ''
-  return raw.replace(/\/tr:[^/]+\//i, '/')
-}
-
 function ShopShowcaseSkeleton({ navbarBg = DEFAULT_NAVBAR_BG }) {
   return (
     <section className={`${HOME_SECTION_CLASS} max-w-[1400px] mx-auto px-0 sm:px-6`} aria-label="Loading shop showcase">
