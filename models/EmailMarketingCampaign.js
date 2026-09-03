@@ -77,6 +77,7 @@ const EmailMarketingCampaignSchema = new mongoose.Schema({
   customTemplateId: { type: String, default: '' },
   subject: { type: String, required: true },
   preheader: { type: String, default: '' },
+  fontFamily: { type: String, default: 'helvetica' },
   blocks: { type: [mongoose.Schema.Types.Mixed], default: [] },
   sentSlots: [{ type: String }],
   totalSent: { type: Number, default: 0 },

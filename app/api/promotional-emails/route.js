@@ -119,7 +119,7 @@ async function resolveCampaignContent(body, products) {
             preheader: preheader || saved.preheader || '',
             fontFamily: font,
           })
-          : (saved.template || '')
+          : absolutizeEmailHtmlImages(saved.template || '')
       ),
     };
   }

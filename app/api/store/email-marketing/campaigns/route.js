@@ -111,6 +111,7 @@ export async function POST(request) {
       customTemplateId: String(body.customTemplateId || '').trim(),
       subject,
       preheader: String(body.preheader || '').trim(),
+      fontFamily: String(body.fontFamily || 'helvetica').trim() || 'helvetica',
       blocks,
       createdBy: seller.uid,
     });

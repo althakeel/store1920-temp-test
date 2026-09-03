@@ -702,6 +702,9 @@ export default function PromotionalEmailsPage() {
         customTemplateId: selectedCustomId,
         subject,
         preheader: builderPreheader,
+        fontFamily: builderFontFamily || 'helvetica',
+        // Prefer live builder blocks when open so send matches the on-screen design.
+        ...(Array.isArray(builderBlocks) && builderBlocks.length ? { blocks: builderBlocks } : {}),
       };
     }
     if (templateSource === 'gallery' && selectedPresetId) {
