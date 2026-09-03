@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/useAuth'
+import toast from 'react-hot-toast'
 import { PlusIcon, EditIcon, TrashIcon, TicketIcon, XIcon, PercentIcon, DollarSignIcon, PackageIcon, UserIcon, ClockIcon, ToggleLeftIcon, ToggleRightIcon, SearchIcon } from 'lucide-react'
 
 const getProductId = (product) => String(product?._id || product?.id || '').trim()
@@ -19,6 +20,8 @@ export default function StoreCouponsPage() {
     const [searchResults, setSearchResults] = useState([])
     const [searchLoading, setSearchLoading] = useState(false)
     const [selectedProductMeta, setSelectedProductMeta] = useState({})
+    const [deleteTarget, setDeleteTarget] = useState(null)
+    const [deleting, setDeleting] = useState(false)
     
     const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || 'AED'
 
@@ -184,47 +187,60 @@ export default function StoreCouponsPage() {
             console.log('Response:', { status: res.status, data });
 
             if (res.ok) {
-                alert(editingCoupon ? 'Coupon updated!' : 'Coupon created!');
-                setShowModal(false);
-                setEditingCoupon(null);
-                resetForm();
-                fetchCoupons();
+                const code = String(data?.coupon?.code || formData.code || '').toUpperCase()
+                toast.success(
+                    editingCoupon
+                        ? `Coupon "${code}" updated successfully`
+                        : `Coupon "${code}" created successfully`
+                )
+                setShowModal(false)
+                setEditingCoupon(null)
+                resetForm()
+                fetchCoupons()
             } else {
-                console.error('Save failed:', data);
-                alert(data.error || 'Failed to save coupon');
+                console.error('Save failed:', data)
+                toast.error(data.error || 'Failed to save coupon')
             }
         } catch (error) {
-            console.error('Error saving coupon:', error);
-            alert('Failed to save coupon: ' + error.message);
+            console.error('Error saving coupon:', error)
+            toast.error(error.message || 'Failed to save coupon')
         } finally {
             setSubmitting(false);
         }
     };
 
     // Handle delete
-    const handleDelete = async (code) => {
-        if (!confirm('Are you sure you want to delete this coupon?')) return;
+    const handleDelete = (code) => {
+        setDeleteTarget({ code: String(code).toUpperCase() })
+    }
 
+    const confirmDelete = async () => {
+        if (!deleteTarget?.code) return
+
+        setDeleting(true)
         try {
-            const token = await getToken();
-            const res = await fetch(`/api/store/coupon/${code}`, {
+            const token = await getToken()
+            const res = await fetch(`/api/store/coupon/${deleteTarget.code}`, {
                 method: 'DELETE',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-            });
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
 
-            const data = await res.json();
+            const data = await res.json()
 
             if (res.ok) {
-                alert('Coupon deleted!');
-                fetchCoupons();
+                toast.success(`Coupon "${deleteTarget.code}" deleted`)
+                setDeleteTarget(null)
+                fetchCoupons()
             } else {
-                alert(data.error || 'Failed to delete coupon');
+                toast.error(data.error || 'Failed to delete coupon')
             }
         } catch (error) {
-            console.error('Error deleting coupon:', error);
-            alert('Failed to delete coupon');
+            console.error('Error deleting coupon:', error)
+            toast.error('Failed to delete coupon')
+        } finally {
+            setDeleting(false)
         }
-    };
+    }
 
     // Handle toggle active status
     const handleToggleActive = async (coupon) => {
@@ -240,12 +256,14 @@ export default function StoreCouponsPage() {
             })
 
             if (res.ok) {
+                toast.success(coupon.isActive ? 'Coupon deactivated' : 'Coupon activated')
                 fetchCoupons()
             } else {
-                alert('Failed to update coupon status')
+                toast.error('Failed to update coupon status')
             }
         } catch (error) {
             console.error('Error toggling coupon:', error)
+            toast.error('Failed to update coupon status')
         }
     }
 
@@ -762,6 +780,42 @@ export default function StoreCouponsPage() {
                     </div>
                 </div>
             )}
+
+            {deleteTarget ? (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                        <div className="mb-4 flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+                                <TrashIcon size={20} className="text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Delete coupon?</h3>
+                                <p className="mt-1 text-sm text-gray-600">
+                                    <span className="font-semibold text-gray-900">{deleteTarget.code}</span> will be permanently removed. This cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setDeleteTarget(null)}
+                                disabled={deleting}
+                                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmDelete}
+                                disabled={deleting}
+                                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {deleting ? 'Deleting...' : 'Delete coupon'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     )
 }

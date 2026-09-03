@@ -105,6 +105,10 @@ function getGuestCountryCode(countryName) {
 const CHECKOUT_ORDER_PREVIEW_LIMIT = 4;
 const CHECKOUT_RETURN_PATH_KEY = 'store1920_checkout_return_path';
 
+function isCouponAllowedPayment(payment) {
+  return payment === 'card' || payment === 'cod';
+}
+
 function CheckoutAlertBanner({ alert, className = '' }) {
   if (!alert) return null;
 
@@ -229,8 +233,8 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
       return;
     }
 
-    if (form.payment !== 'card') {
-      setCouponError('Coupons are available only for card payments.');
+    if (!isCouponAllowedPayment(form.payment)) {
+      setCouponError('Coupons are available for Card and Cash on Delivery only.');
       return;
     }
     
@@ -1087,10 +1091,10 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
   ]);
 
   useEffect(() => {
-    if (appliedCoupon && form.payment !== 'card') {
+    if (appliedCoupon && !isCouponAllowedPayment(form.payment)) {
       setAppliedCoupon(null);
       setCoupon('');
-      setCouponError('Coupons are available only for card payments.');
+      setCouponError('Coupons are available for Card and Cash on Delivery only.');
     }
   }, [appliedCoupon, form.payment]);
 
@@ -3356,7 +3360,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
                 />
                 <button
                   type="submit"
-                  disabled={couponLoading || form.payment !== 'card'}
+                  disabled={couponLoading || !isCouponAllowedPayment(form.payment)}
                   className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {couponLoading ? '...' : 'Apply'}
@@ -3365,9 +3369,13 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
               {couponError ? (
                 <p className="mt-2 text-xs text-red-600">{couponError}</p>
               ) : null}
-              {form.payment !== 'card' ? (
+              {form.payment && !isCouponAllowedPayment(form.payment) ? (
                 <p className="mt-2 text-xs text-amber-700">
-                  Select <strong>Card</strong> payment to use a coupon.
+                  Coupons are available for <strong>Card</strong> and <strong>Cash on Delivery</strong> only.
+                </p>
+              ) : !form.payment ? (
+                <p className="mt-2 text-xs text-amber-700">
+                  Select <strong>Card</strong> or <strong>Cash on Delivery</strong> to use a coupon.
                 </p>
               ) : !user ? (
                 <p className="mt-2 text-xs text-slate-600">
@@ -3912,9 +3920,9 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
                 />
                 <button
                   type="submit"
-                  disabled={form.payment !== 'card'}
+                  disabled={!isCouponAllowedPayment(form.payment)}
                   className={`font-semibold px-6 py-3 rounded-lg transition whitespace-nowrap w-full sm:w-auto ${
-                    form.payment !== 'card'
+                    !isCouponAllowedPayment(form.payment)
                       ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
@@ -3922,9 +3930,9 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
                   Apply
                 </button>
               </form>
-              {form.payment !== 'card' && (
+              {form.payment && !isCouponAllowedPayment(form.payment) && (
                 <div className="text-xs text-amber-600 mt-2">
-                  Coupons are available only for card payments.
+                  Coupons are available for Card and Cash on Delivery only.
                 </div>
               )}
               {couponError && <div className="text-red-500 text-xs mt-2">{couponError}</div>}
@@ -3959,13 +3967,13 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
                   
                   const cartProductIds = cartItemsArray.map(item => item.productId);
                   
-                  const canUseCoupons = form.payment === 'card';
+                  const canUseCoupons = isCouponAllowedPayment(form.payment);
                   let isEligible = true;
                   let ineligibleReason = '';
 
                   if (!canUseCoupons) {
                     isEligible = false;
-                    ineligibleReason = 'Only for card payments';
+                    ineligibleReason = 'Only for Card or Cash on Delivery';
                   }
                   
                   // Check if expired
