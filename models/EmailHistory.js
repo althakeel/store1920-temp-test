@@ -42,6 +42,46 @@ const emailHistorySchema = new mongoose.Schema({
   customMessage: {
     type: String
   },
+  /** Opaque token embedded in open-pixel / click redirects */
+  trackingToken: {
+    type: String,
+    sparse: true,
+  },
+  openCount: {
+    type: Number,
+    default: 0,
+  },
+  firstOpenedAt: {
+    type: Date,
+    default: null,
+  },
+  lastOpenedAt: {
+    type: Date,
+    default: null,
+  },
+  clickCount: {
+    type: Number,
+    default: 0,
+  },
+  firstClickedAt: {
+    type: Date,
+    default: null,
+  },
+  lastClickedAt: {
+    type: Date,
+    default: null,
+  },
+  lastClickedUrl: {
+    type: String,
+    default: '',
+  },
+  recentClicks: {
+    type: [{
+      url: String,
+      at: { type: Date, default: Date.now },
+    }],
+    default: [],
+  },
   sentAt: {
     type: Date,
     default: Date.now,
@@ -61,6 +101,7 @@ const emailHistorySchema = new mongoose.Schema({
 emailHistorySchema.index({ storeId: 1, createdAt: -1 });
 emailHistorySchema.index({ storeId: 1, status: 1 });
 emailHistorySchema.index({ storeId: 1, type: 1 });
+emailHistorySchema.index({ trackingToken: 1 }, { unique: true, sparse: true });
 // TTL: auto-delete email logs older than 180 days to control collection size
 emailHistorySchema.index({ createdAt: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 

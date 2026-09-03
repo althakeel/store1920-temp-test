@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { Mail, AlertCircle, CheckCircle, Clock, LayoutTemplate, PenLine, Users, Eye, X, Sparkles, FolderOpen, Layers, Search, CheckSquare, Square, Inbox, StopCircle } from 'lucide-react';
+import { Mail, AlertCircle, CheckCircle, Clock, LayoutTemplate, PenLine, Users, Eye, X, Sparkles, FolderOpen, Layers, Search, CheckSquare, Square, Inbox, StopCircle, MousePointerClick } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import Loading from '@/components/Loading';
 import EmailCampaignBuilder from '@/components/store/EmailCampaignBuilder';
@@ -61,7 +61,7 @@ export default function PromotionalEmailsPage() {
   const [tab, setTab] = useState('send');
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
-  const [stats, setStats] = useState({ sent: 0, failed: 0, pending: 0 });
+  const [stats, setStats] = useState({ sent: 0, failed: 0, pending: 0, opened: 0, clicked: 0, opens: 0, clicks: 0 });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -150,7 +150,7 @@ export default function PromotionalEmailsPage() {
         { headers },
       );
       setHistory(data.history || []);
-      setStats(data.stats || { sent: 0, failed: 0, pending: 0 });
+      setStats(data.stats || { sent: 0, failed: 0, pending: 0, opened: 0, clicked: 0, opens: 0, clicks: 0 });
       setTotal(data.pagination?.total || 0);
       setPage(pageNumber);
     } catch (error) {
@@ -2033,11 +2033,16 @@ export default function PromotionalEmailsPage() {
 
       {tab === 'history' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard icon={CheckCircle} title="Sent" value={stats.sent} color="green" />
+            <StatCard icon={Eye} title="Opened" value={stats.opened || 0} color="blue" />
+            <StatCard icon={MousePointerClick} title="Clicked" value={stats.clicked || 0} color="teal" />
             <StatCard icon={AlertCircle} title="Failed" value={stats.failed} color="red" />
             <StatCard icon={Clock} title="Pending" value={stats.pending} color="orange" />
           </div>
+          <p className="text-xs text-slate-500">
+            Opens and clicks update when customers open the email or tap a link. Total open events: {stats.opens || 0}. Total click events: {stats.clicks || 0}.
+          </p>
 
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-800">Email history</h3>
@@ -2069,6 +2074,8 @@ export default function PromotionalEmailsPage() {
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Recipient</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Subject</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Opened</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Clicked</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Time</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Error</th>
                 </tr>
@@ -2084,6 +2091,35 @@ export default function PromotionalEmailsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-900">{email.subject}</td>
                     <td className="px-4 py-3"><StatusBadge status={email.status} /></td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {Number(email.openCount) > 0 ? (
+                        <div>
+                          <div className="font-medium text-emerald-700">Yes · {email.openCount}</div>
+                          <div className="text-xs text-slate-500">
+                            {email.lastOpenedAt
+                              ? new Date(email.lastOpenedAt).toLocaleString()
+                              : (email.firstOpenedAt ? new Date(email.firstOpenedAt).toLocaleString() : '')}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {Number(email.clickCount) > 0 ? (
+                        <div>
+                          <div className="font-medium text-teal-700">Yes · {email.clickCount}</div>
+                          <div className="text-xs text-slate-500 max-w-[220px] truncate" title={email.lastClickedUrl || ''}>
+                            {email.lastClickedAt
+                              ? new Date(email.lastClickedAt).toLocaleString()
+                              : ''}
+                            {email.lastClickedUrl ? ` · ${email.lastClickedUrl}` : ''}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-700">
                       {new Date(email.sentAt || email.createdAt).toLocaleString()}
                     </td>

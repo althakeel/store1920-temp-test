@@ -10,6 +10,10 @@ import { getRandomTemplate, getTemplateById, getAllTemplateIds } from '@/lib/pro
 import { mapProductsForEmail, renderEmailFromBlocks, absolutizeEmailHtmlImages } from '@/lib/emailCampaignBuilder';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
 import { assertMarketingRecipientLimit, assertMarketingRecipientCount } from '@/lib/emailMarketingLimits';
+import {
+  createEmailTrackingToken,
+  injectEmailEngagementTracking,
+} from '@/lib/emailMarketingTracking';
 import mongoose from 'mongoose';
 
 async function loadFeaturedProducts() {
@@ -171,8 +175,12 @@ export async function GET() {
     const results = [];
 
     for (const customer of customers) {
+      const trackingToken = createEmailTrackingToken();
       try {
-        const htmlContent = absolutizeEmailHtmlImages(template.template(products, customer.email));
+        const htmlContent = injectEmailEngagementTracking(
+          absolutizeEmailHtmlImages(template.template(products, customer.email)),
+          trackingToken,
+        );
         const customerFirstName = customer.name ? customer.name.split(' ')[0] : 'there';
         const personalizedSubject = `HEY ${customerFirstName.toUpperCase()}! ${template.subject}`;
 
@@ -197,6 +205,7 @@ export async function GET() {
             recipientName: customer.name || 'Customer',
             subject: personalizedSubject,
             status: 'sent',
+            trackingToken,
             customMessage: `template:${template.id}`,
             sentAt: new Date(),
           }).catch(() => {});
@@ -214,6 +223,7 @@ export async function GET() {
             subject: template.subject,
             status: 'failed',
             errorMessage: error.message || 'Unknown error',
+            trackingToken,
             customMessage: `template:${template.id}`,
             sentAt: new Date(),
           }).catch(() => {});
@@ -285,10 +295,30 @@ export async function POST(request) {
 
     const results = [];
     for (const customer of customers) {
+      const trackingToken = createEmailTrackingToken();
+      const customerFirstName = customer.name ? String(customer.name).split(' ')[0] : 'there';
+      const personalizedSubject = `HEY ${customerFirstName.toUpperCase()}! ${campaign.subject}`;
+      let historyId = null;
       try {
-        const htmlContent = absolutizeEmailHtmlImages(campaign.render(customer.email));
-        const customerFirstName = customer.name ? String(customer.name).split(' ')[0] : 'there';
-        const personalizedSubject = `HEY ${customerFirstName.toUpperCase()}! ${campaign.subject}`;
+        if (storeObjectId) {
+          const historyRow = await EmailHistory.create({
+            storeId: storeObjectId,
+            type: 'promotional',
+            recipientEmail: customer.email,
+            recipientName: customer.name || 'Customer',
+            subject: personalizedSubject,
+            status: 'pending',
+            trackingToken,
+            customMessage: `template:${campaign.id}${audience ? `|audience:${audience}` : ''}`,
+            sentAt: new Date(),
+          }).catch(() => null);
+          historyId = historyRow?._id || null;
+        }
+
+        const htmlContent = injectEmailEngagementTracking(
+          absolutizeEmailHtmlImages(campaign.render(customer.email)),
+          trackingToken,
+        );
 
         await sendMail({
           to: customer.email,
@@ -304,23 +334,28 @@ export async function POST(request) {
           },
         });
 
-        if (storeObjectId) {
-          await EmailHistory.create({
-            storeId: storeObjectId,
-            type: 'promotional',
-            recipientEmail: customer.email,
-            recipientName: customer.name || 'Customer',
-            subject: personalizedSubject,
-            status: 'sent',
-            customMessage: `template:${campaign.id}${audience ? `|audience:${audience}` : ''}`,
-            sentAt: new Date(),
-          }).catch(() => {});
+        if (historyId) {
+          await EmailHistory.updateOne(
+            { _id: historyId },
+            { $set: { status: 'sent', sentAt: new Date(), updatedAt: new Date() } },
+          ).catch(() => {});
         }
 
         results.push({ email: customer.email, status: 'sent', template: campaign.id });
         await new Promise((resolve) => setTimeout(resolve, 600));
       } catch (error) {
-        if (storeObjectId) {
+        if (historyId) {
+          await EmailHistory.updateOne(
+            { _id: historyId },
+            {
+              $set: {
+                status: 'failed',
+                errorMessage: error.message || 'Unknown error',
+                updatedAt: new Date(),
+              },
+            },
+          ).catch(() => {});
+        } else if (storeObjectId) {
           await EmailHistory.create({
             storeId: storeObjectId,
             type: 'promotional',
@@ -329,6 +364,7 @@ export async function POST(request) {
             subject: campaign.subject,
             status: 'failed',
             errorMessage: error.message || 'Unknown error',
+            trackingToken,
             customMessage: `template:${campaign.id}`,
             sentAt: new Date(),
           }).catch(() => {});

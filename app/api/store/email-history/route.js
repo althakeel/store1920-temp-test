@@ -83,13 +83,30 @@ export async function GET(request) {
       }
     ]);
 
+    const engagement = await EmailHistory.aggregate([
+      { $match: { ...statsMatch, status: 'sent' } },
+      {
+        $group: {
+          _id: null,
+          opened: { $sum: { $cond: [{ $gt: [{ $ifNull: ['$openCount', 0] }, 0] }, 1, 0] } },
+          clicked: { $sum: { $cond: [{ $gt: [{ $ifNull: ['$clickCount', 0] }, 0] }, 1, 0] } },
+          opens: { $sum: { $ifNull: ['$openCount', 0] } },
+          clicks: { $sum: { $ifNull: ['$clickCount', 0] } },
+        },
+      },
+    ]);
+
     const statsByStatus = {
       sent: 0,
       failed: 0,
-      pending: 0
+      pending: 0,
+      opened: engagement[0]?.opened || 0,
+      clicked: engagement[0]?.clicked || 0,
+      opens: engagement[0]?.opens || 0,
+      clicks: engagement[0]?.clicks || 0,
     };
     stats.forEach(stat => {
-      statsByStatus[stat._id] = stat.count;
+      if (stat._id in statsByStatus) statsByStatus[stat._id] = stat.count;
     });
 
     console.log('[email-history] Stats:', statsByStatus);
