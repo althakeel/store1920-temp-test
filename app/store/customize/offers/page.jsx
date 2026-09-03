@@ -38,6 +38,18 @@ function normalizeProductId(productId) {
   return String(productId?._id || productId || '')
 }
 
+/** API returns every category at top level (with nested children). Use top-level only + unique ids. */
+function buildUniqueCategoryOptions(rawCategories = []) {
+  const byId = new Map()
+  for (const item of Array.isArray(rawCategories) ? rawCategories : []) {
+    const id = String(item?._id || item?.id || '').trim()
+    const name = String(item?.name || '').trim()
+    if (!id || !name || byId.has(id)) continue
+    byId.set(id, { _id: id, name })
+  }
+  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+}
+
 function ProductThumb({ product, size = 64 }) {
   const [failed, setFailed] = useState(false)
   const mergedImages = [
@@ -94,6 +106,7 @@ export default function OffersCustomizePage() {
     () => new Set(form.categoryIds.map((id) => String(id))),
     [form.categoryIds]
   )
+  const categoryOptions = useMemo(() => buildUniqueCategoryOptions(categories), [categories])
 
   const previewSubtitle = useMemo(() => getOffersPageSubtitle(form), [form])
 
@@ -144,16 +157,7 @@ export default function OffersCustomizePage() {
         ])
 
         setForm(normalizeOffersPage(appearance?.offersPage || DEFAULT_OFFERS_PAGE))
-        const rawCategories = categoriesResponse?.data?.categories || []
-        const flattenCategories = (items = [], depth = 0) => items.flatMap((item) => {
-          const id = String(item?._id || item?.id || '').trim()
-          const name = String(item?.name || '').trim()
-          const current = id && name
-            ? [{ _id: id, name: depth ? `${'— '.repeat(depth)}${name}` : name }]
-            : []
-          return [...current, ...flattenCategories(item?.children || [], depth + 1)]
-        })
-        setCategories(flattenCategories(Array.isArray(rawCategories) ? rawCategories : []))
+        setCategories(buildUniqueCategoryOptions(categoriesResponse?.data?.categories))
       } catch (error) {
         console.error(error)
         toast.error('Failed to load offers settings')
@@ -479,8 +483,8 @@ export default function OffersCustomizePage() {
                 {form.categoryIds.length} selected · products from these categories show on /offers
               </p>
               <div className="mt-4 grid max-h-[70vh] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-                {categories.length ? categories.map((category) => {
-                  const id = String(category._id || category.id || '')
+                {categoryOptions.length ? categoryOptions.map((category) => {
+                  const id = category._id
                   const selected = selectedCategorySet.has(id)
                   return (
                     <button
