@@ -82,6 +82,18 @@ const emailHistorySchema = new mongoose.Schema({
     }],
     default: [],
   },
+  convertedAt: {
+    type: Date,
+    default: null,
+  },
+  convertedOrderId: {
+    type: String,
+    default: '',
+  },
+  convertedOrderTotal: {
+    type: Number,
+    default: null,
+  },
   sentAt: {
     type: Date,
     default: Date.now,

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Copy, ExternalLink, Plus, Search, Trash2, Check } from 'lucide-react';
-const EMAIL_CAMPAIGN_PAGE_MAX_PRODUCTS = 48;
+const EMAIL_CAMPAIGN_PAGE_MAX_PRODUCTS = 258;
 
 const EMPTY_FORM = {
   title: '',

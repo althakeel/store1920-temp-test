@@ -38,6 +38,7 @@ import { getCouponAccessErrorAsync } from '@/lib/couponAccess';
 import { linkGuestOrdersToUser, resolveContactForGuestLinking } from '@/lib/linkGuestOrders';
 import { getAuth } from '@/lib/firebase-admin';
 import { recordPurchaseFromOrder, shouldRecordPurchaseOnCreate } from '@/lib/serverCustomerTracking';
+import { recordEmailMarketingOrderConversion } from '@/lib/emailMarketingConversion';
 import { sendMetaPurchaseFromOrder } from '@/lib/metaConversionsApi';
 import {
   findBulkBundleVariant,
@@ -766,7 +767,8 @@ export async function POST(request) {
                     || trackingContext.sessionId
                     || trackingContext.fbp
                     || trackingContext.fbc
-                    || trackingContext.eventSourceUrl;
+                    || trackingContext.eventSourceUrl
+                    || trackingContext.emailTrackingToken;
                 if (hasTracking) {
                     orderData.trackingContext = {
                         anonymousId: trackingContext.anonymousId ? String(trackingContext.anonymousId) : null,
@@ -774,6 +776,9 @@ export async function POST(request) {
                         fbp: trackingContext.fbp ? String(trackingContext.fbp) : null,
                         fbc: trackingContext.fbc ? String(trackingContext.fbc) : null,
                         eventSourceUrl: trackingContext.eventSourceUrl ? String(trackingContext.eventSourceUrl) : null,
+                        emailTrackingToken: trackingContext.emailTrackingToken
+                            ? String(trackingContext.emailTrackingToken)
+                            : null,
                     };
                 }
             }
@@ -1025,6 +1030,31 @@ export async function POST(request) {
                     }
                 });
             }
+
+            deferPostOrderTask('email-marketing-conversion', async () => {
+                try {
+                    let customerEmail = order.guestEmail || '';
+                    if (!customerEmail && userId) {
+                        const userDoc = await User.findById(userId).select('email').lean();
+                        customerEmail = userDoc?.email || '';
+                    }
+                    if (!customerEmail && order.address?.email) {
+                        customerEmail = order.address.email;
+                    }
+
+                    await recordEmailMarketingOrderConversion({
+                        storeId,
+                        email: customerEmail,
+                        orderId: order._id,
+                        orderTotal: order.total,
+                        trackingToken: order.trackingContext?.emailTrackingToken
+                            || trackingContext?.emailTrackingToken
+                            || null,
+                    });
+                } catch (conversionError) {
+                    console.error('Error recording email marketing conversion:', conversionError);
+                }
+            });
 
             if (deferPaymentAtCreate && !trustedManualStoreOrder) {
                 deferPostOrderTask('awaiting-payment-abandoned-cart', () =>

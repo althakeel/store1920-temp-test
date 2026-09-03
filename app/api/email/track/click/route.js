@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import EmailHistory from '@/models/EmailHistory';
-import { resolveTrackedRedirectUrl } from '@/lib/emailMarketingTracking';
+import { resolveTrackedRedirectUrl, appendEmailTrackingParam } from '@/lib/emailMarketingTracking';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,5 +50,5 @@ export async function GET(request) {
     // Always redirect.
   }
 
-  return NextResponse.redirect(target, 302);
+  return NextResponse.redirect(appendEmailTrackingParam(target, token), 302);
 }

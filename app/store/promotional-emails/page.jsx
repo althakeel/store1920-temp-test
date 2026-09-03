@@ -1923,7 +1923,10 @@ export default function PromotionalEmailsPage() {
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">Signup leads</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Signup & email buyers</h3>
+              <p className="text-xs text-slate-500">
+                Welcome-offer signups and customers who purchased after clicking your marketing emails (last 30 days).
+              </p>
               <p className="text-sm text-slate-500">
                 From /welcome-offer and email signup buttons. Email opens and link clicks are on the History tab.
               </p>
@@ -1969,6 +1972,7 @@ export default function PromotionalEmailsPage() {
                   <th className="px-4 py-3 text-left font-semibold text-slate-700">Contact</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-700">Source</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Purchase</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-700">Submitted</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-700">Actions</th>
                 </tr>
@@ -1976,12 +1980,12 @@ export default function PromotionalEmailsPage() {
               <tbody>
                 {leadsLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">Loading leads…</td>
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-500">Loading leads…</td>
                   </tr>
                 ) : leads.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
-                      No leads yet. When someone signs up on /welcome-offer, they appear here.
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                      No leads yet. Signups from /welcome-offer and email buyers (after they click your campaign link) appear here.
                     </td>
                   </tr>
                 ) : (
@@ -1999,7 +2003,10 @@ export default function PromotionalEmailsPage() {
                         ) : null}
                       </td>
                       <td className="px-4 py-3 text-slate-600">
-                        {lead.source || 'welcome_offer'}
+                        {lead.source === 'email_campaign' ? 'Email campaign' : (lead.source || 'welcome_offer')}
+                        {lead.campaignName ? (
+                          <div className="text-[11px] text-slate-400 line-clamp-2">{lead.campaignName}</div>
+                        ) : null}
                         {lead.formStyle ? (
                           <div className="text-[11px] text-slate-400">{lead.formStyle}</div>
                         ) : null}
@@ -2015,6 +2022,24 @@ export default function PromotionalEmailsPage() {
                           <option value="converted">Converted</option>
                           <option value="archived">Archived</option>
                         </select>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {lead.convertedOrderId ? (
+                          <>
+                            <div className="font-medium text-emerald-700">
+                              {lead.convertedOrderTotal != null
+                                ? `AED ${Number(lead.convertedOrderTotal).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                                : 'Order placed'}
+                            </div>
+                            {lead.convertedAt ? (
+                              <div className="text-[11px] text-slate-400">
+                                {new Date(lead.convertedAt).toLocaleString()}
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-600">
                         {new Date(lead.lastSubmittedAt || lead.createdAt).toLocaleString()}

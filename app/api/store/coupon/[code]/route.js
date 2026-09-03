@@ -1,45 +1,37 @@
 import { NextResponse } from "next/server";
 import connectDB from '@/lib/mongodb';
 import Coupon from '@/models/Coupon';
-import Store from '@/models/Store';
+import authSeller from '@/middlewares/authSeller';
+import { getAuth } from '@/lib/firebase-admin';
+
+async function resolveStoreId(req) {
+    const authHeader = req.headers.get('authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) return null;
+
+    try {
+        const decoded = await getAuth().verifyIdToken(authHeader.replace('Bearer ', ''));
+        return authSeller(decoded.uid);
+    } catch {
+        return null;
+    }
+}
 
 // PUT - Update a coupon
 export async function PUT(req, { params }) {
     try {
+        const storeId = await resolveStoreId(req);
+        if (!storeId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         await connectDB();
-        
-        // Firebase Auth
-        const authHeader = req.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-        const idToken = authHeader.split(" ")[1];
-        const { getAuth } = await import('firebase-admin/auth');
-        const { initializeApp, applicationDefault, getApps } = await import('firebase-admin/app');
-        if (getApps().length === 0) {
-            initializeApp({ credential: applicationDefault() });
-        }
-        let decodedToken;
-        try {
-            decodedToken = await getAuth().verifyIdToken(idToken);
-        } catch (e) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-        const userId = decodedToken.uid;
 
         const { code } = await params;
+        const normalizedCode = String(code || '').toUpperCase();
 
-        // Get store
-        const store = await Store.findOne({ userId }).lean();
-
-        if (!store) {
-            return NextResponse.json({ error: "Store not found" }, { status: 404 });
-        }
-
-        // Check if coupon belongs to this store
-        const existingCoupon = await Coupon.findOne({ 
-            code: code.toUpperCase(),
-            storeId: store._id.toString()
+        const existingCoupon = await Coupon.findOne({
+            code: normalizedCode,
+            storeId,
         }).lean();
 
         if (!existingCoupon) {
@@ -65,14 +57,11 @@ export async function PUT(req, { params }) {
             expiresAt
         } = body;
 
-        console.log('Updating coupon:', code, 'with data:', body);
-
-        // Update coupon - sync both old and new schema fields
         const updateData = {};
         if (description !== undefined) updateData.description = description;
         if (discount !== undefined) {
             updateData.discount = parseFloat(discount);
-            updateData.discountValue = parseFloat(discount); // Sync new field
+            updateData.discountValue = parseFloat(discount);
         }
         if (discountType !== undefined) updateData.discountType = discountType;
         if (maxDiscount !== undefined) {
@@ -82,7 +71,7 @@ export async function PUT(req, { params }) {
         }
         if (minPrice !== undefined) {
             updateData.minPrice = parseFloat(minPrice);
-            updateData.minOrderValue = parseFloat(minPrice); // Sync new field
+            updateData.minOrderValue = parseFloat(minPrice);
         }
         if (minProductCount !== undefined) updateData.minProductCount = minProductCount ? parseInt(minProductCount) : null;
         if (specificProducts !== undefined) updateData.specificProducts = specificProducts;
@@ -92,34 +81,26 @@ export async function PUT(req, { params }) {
         if (oneTimePerUser !== undefined) updateData.oneTimePerUser = oneTimePerUser;
         if (usageLimit !== undefined) {
             updateData.usageLimit = usageLimit ? parseInt(usageLimit) : null;
-            updateData.maxUses = usageLimit ? parseInt(usageLimit) : null; // Sync new field
+            updateData.maxUses = usageLimit ? parseInt(usageLimit) : null;
         }
         if (isPublic !== undefined) updateData.isPublic = isPublic;
         if (isActive !== undefined) updateData.isActive = isActive;
         if (expiresAt) updateData.expiresAt = new Date(expiresAt);
-        
-        // Auto-generate title if discount changed
+
         if (discount !== undefined && discountType !== undefined) {
             updateData.title = `${discount}${discountType === 'percentage' ? '% Off' : ' Off'}`;
         }
-        
-        console.log('Update data:', updateData);
-        
+
         const coupon = await Coupon.findOneAndUpdate(
-            { 
-                code: code.toUpperCase(),
-                storeId: store._id.toString()
-            },
+            { code: normalizedCode, storeId },
             updateData,
             { new: true }
         ).lean();
 
         if (!coupon) {
-            console.error('Coupon not found after update attempt');
             return NextResponse.json({ error: "Failed to update coupon" }, { status: 404 });
         }
 
-        console.log('Coupon updated successfully:', coupon);
         return NextResponse.json({ coupon, success: true }, { status: 200 });
     } catch (error) {
         console.error("Error updating coupon:", error);
@@ -130,45 +111,22 @@ export async function PUT(req, { params }) {
 // DELETE - Delete a coupon
 export async function DELETE(req, { params }) {
     try {
+        const storeId = await resolveStoreId(req);
+        if (!storeId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         await connectDB();
-        
-        // Firebase Auth
-        const authHeader = req.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-        const idToken = authHeader.split(" ")[1];
-        const { getAuth } = await import('firebase-admin/auth');
-        const { initializeApp, applicationDefault, getApps } = await import('firebase-admin/app');
-        if (getApps().length === 0) {
-            initializeApp({ credential: applicationDefault() });
-        }
-        let decodedToken;
-        try {
-            decodedToken = await getAuth().verifyIdToken(idToken);
-        } catch (e) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-        const userId = decodedToken.uid;
 
         const { code } = await params;
+        const normalizedCode = String(code || '').toUpperCase();
 
-        // Get store
-        const store = await Store.findOne({ userId }).lean();
-
-        if (!store) {
-            return NextResponse.json({ error: "Store not found" }, { status: 404 });
-        }
-
-        // Check if coupon belongs to this store
-        const existingCoupon = await Coupon.findOne({ code }).lean();
-
-        if (!existingCoupon || existingCoupon.storeId !== store._id.toString()) {
+        const existingCoupon = await Coupon.findOne({ code: normalizedCode }).lean();
+        if (!existingCoupon || existingCoupon.storeId !== storeId) {
             return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
         }
 
-        // Delete coupon
-        await Coupon.findOneAndDelete({ code });
+        await Coupon.findOneAndDelete({ code: normalizedCode, storeId });
 
         return NextResponse.json({ message: "Coupon deleted successfully" }, { status: 200 });
     } catch (error) {

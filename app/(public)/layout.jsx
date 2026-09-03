@@ -8,6 +8,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { isProductDetailPath } from "@/lib/productUrl";
 
 const UtmTracker = dynamic(() => import("@/components/UtmTracker"), { ssr: false });
+const EmailTrackCapture = dynamic(() => import("@/components/EmailTrackCapture"), { ssr: false });
 const AdsAttribution = dynamic(() => import("@/components/AdsAttribution"), { ssr: false });
 const CustomerSessionTracker = dynamic(() => import("@/components/CustomerSessionTracker"), { ssr: false });
 const HeatmapClickTracker = dynamic(() => import("@/components/HeatmapClickTracker"), { ssr: false });
@@ -30,6 +31,7 @@ function DeferredTrackers() {
     return (
         <>
             <UtmTracker />
+            <EmailTrackCapture />
             <AdsAttribution />
             <CustomerSessionTracker />
             <HeatmapClickTracker />
