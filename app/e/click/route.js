@@ -13,7 +13,10 @@ function readParam(request, name) {
   return match ? match[1] : '';
 }
 
-/** Legacy path — same behavior as /e/click */
+/**
+ * Public email click redirect (used by marketing emails).
+ * Prefer this over /api/email/track/click — some deploys 404 new API paths.
+ */
 export async function GET(request) {
   const token = String(readParam(request, 't') || '').trim();
   const target = resolveTrackedRedirectUrl(readParam(request, 'u'));

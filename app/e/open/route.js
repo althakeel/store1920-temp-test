@@ -10,7 +10,9 @@ const PIXEL = Buffer.from(
 
 export const dynamic = 'force-dynamic';
 
-/** Legacy path — same behavior as /e/open */
+/**
+ * Public email open pixel (marketing). Prefer /e/open over /api/email/track/open.
+ */
 export async function GET(request) {
   try {
     const token = String(new URL(request.url).searchParams.get('t') || '').trim();

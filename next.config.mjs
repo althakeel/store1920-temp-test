@@ -90,6 +90,15 @@ const nextConfig = {
                 source: '/sitemap.xml',
                 destination: '/sitemap-index.xml',
             },
+            // Email marketing open/click trackers (public paths; keep legacy /api URLs working)
+            {
+                source: '/api/email/track/click',
+                destination: '/e/click',
+            },
+            {
+                source: '/api/email/track/open',
+                destination: '/e/open',
+            },
             // Named sitemap splits — serve full <urlset> via route handlers (not index-only).
             {
                 source: '/sitemap-pages.xml',

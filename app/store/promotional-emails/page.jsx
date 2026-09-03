@@ -1892,7 +1892,7 @@ export default function PromotionalEmailsPage() {
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Signup leads</h3>
               <p className="text-sm text-slate-500">
-                From /welcome-offer and email signup buttons
+                From /welcome-offer and email signup buttons. Email opens and link clicks are on the History tab.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2045,7 +2045,12 @@ export default function PromotionalEmailsPage() {
           </p>
 
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-800">Email history</h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">Email history</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                See who received each email, who opened it, and who clicked a link.
+              </p>
+            </div>
             <div className="flex items-center gap-3">
               <select
                 value={statusFilter}
