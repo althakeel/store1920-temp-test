@@ -5,10 +5,20 @@ import { resolveTrackedRedirectUrl } from '@/lib/emailMarketingTracking';
 
 export const dynamic = 'force-dynamic';
 
+function readClickTargetParam(request) {
+  const url = new URL(request.url);
+  const fromParams = url.searchParams.get('u');
+  if (fromParams) return fromParams;
+
+  // Fallback when a client mangles &amp; / nested query parsing.
+  const match = String(request.url || '').match(/[?&]u=([^&]+)/i);
+  return match ? match[1] : '';
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const token = String(searchParams.get('t') || '').trim();
-  const target = resolveTrackedRedirectUrl(searchParams.get('u') || '');
+  const target = resolveTrackedRedirectUrl(readClickTargetParam(request));
 
   try {
     if (token) {
