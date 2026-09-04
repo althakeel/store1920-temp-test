@@ -108,6 +108,12 @@ export default async function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://analytics.tiktok.com" />
         <link rel="preconnect" href="https://analytics.tiktok.com" crossOrigin="anonymous" />
         <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+        <script async src={getGoogleAdsGtagSrc(GA_MEASUREMENT_ID)} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: getGoogleAdsGtagInitScript(GOOGLE_ADS_ID, GA_MEASUREMENT_ID),
+          }}
+        />
       </head>
       <body className={`${poppins.className} overflow-x-clip antialiased`} suppressHydrationWarning>
         <EarlyHeadScripts />
@@ -140,18 +146,6 @@ export default async function RootLayout({ children }) {
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: getTikTokPixelBootstrapScript(TIKTOK_PIXEL_ID),
-          }}
-        />
-        <Script
-          id="google-gtag-loader"
-          src={getGoogleAdsGtagSrc(GA_MEASUREMENT_ID)}
-          strategy="afterInteractive"
-        />
-        <Script
-          id="google-gtag"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: getGoogleAdsGtagInitScript(GOOGLE_ADS_ID, GA_MEASUREMENT_ID),
           }}
         />
         {/* Add Navbar and Footer globally via ClientLayout */}
