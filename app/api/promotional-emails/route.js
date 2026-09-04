@@ -14,6 +14,11 @@ import {
   createEmailTrackingToken,
   injectEmailEngagementTracking,
 } from '@/lib/emailMarketingTracking';
+import {
+  loadCampaignProducts,
+  personalizeCampaignHtml,
+  renderSharedCampaignHtml,
+} from '@/lib/emailMarketingCampaignSend';
 import mongoose from 'mongoose';
 
 async function loadFeaturedProducts() {
@@ -277,7 +282,10 @@ export async function POST(request) {
 
     await connectDB();
     const storeObjectId = await resolveStoreObjectId();
-    const products = await loadFeaturedProducts();
+    const products = await loadCampaignProducts({
+      blocks: body.blocks,
+      customTemplateId: body.customTemplateId,
+    });
     const campaign = await resolveCampaignContent(body, products);
 
     if (!campaign) {
@@ -293,6 +301,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'No customers found' }, { status: 404 });
     }
 
+    const sharedHtml = renderSharedCampaignHtml(campaign);
     const results = [];
     for (const customer of customers) {
       const trackingToken = createEmailTrackingToken();
@@ -316,7 +325,7 @@ export async function POST(request) {
         }
 
         const htmlContent = injectEmailEngagementTracking(
-          absolutizeEmailHtmlImages(campaign.render(customer.email)),
+          personalizeCampaignHtml(sharedHtml, customer.email),
           trackingToken,
         );
 

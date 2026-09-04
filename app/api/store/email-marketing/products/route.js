@@ -27,13 +27,15 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(100, Math.max(4, Number(searchParams.get('limit') || 48) || 48));
-    const categoryParam = String(searchParams.get('category') || '').trim();
-    const q = normalizeSearchKeyword(searchParams.get('q') || searchParams.get('search') || '');
     const idsParam = String(searchParams.get('ids') || '').trim();
     const requestedIds = idsParam
-      ? idsParam.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 48)
+      ? idsParam.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 500)
       : [];
+    const defaultLimit = requestedIds.length ? requestedIds.length : 48;
+    const maxLimit = requestedIds.length ? 500 : 100;
+    const limit = Math.min(maxLimit, Math.max(4, Number(searchParams.get('limit') || defaultLimit) || defaultLimit));
+    const categoryParam = String(searchParams.get('category') || '').trim();
+    const q = normalizeSearchKeyword(searchParams.get('q') || searchParams.get('search') || '');
 
     await connectDB();
 

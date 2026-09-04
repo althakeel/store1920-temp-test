@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Copy, ExternalLink, Plus, Search, Trash2, Check } from 'lucide-react';
-const EMAIL_CAMPAIGN_PAGE_MAX_PRODUCTS = 258;
+import { EMAIL_CAMPAIGN_PAGE_MAX_PRODUCTS } from '@/lib/emailCampaignPageHelpers';
 
 const EMPTY_FORM = {
   title: '',
@@ -76,12 +76,18 @@ export default function EmailCampaignLandingPages({ getToken }) {
     (async () => {
       try {
         const headers = await authHeaders();
-        const { data } = await axios.get(
-          `/api/store/email-marketing/products?ids=${encodeURIComponent(missing.join(','))}&limit=${missing.length}`,
-          { headers },
-        );
+        const chunkSize = 80;
+        const found = [];
+        for (let i = 0; i < missing.length; i += chunkSize) {
+          const chunk = missing.slice(i, i + chunkSize);
+          const { data } = await axios.get(
+            `/api/store/email-marketing/products?ids=${encodeURIComponent(chunk.join(','))}&limit=${chunk.length}`,
+            { headers },
+          );
+          if (cancelled) return;
+          found.push(...(Array.isArray(data.products) ? data.products : []));
+        }
         if (cancelled) return;
-        const found = Array.isArray(data.products) ? data.products : [];
         setSelectedMeta((prev) => {
           const next = { ...prev };
           found.forEach((product) => {
