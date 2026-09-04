@@ -10,7 +10,7 @@ import {
   STOREFRONT_LANGUAGE_COOKIE,
   detectLanguageFromAcceptLanguage,
 } from "@/lib/storefrontLanguage";
-import { GTM_ID, getGtmHeadScript, getGtmNoscriptSrc } from "@/lib/gtm";
+import { GTM_ID, SECONDARY_GTM_ID, getGtmHeadScript, getSecondaryGtmHeadScript, getGtmNoscriptSrc } from "@/lib/gtm";
 import { META_PIXEL_ID, getMetaPixelBootstrapScript } from "@/lib/metaPixelConfig";
 import { TIKTOK_PIXEL_ID, getTikTokPixelBootstrapScript } from "@/lib/tiktokPixelConfig";
 import { GA_MEASUREMENT_ID, GOOGLE_ADS_ID, getGoogleAdsGtagInitScript, getGoogleAdsGtagSrc } from "@/lib/googleAdsConfig";
@@ -88,6 +88,14 @@ export default async function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <head>
+        {SECONDARY_GTM_ID ? (
+          <script
+            id="gtm-secondary-head"
+            dangerouslySetInnerHTML={{
+              __html: getSecondaryGtmHeadScript(SECONDARY_GTM_ID),
+            }}
+          />
+        ) : null}
         {/* S3 media preconnect */}
         {s3Origin && (
           <>
@@ -116,6 +124,17 @@ export default async function RootLayout({ children }) {
         />
       </head>
       <body className={`${poppins.className} overflow-x-clip antialiased`} suppressHydrationWarning>
+        {SECONDARY_GTM_ID ? (
+          <noscript>
+            <iframe
+              src={getGtmNoscriptSrc(SECONDARY_GTM_ID)}
+              height="0"
+              width="0"
+              style={{ display: "none", visibility: "hidden" }}
+              title="Google Tag Manager"
+            />
+          </noscript>
+        ) : null}
         <EarlyHeadScripts />
         <Script
           id="google-tag-manager"
