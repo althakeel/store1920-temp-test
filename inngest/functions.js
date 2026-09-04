@@ -100,6 +100,19 @@ export const recoverWaslahAutoShipments = inngest.createFunction(
     }),
 )
 
+export const sendDueEmailMarketingCampaigns = inngest.createFunction(
+    {
+        id: 'send-due-email-marketing-campaigns',
+        retries: 1,
+        concurrency: { limit: 1 },
+    },
+    { cron: '* * * * *' },
+    async ({ step }) => step.run('send-due-email-marketing-campaigns', async () => {
+        const { runDueEmailMarketingCampaigns } = await import('@/lib/runEmailMarketingCampaigns');
+        return runDueEmailMarketingCampaigns();
+    }),
+)
+
 export const sendAbandonedCartWhatsAppReminders = inngest.createFunction(
     {
         id: 'send-abandoned-cart-whatsapp-reminders',

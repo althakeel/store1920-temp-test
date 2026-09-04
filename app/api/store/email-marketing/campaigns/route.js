@@ -6,8 +6,10 @@ import { getAuth } from '@/lib/firebase-admin';
 import { parseDubaiDateTimeLocal, uniqueDailyTimes } from '@/lib/emailMarketingSchedule';
 import { getPresetBlocks } from '@/lib/emailCampaignPresets';
 import { assertMarketingRecipientLimit } from '@/lib/emailMarketingLimits';
+import { runDueEmailMarketingCampaigns } from '@/lib/runEmailMarketingCampaigns';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 async function getSellerContext(request) {
   const authHeader = request.headers.get('authorization') || '';
@@ -32,6 +34,12 @@ export async function GET(request) {
     await connectDB();
     const { searchParams } = new URL(request.url);
     const status = String(searchParams.get('status') || 'active').trim();
+    const runDue = searchParams.get('runDue') === '1';
+    let dueResult = null;
+    if (runDue) {
+      dueResult = await runDueEmailMarketingCampaigns({ storeId: seller.storeId });
+    }
+
     const query = { storeId: seller.storeId };
     if (status !== 'all') query.status = status;
 
@@ -40,7 +48,7 @@ export async function GET(request) {
       .limit(50)
       .lean();
 
-    return NextResponse.json({ success: true, campaigns });
+    return NextResponse.json({ success: true, campaigns, dueResult });
   } catch (error) {
     console.error('[email-marketing campaigns GET]', error);
     return NextResponse.json({ error: error.message || 'Failed to load campaigns' }, { status: 500 });

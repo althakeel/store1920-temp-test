@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
+import { isAuthorizedCronRequest } from '@/lib/cronAuth';
 import { runDueEmailMarketingCampaigns } from '@/lib/runEmailMarketingCampaigns';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function GET(request) {
-  const cronSecret = String(process.env.CRON_SECRET || '').trim();
-  const authorization = request.headers.get('authorization') || '';
-  if (!cronSecret || authorization !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

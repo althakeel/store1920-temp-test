@@ -234,17 +234,30 @@ export default function PromotionalEmailsPage() {
     }
   };
 
-  const loadActiveCampaigns = async () => {
+  const loadActiveCampaigns = async ({ runDue = true, silent = false } = {}) => {
     try {
-      setCampaignsLoading(true);
+      if (!silent) setCampaignsLoading(true);
       const headers = await authHeaders();
-      const { data } = await axios.get('/api/store/email-marketing/campaigns?status=active', { headers });
+      const qs = runDue ? 'status=active&runDue=1' : 'status=active';
+      const { data } = await axios.get(`/api/store/email-marketing/campaigns?${qs}`, { headers });
       setActiveCampaigns(data.campaigns || []);
+      const due = data.dueResult;
+      if (due?.slotsRun > 0) {
+        const sent = Number(due.emailsSent || 0);
+        const failed = Number(due.emailsFailed || 0);
+        const firstError = (due.processed || []).map((row) => row.error).find(Boolean);
+        setSendStatus(
+          firstError && !sent
+            ? `Scheduled send failed: ${firstError}`
+            : `Scheduled campaign sent: ${sent} email${sent === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.`,
+        );
+        if (sent > 0) loadHistory(1);
+      }
     } catch (error) {
       console.error('Error loading campaigns:', error);
-      setActiveCampaigns([]);
+      if (!silent) setActiveCampaigns([]);
     } finally {
-      setCampaignsLoading(false);
+      if (!silent) setCampaignsLoading(false);
     }
   };
 
@@ -300,11 +313,19 @@ export default function PromotionalEmailsPage() {
         action: 'stop',
       }, { headers });
       setSendStatus('Daily campaign disabled. It will not send again until you create a new one.');
-      loadActiveCampaigns();
+      loadActiveCampaigns({ runDue: false });
     } catch (error) {
       setSendStatus(error?.response?.data?.error || 'Failed to disable campaign.');
     }
   };
+
+  useEffect(() => {
+    if (tab !== 'send') return undefined;
+    const timerId = window.setInterval(() => {
+      loadActiveCampaigns({ runDue: true, silent: true });
+    }, 45000);
+    return () => window.clearInterval(timerId);
+  }, [tab]);
 
   const classicTemplates = useMemo(
     () => presets.filter((item) => item.category === 'Classic'),
@@ -1464,7 +1485,7 @@ export default function PromotionalEmailsPage() {
                       + Add date
                     </button>
                     <span className="text-[11px] text-slate-500">
-                      Asia/Dubai · pick upcoming day(s) and time — add as many as you need
+                      Asia/Dubai · emails go out automatically at this time (you can leave this page)
                     </span>
                   </div>
                 )}
@@ -1562,7 +1583,9 @@ export default function PromotionalEmailsPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">Active scheduled campaigns</h3>
-                  <p className="text-xs text-slate-500">Daily and one-time schedules stay here until disabled or finished</p>
+                  <p className="text-xs text-slate-500">
+                    Sends automatically at the scheduled Asia/Dubai time. Refresh also sends any campaign whose time has already passed.
+                  </p>
                 </div>
                 <button
                   type="button"
