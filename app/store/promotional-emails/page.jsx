@@ -11,6 +11,7 @@ import EmailCampaignLandingPages from '@/components/store/EmailCampaignLandingPa
 import { getPresetBlocks } from '@/lib/emailCampaignPresets';
 import { listStockImagesForPicker } from '@/lib/emailTemplateStockImages';
 import { renderEmailFromBlocks, toEmailPreviewSrcDoc } from '@/lib/emailCampaignBuilder';
+import { formatDubaiDateTime, parseDubaiDateTimeLocal } from '@/lib/emailMarketingSchedule';
 
 const TABS = [
   { id: 'send', label: 'Send campaign', icon: Mail },
@@ -863,7 +864,7 @@ export default function PromotionalEmailsPage() {
         clearAudienceSelection();
         setSendProgress({ done: emailsToSend.length, total: emailsToSend.length });
         const whenLabel = upcomingScheduleTimes
-          .map((value) => new Date(value).toLocaleString())
+          .map((value) => formatDubaiDateTime(parseDubaiDateTimeLocal(value)))
           .join(' · ');
         setSendStatus(
           data.message
@@ -1587,12 +1588,12 @@ export default function PromotionalEmailsPage() {
                         <div className="mt-0.5 text-xs text-slate-500">
                           {campaign.scheduleMode === 'once'
                             ? `Once · ${(Array.isArray(campaign.onceAtList) ? campaign.onceAtList : [])
-                              .map((value) => new Date(value).toLocaleString())
+                              .map((value) => formatDubaiDateTime(value))
                               .join(' · ') || '—'}`
                             : `Daily at ${(campaign.dailyTimes || []).join(', ') || '—'}`}
                           {' · '}
                           {(campaign.customerEmails || []).length} recipients
-                          {campaign.lastRunAt ? ` · last run ${new Date(campaign.lastRunAt).toLocaleString()}` : ''}
+                          {campaign.lastRunAt ? ` · last run ${formatDubaiDateTime(campaign.lastRunAt)}` : ''}
                         </div>
                       </div>
                       <button

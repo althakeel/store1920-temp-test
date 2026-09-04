@@ -3,7 +3,7 @@ import connectDB from '@/lib/mongodb';
 import EmailMarketingCampaign from '@/models/EmailMarketingCampaign';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
-import { uniqueDailyTimes } from '@/lib/emailMarketingSchedule';
+import { parseDubaiDateTimeLocal, uniqueDailyTimes } from '@/lib/emailMarketingSchedule';
 import { getPresetBlocks } from '@/lib/emailCampaignPresets';
 import { assertMarketingRecipientLimit } from '@/lib/emailMarketingLimits';
 
@@ -85,8 +85,8 @@ export async function POST(request) {
 
     const dailyTimes = uniqueDailyTimes(body.dailyTimes || body.autoTimes || ['09:00']);
     const onceAtList = (Array.isArray(body.onceAtList) ? body.onceAtList : [])
-      .map((value) => new Date(value))
-      .filter((date) => !Number.isNaN(date.getTime()));
+      .map((value) => parseDubaiDateTimeLocal(value))
+      .filter(Boolean);
 
     if (scheduleMode === 'daily' && !dailyTimes.length) {
       return NextResponse.json({ error: 'Add at least one daily send time (HH:mm)' }, { status: 400 });
