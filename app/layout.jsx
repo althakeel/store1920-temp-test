@@ -10,10 +10,9 @@ import {
   STOREFRONT_LANGUAGE_COOKIE,
   detectLanguageFromAcceptLanguage,
 } from "@/lib/storefrontLanguage";
-import { GTM_ID, SECONDARY_GTM_ID, getGtmHeadScript, getSecondaryGtmHeadScript, getGtmNoscriptSrc } from "@/lib/gtm";
+import { GTM_ID, getGtmHeadScript, getGtmNoscriptSrc } from "@/lib/gtm";
 import { META_PIXEL_ID, getMetaPixelBootstrapScript } from "@/lib/metaPixelConfig";
 import { TIKTOK_PIXEL_ID, getTikTokPixelBootstrapScript } from "@/lib/tiktokPixelConfig";
-import { GA_MEASUREMENT_ID, GOOGLE_ADS_ID, getGoogleAdsGtagInitScript, getGoogleAdsGtagSrc } from "@/lib/googleAdsConfig";
 import OrganizationJsonLd from "@/components/OrganizationJsonLd";
 import { SITE_URL } from "@/lib/sitemapData";
 
@@ -88,14 +87,12 @@ export default async function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <head>
-        {SECONDARY_GTM_ID ? (
-          <script
-            id="gtm-secondary-head"
-            dangerouslySetInnerHTML={{
-              __html: getSecondaryGtmHeadScript(SECONDARY_GTM_ID),
-            }}
-          />
-        ) : null}
+        <script
+          id="google-tag-manager"
+          dangerouslySetInnerHTML={{
+            __html: getGtmHeadScript(GTM_ID),
+          }}
+        />
         {/* S3 media preconnect */}
         {s3Origin && (
           <>
@@ -116,42 +113,18 @@ export default async function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://analytics.tiktok.com" />
         <link rel="preconnect" href="https://analytics.tiktok.com" crossOrigin="anonymous" />
         <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
-        <script async src={getGoogleAdsGtagSrc(GA_MEASUREMENT_ID)} />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: getGoogleAdsGtagInitScript(GOOGLE_ADS_ID, GA_MEASUREMENT_ID),
-          }}
-        />
       </head>
       <body className={`${poppins.className} overflow-x-clip antialiased`} suppressHydrationWarning>
-        {SECONDARY_GTM_ID ? (
-          <noscript>
-            <iframe
-              src={getGtmNoscriptSrc(SECONDARY_GTM_ID)}
-              height="0"
-              width="0"
-              style={{ display: "none", visibility: "hidden" }}
-              title="Google Tag Manager"
-            />
-          </noscript>
-        ) : null}
-        <EarlyHeadScripts />
-        <Script
-          id="google-tag-manager"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: getGtmHeadScript(GTM_ID),
-          }}
-        />
-        {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe
             src={getGtmNoscriptSrc(GTM_ID)}
             height="0"
             width="0"
             style={{ display: "none", visibility: "hidden" }}
+            title="Google Tag Manager"
           />
         </noscript>
+        <EarlyHeadScripts />
         <StorefrontLanguageInitScript />
         <Script
           id="meta-pixel"

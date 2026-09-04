@@ -65,15 +65,15 @@ export default function UtmTracker() {
 
     sessionStorage.setItem(utmEventKey, '1');
 
-    if (window.gtag) {
-      window.gtag('event', 'page_view', {
-        utm_source: utmData.source,
-        utm_medium: utmData.medium,
-        utm_campaign: utmData.campaign,
-        utm_content: utmData.content,
-        utm_id: utmData.id,
-      });
-    }
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'utm_attribution',
+      utm_source: utmData.source,
+      utm_medium: utmData.medium,
+      utm_campaign: utmData.campaign,
+      utm_content: utmData.content,
+      utm_id: utmData.id,
+    });
   }, [searchParams]);
 
   return null;
