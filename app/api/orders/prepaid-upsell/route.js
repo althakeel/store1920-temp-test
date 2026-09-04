@@ -8,6 +8,8 @@ import { validateStripeAuthoritativePaymentState } from '@/lib/stripePaymentStat
 import { verifyPrepaidUpsellToken } from '@/lib/prepaidUpsellToken';
 import { stripeSecureCheckoutOptions } from '@/lib/paymentSecurity';
 import { logPaymentEvent } from '@/lib/paymentTransactionLog';
+import ShippingSetting from '@/models/ShippingSetting';
+import { getPaymentMethodLimitError } from '@/lib/paymentMethodLimits';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +100,14 @@ export async function POST(request) {
     const baseTotal = Number(order.total || 0);
     if (!(baseTotal > 0)) {
       return NextResponse.json({ error: 'Order total is not payable' }, { status: 400 });
+    }
+
+    const shippingSetting = order.storeId
+      ? await ShippingSetting.findOne({ storeId: order.storeId }).lean()
+      : null;
+    const cardUnavailable = getPaymentMethodLimitError(shippingSetting, 'card', baseTotal);
+    if (cardUnavailable) {
+      return NextResponse.json({ error: cardUnavailable }, { status: 403 });
     }
 
     const discountedTotal = Number((baseTotal * 0.95).toFixed(2));

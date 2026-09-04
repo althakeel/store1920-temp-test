@@ -64,7 +64,9 @@ const OrderSummary = ({ totalPrice, items }) => {
         weightUnit: 'kg',
         baseWeight: 1,
         baseWeightFee: 5,
-        additionalWeightFee: 2
+        additionalWeightFee: 2,
+        enableCard: true,
+        maxCardAmount: 0,
     });
 
     // Check if user is eligible for welcome bonus free shipping
@@ -117,6 +119,8 @@ const OrderSummary = ({ totalPrice, items }) => {
                         baseWeight: Number(data.setting.baseWeight ?? 1),
                         baseWeightFee: Number(data.setting.baseWeightFee ?? 5),
                         additionalWeightFee: Number(data.setting.additionalWeightFee ?? 2),
+                        enableCard: data.setting.enableCard !== false,
+                        maxCardAmount: Number(data.setting.maxCardAmount || 0),
                     });
                 }
             } catch (err) {
@@ -138,6 +142,11 @@ const OrderSummary = ({ totalPrice, items }) => {
     };
 
     const shippingFee = calculateShipping();
+    const canOfferCardPay = (amount) => {
+        if (shipping.enableCard === false) return false;
+        const maxCard = Number(shipping.maxCardAmount || 0);
+        return !(maxCard > 0 && Number(amount || 0) > maxCard);
+    };
 
     const handleCouponCode = async (event) => {
         event.preventDefault();
@@ -213,8 +222,8 @@ const OrderSummary = ({ totalPrice, items }) => {
                             dispatch(clearCart());
                             toast.success(data.message);
                             const orderId = data.orders ? data.orders[0].id : data.order.id;
-                            // If COD, show prepaid upsell before redirect
-                            if (paymentMethod === 'COD') {
+                            // If COD and card/Stripe is on, show prepaid upsell before redirect
+                            if (paymentMethod === 'COD' && canOfferCardPay(totalPrice)) {
                                 setUpsellOrderId(orderId);
                                 setShowPrepaidModal(true);
                             } else {
@@ -297,9 +306,13 @@ const OrderSummary = ({ totalPrice, items }) => {
                     dispatch(clearCart());
                     toast.success(data.message || 'Order placed successfully!');
                     const orderId = data.order.id;
-                    // Show prepaid upsell modal before redirecting
-                    setUpsellOrderId(orderId);
-                    setShowPrepaidModal(true);
+                    if (canOfferCardPay(totalPrice)) {
+                        setUpsellOrderId(orderId);
+                        setShowPrepaidModal(true);
+                    } else {
+                        setNavigatingToSuccess(true);
+                        router.push(`/order-success?orderId=${orderId}`);
+                    }
                     // Fetch updated cart from server to sync
                     dispatch(fetchCart({getToken}));
                 }

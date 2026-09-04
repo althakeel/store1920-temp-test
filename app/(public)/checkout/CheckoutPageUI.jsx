@@ -2223,17 +2223,21 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
 
         if (effectivePayment === 'cod' && data.autoEmxShipping !== true) {
           const orderTotal = Number(data.total ?? data.order?.total ?? totalAfterWallet ?? 0);
-          setUpsellOrderId(createdOrderId);
-          setUpsellOrderTotal(orderTotal);
-          setUpsellToken(String(data.prepaidUpsellToken || ''));
-          setShowPrepaidModal(true);
-          setPlacingOrder(false);
-          // Show modal before clearing cart so empty-cart redirect does not fire first.
-          queueMicrotask(() => dispatch(clearCart()));
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('walletUpdated'));
+          const canOfferCardPay = isPaymentMethodEnabled(shippingSetting, 'card')
+            && !isPaymentMethodOverLimit(shippingSetting, 'card', orderTotal);
+          if (canOfferCardPay) {
+            setUpsellOrderId(createdOrderId);
+            setUpsellOrderTotal(orderTotal);
+            setUpsellToken(String(data.prepaidUpsellToken || ''));
+            setShowPrepaidModal(true);
+            setPlacingOrder(false);
+            // Show modal before clearing cart so empty-cart redirect does not fire first.
+            queueMicrotask(() => dispatch(clearCart()));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('walletUpdated'));
+            }
+            return;
           }
-          return;
         }
 
         if (typeof window !== 'undefined') {

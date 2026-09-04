@@ -45,7 +45,11 @@ import {
   isBulkBundleProduct,
 } from '@/lib/bulkBundleCart';
 import { applyFbtBundlePricingToOrderItems } from '@/lib/fbtCart';
-import { getPaymentMethodLimitError } from '@/lib/paymentMethodLimits';
+import {
+  getPaymentMethodLimitError,
+  isPaymentMethodEnabled,
+  isPaymentMethodOverLimit,
+} from '@/lib/paymentMethodLimits';
 import { requestWaslahAutoShipment } from '@/lib/waslahAutoShipment';
 import { isWaslahAutoShipEnabled } from '@/lib/waslahAutoShipPolicy';
 import { createPrepaidUpsellToken } from '@/lib/prepaidUpsellToken';
@@ -1445,6 +1449,8 @@ export async function POST(request) {
         if (
             String(paymentMethod || '').toUpperCase() === 'COD'
             && !isWaslahAutoShipEnabled()
+            && isPaymentMethodEnabled(shippingSettingForLimits, 'card')
+            && !isPaymentMethodOverLimit(shippingSettingForLimits, 'card', primaryTotal)
         ) {
             const prepaidUpsellToken = createPrepaidUpsellToken(primaryOrderId);
             if (prepaidUpsellToken) {
