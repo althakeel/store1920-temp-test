@@ -56,6 +56,7 @@ const StoreSchema = new mongoose.Schema({
   exploreInterestsEnabled: { type: Boolean, default: true },
   exploreInterestsProductIds: { type: [String], default: [] },
   carouselProductIds: { type: [String], default: [] }, // Array of product IDs for carousel slider
+  emailMarketingImageLibrary: { type: [String], default: [] },
   homeMenuCategories: {
     count: { type: Number, default: 6 },
     items: [

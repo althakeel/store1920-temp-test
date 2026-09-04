@@ -4,6 +4,12 @@ import Coupon from '@/models/Coupon';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
 
+function parseCouponNumber(value, emptyValue) {
+    if (value === '' || value === null || value === undefined) return emptyValue;
+    const parsed = typeof value === 'number' ? value : Number(String(value).trim());
+    return Number.isFinite(parsed) ? parsed : emptyValue;
+}
+
 async function resolveStoreId(req) {
     const authHeader = req.headers.get('authorization') || '';
     if (!authHeader.startsWith('Bearer ')) return null;
@@ -81,15 +87,13 @@ export async function POST(req) {
             code: code.toUpperCase(),
             title: `${discount}${discountType === 'percentage' ? '% Off' : ' Off'}`,
             description,
-            discount: parseFloat(discount),
+            discount: parseCouponNumber(discount, 0),
             discountType: discountType || 'percentage',
-            discountValue: parseFloat(discount),
-            maxDiscount: maxDiscount !== undefined && maxDiscount !== '' && maxDiscount !== null
-                ? parseFloat(maxDiscount)
-                : undefined,
-            minPrice: minPrice ? parseFloat(minPrice) : 0,
-            minOrderValue: minPrice ? parseFloat(minPrice) : 0,
-            minProductCount: minProductCount ? parseInt(minProductCount) : null,
+            discountValue: parseCouponNumber(discount, 0),
+            maxDiscount: parseCouponNumber(maxDiscount, undefined),
+            minPrice: parseCouponNumber(minPrice, 0),
+            minOrderValue: parseCouponNumber(minPrice, 0),
+            minProductCount: parseCouponNumber(minProductCount, null),
             specificProducts: specificProducts || [],
             forNewUser: forNewUser || false,
             forMember: forMember || false,

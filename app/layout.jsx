@@ -13,7 +13,7 @@ import {
 import { GTM_ID, getGtmHeadScript, getGtmNoscriptSrc } from "@/lib/gtm";
 import { META_PIXEL_ID, getMetaPixelBootstrapScript } from "@/lib/metaPixelConfig";
 import { TIKTOK_PIXEL_ID, getTikTokPixelBootstrapScript } from "@/lib/tiktokPixelConfig";
-import { GOOGLE_ADS_ID, getGoogleAdsGtagInitScript, getGoogleAdsGtagSrc } from "@/lib/googleAdsConfig";
+import { GA_MEASUREMENT_ID, GOOGLE_ADS_ID, getGoogleAdsGtagInitScript, getGoogleAdsGtagSrc } from "@/lib/googleAdsConfig";
 import OrganizationJsonLd from "@/components/OrganizationJsonLd";
 import { SITE_URL } from "@/lib/sitemapData";
 
@@ -143,15 +143,15 @@ export default async function RootLayout({ children }) {
           }}
         />
         <Script
-          id="google-ads-gtag-loader"
-          src={getGoogleAdsGtagSrc(GOOGLE_ADS_ID)}
+          id="google-gtag-loader"
+          src={getGoogleAdsGtagSrc(GA_MEASUREMENT_ID)}
           strategy="afterInteractive"
         />
         <Script
-          id="google-ads-gtag"
+          id="google-gtag"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
-            __html: getGoogleAdsGtagInitScript(GOOGLE_ADS_ID),
+            __html: getGoogleAdsGtagInitScript(GOOGLE_ADS_ID, GA_MEASUREMENT_ID),
           }}
         />
         {/* Add Navbar and Footer globally via ClientLayout */}

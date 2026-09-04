@@ -8,6 +8,7 @@ import EmailTemplate from '@/models/EmailTemplate';
 import { sendMail } from '@/lib/email';
 import { getRandomTemplate, getTemplateById, getAllTemplateIds } from '@/lib/promotionalEmailTemplates';
 import { mapProductsForEmail, renderEmailFromBlocks, absolutizeEmailHtmlImages } from '@/lib/emailCampaignBuilder';
+import { inlineEmailCss, wrapMarketingEmailDocument } from '@/lib/inlineEmailCss';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
 import { assertMarketingRecipientLimit, assertMarketingRecipientCount } from '@/lib/emailMarketingLimits';
 import {
@@ -128,7 +129,7 @@ async function resolveCampaignContent(body, products) {
             preheader: preheader || saved.preheader || '',
             fontFamily: font,
           })
-          : absolutizeEmailHtmlImages(saved.template || '')
+          : wrapMarketingEmailDocument(absolutizeEmailHtmlImages(inlineEmailCss(saved.template || '')))
       ),
     };
   }

@@ -32,6 +32,7 @@ import {
   renderEmailFromBlocks,
   rewriteEmailPreviewMediaUrls,
   resolveEmailProductImage,
+  isFullEmailDocument,
 } from '@/lib/emailCampaignBuilder';
 
 const UPLOADED_IMAGES_KEY = 'store1920-email-uploaded-images';
@@ -50,7 +51,7 @@ function loadUploadedImages() {
 function persistUploadedImages(urls) {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(UPLOADED_IMAGES_KEY, JSON.stringify(urls.slice(0, 48)));
+    window.localStorage.setItem(UPLOADED_IMAGES_KEY, JSON.stringify(urls.slice(0, 200)));
   } catch {
     // ignore quota errors
   }
@@ -116,21 +117,39 @@ const PREVIEW_IFRAME_SCRIPT = `
 
 function buildPreviewIframeDocument(bodyHtml, origin = '') {
   const baseHref = String(origin || '').replace(/\/$/, '') || 'https://store1920.com';
-  return [
-    '<!DOCTYPE html>',
-    '<html>',
-    `<head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><base href="${baseHref}/">`,
+  const raw = String(bodyHtml || '');
+  const previewAssets = [
+    `<meta name="referrer" content="no-referrer"><base href="${baseHref}/">`,
     '<style>',
     '.email-product-carousel{scrollbar-width:none;-ms-overflow-style:none;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;touch-action:pan-x;cursor:grab;}',
     '.email-product-carousel::-webkit-scrollbar{display:none;width:0;height:0;}',
     '.email-product-carousel.is-dragging{cursor:grabbing;scroll-behavior:auto;}',
-    'img{max-width:100%;}',
-    '</style></head>',
+    '</style>',
+  ].join('');
+  const previewScript = `<script>${PREVIEW_IFRAME_SCRIPT}<\\/script>`;
+
+  if (isFullEmailDocument(raw)) {
+    let doc = raw;
+    if (/<head\b[^>]*>/i.test(doc)) {
+      doc = doc.replace(/<head\b[^>]*>/i, (open) => `${open}${previewAssets}`);
+    } else {
+      doc = previewAssets + doc;
+    }
+    if (/<\/body>/i.test(doc)) {
+      doc = doc.replace(/<\/body>/i, `${previewScript}</body>`);
+    } else {
+      doc += previewScript;
+    }
+    return sanitizeIframeBodyHtml(doc);
+  }
+
+  return [
+    '<!DOCTYPE html>',
+    '<html>',
+    `<head><meta charset="utf-8">${previewAssets}<style>img{max-width:100%;}</style></head>`,
     '<body style="margin:0;background:#e2e8f0;padding:16px;">',
-    sanitizeIframeBodyHtml(bodyHtml),
-    '<script>',
-    PREVIEW_IFRAME_SCRIPT,
-    '<\\/script>',
+    sanitizeIframeBodyHtml(raw),
+    previewScript,
     '</body></html>',
   ].join('');
 }
@@ -263,7 +282,7 @@ function HtmlImageLinkTools({
   const [url, setUrl] = useState('');
   const [copied, setCopied] = useState('');
   const recent = useMemo(
-    () => [...new Set((heroImages || []).filter(Boolean))].slice(0, 12),
+    () => [...new Set((heroImages || []).filter(Boolean))].slice(0, 80),
     [heroImages],
   );
 
@@ -304,7 +323,7 @@ function HtmlImageLinkTools({
       <div>
         <div className="text-xs font-semibold text-slate-900">Upload image → get link</div>
         <p className="mt-0.5 text-[11px] text-slate-500">
-          Upload once, copy the URL or image tag, then paste into your HTML below.
+          PNG, JPG, WebP, or animated GIF. Upload once, then copy the link or insert the image tag into your HTML.
         </p>
       </div>
 
@@ -382,7 +401,7 @@ function HtmlImageLinkTools({
 
       {recent.length > 0 ? (
         <div>
-          <div className="mb-1 text-[11px] font-medium text-slate-600">Recent / library — click to use</div>
+          <div className="mb-1 text-[11px] font-medium text-slate-600">Saved library — click to use again later</div>
           <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
             {recent.map((item, index) => (
               <button
@@ -2088,10 +2107,15 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
       return (
         <div className="space-y-3">
           <div className="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2 text-[11px] leading-relaxed text-violet-900">
-            Supports links, images, tables, video tags, SVG, inline styles, and <code className="rounded bg-white/70 px-1">&lt;style&gt;</code>.
-            Use the CSS box for animations / classes. Scripts and event handlers are stripped for safety.
-            Note: many inboxes strip CSS animations — they still show in preview and in clients that allow them (e.g. Apple Mail).
+            Supports HTML, tables, images, and CSS classes. Gmail ignores stylesheet classes, so we convert them to inline styles when sending.
+            If you paste a complete email (`&lt;!doctype&gt;`, `&lt;html&gt;`, or `&lt;body&gt;`), we send that design as-is — not inside the 620px builder frame.
+            Hover effects and JavaScript do not work in inboxes. Replace every REPLACE_WITH_ image URL before send or that image will be blank.
           </div>
+          {isFullEmailDocument(block.html) ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-relaxed text-emerald-900">
+              Complete email detected. This HTML will be sent exactly as designed. Other builder blocks (header, footer, product rows) are skipped so they do not nest inside your layout.
+            </div>
+          ) : null}
 
           <HtmlImageLinkTools
             getToken={getToken}
@@ -2796,11 +2820,53 @@ export default function EmailCampaignBuilder({
   const rememberUploadedImage = (url) => {
     if (!url) return;
     setUploadedImages((prev) => {
-      const next = [url, ...prev.filter((item) => item !== url)].slice(0, 48);
+      const next = [url, ...prev.filter((item) => item !== url)].slice(0, 200);
       persistUploadedImages(next);
       return next;
     });
+    if (getToken) {
+      getToken()
+        .then((token) => {
+          if (!token) return;
+          return fetch('/api/store/email-marketing/library', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ url }),
+          });
+        })
+        .catch(() => {});
+    }
   };
+
+  useEffect(() => {
+    if (!getToken) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const res = await fetch('/api/store/email-marketing/library', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        const images = Array.isArray(data.images) ? data.images.filter(Boolean) : [];
+        if (cancelled || !images.length) return;
+        setUploadedImages((prev) => {
+          const next = [...new Set([...images, ...prev])].slice(0, 200);
+          persistUploadedImages(next);
+          return next;
+        });
+      } catch {
+        // keep local library
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getToken]);
 
   useEffect(() => {
     if (!blocks.length) {

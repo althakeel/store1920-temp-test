@@ -4,6 +4,12 @@ import Coupon from '@/models/Coupon';
 import authSeller from '@/middlewares/authSeller';
 import { getAuth } from '@/lib/firebase-admin';
 
+function parseCouponNumber(value, emptyValue) {
+    if (value === '' || value === null || value === undefined) return emptyValue;
+    const parsed = typeof value === 'number' ? value : Number(String(value).trim());
+    return Number.isFinite(parsed) ? parsed : emptyValue;
+}
+
 async function resolveStoreId(req) {
     const authHeader = req.headers.get('authorization') || '';
     if (!authHeader.startsWith('Bearer ')) return null;
@@ -60,28 +66,34 @@ export async function PUT(req, { params }) {
         const updateData = {};
         if (description !== undefined) updateData.description = description;
         if (discount !== undefined) {
-            updateData.discount = parseFloat(discount);
-            updateData.discountValue = parseFloat(discount);
+            const parsedDiscount = parseCouponNumber(discount, NaN);
+            if (!Number.isFinite(parsedDiscount)) {
+                return NextResponse.json({ error: 'Discount must be a valid number' }, { status: 400 });
+            }
+            updateData.discount = parsedDiscount;
+            updateData.discountValue = parsedDiscount;
         }
         if (discountType !== undefined) updateData.discountType = discountType;
         if (maxDiscount !== undefined) {
-            updateData.maxDiscount = maxDiscount !== '' && maxDiscount !== null
-                ? parseFloat(maxDiscount)
-                : null;
+            updateData.maxDiscount = parseCouponNumber(maxDiscount, null);
         }
         if (minPrice !== undefined) {
-            updateData.minPrice = parseFloat(minPrice);
-            updateData.minOrderValue = parseFloat(minPrice);
+            const parsedMinPrice = parseCouponNumber(minPrice, 0);
+            updateData.minPrice = parsedMinPrice;
+            updateData.minOrderValue = parsedMinPrice;
         }
-        if (minProductCount !== undefined) updateData.minProductCount = minProductCount ? parseInt(minProductCount) : null;
+        if (minProductCount !== undefined) {
+            updateData.minProductCount = parseCouponNumber(minProductCount, null);
+        }
         if (specificProducts !== undefined) updateData.specificProducts = specificProducts;
         if (forNewUser !== undefined) updateData.forNewUser = forNewUser;
         if (forMember !== undefined) updateData.forMember = forMember;
         if (firstOrderOnly !== undefined) updateData.firstOrderOnly = firstOrderOnly;
         if (oneTimePerUser !== undefined) updateData.oneTimePerUser = oneTimePerUser;
         if (usageLimit !== undefined) {
-            updateData.usageLimit = usageLimit ? parseInt(usageLimit) : null;
-            updateData.maxUses = usageLimit ? parseInt(usageLimit) : null;
+            const parsedLimit = parseCouponNumber(usageLimit, null);
+            updateData.usageLimit = parsedLimit;
+            updateData.maxUses = parsedLimit;
         }
         if (isPublic !== undefined) updateData.isPublic = isPublic;
         if (isActive !== undefined) updateData.isActive = isActive;

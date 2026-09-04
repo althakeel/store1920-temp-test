@@ -10,7 +10,7 @@ import EmailGalleryPresetCard from '@/components/store/EmailGalleryPresetCard';
 import EmailCampaignLandingPages from '@/components/store/EmailCampaignLandingPages';
 import { getPresetBlocks } from '@/lib/emailCampaignPresets';
 import { listStockImagesForPicker } from '@/lib/emailTemplateStockImages';
-import { renderEmailFromBlocks } from '@/lib/emailCampaignBuilder';
+import { renderEmailFromBlocks, toEmailPreviewSrcDoc } from '@/lib/emailCampaignBuilder';
 
 const TABS = [
   { id: 'send', label: 'Send campaign', icon: Mail },
@@ -1164,7 +1164,7 @@ export default function PromotionalEmailsPage() {
                                 title="Gallery template mini preview"
                                 className="h-[520px] w-[620px] border-0 bg-white"
                                 sandbox=""
-                                srcDoc={`<!DOCTYPE html><html><body style="margin:0;background:#e2e8f0;">${sendTabMiniPreviewHtml}</body></html>`}
+                                srcDoc={toEmailPreviewSrcDoc(sendTabMiniPreviewHtml)}
                               />
                             </div>
                           ) : selectedGalleryPreset.thumbnailImage ? (
@@ -2338,7 +2338,7 @@ export default function PromotionalEmailsPage() {
               <iframe
                 title="Template preview"
                 className="mx-auto h-[70vh] w-full max-w-[640px] rounded-lg border border-slate-200 bg-white shadow-sm"
-                srcDoc={`<!DOCTYPE html><html><body style="margin:0;background:#e2e8f0;padding:16px;">${templatePreviewHtml}</body></html>`}
+                srcDoc={toEmailPreviewSrcDoc(templatePreviewHtml, { padding: '16px' })}
               />
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 px-4 py-3">

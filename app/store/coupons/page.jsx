@@ -8,6 +8,18 @@ import { PlusIcon, EditIcon, TrashIcon, TicketIcon, XIcon, PercentIcon, DollarSi
 
 const getProductId = (product) => String(product?._id || product?.id || '').trim()
 
+function fieldFromNumber(value, fallback = '') {
+    if (value == null || value === '') return fallback
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? String(parsed) : fallback
+}
+
+function payloadNumber(value, emptyValue) {
+    if (value === '' || value == null) return emptyValue
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : emptyValue
+}
+
 
 export default function StoreCouponsPage() {
     const { getToken } = useAuth();
@@ -171,15 +183,24 @@ export default function StoreCouponsPage() {
             const method = editingCoupon ? 'PUT' : 'POST';
             const token = await getToken();
             
-            console.log('Submitting coupon:', { url, method, formData });
-            
+            const payload = {
+                ...formData,
+                discount: payloadNumber(formData.discount, 0),
+                maxDiscount: formData.discountType === 'percentage'
+                    ? payloadNumber(formData.maxDiscount, null)
+                    : null,
+                minPrice: payloadNumber(formData.minPrice, 0),
+                minProductCount: payloadNumber(formData.minProductCount, null),
+                usageLimit: payloadNumber(formData.usageLimit, null),
+            };
+
             const res = await fetch(url, {
                 method,
                 headers: {
                     'Content-Type': 'application/json',
                     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
 
             const data = await res.json();
@@ -276,11 +297,11 @@ export default function StoreCouponsPage() {
         setFormData({
             code: coupon.code,
             description: coupon.description,
-            discount: (coupon.discount || coupon.discountValue || '').toString(),
+            discount: fieldFromNumber(coupon.discount ?? coupon.discountValue),
             discountType: coupon.discountType,
-            maxDiscount: coupon.maxDiscount != null ? String(coupon.maxDiscount) : '',
-            minPrice: (coupon.minPrice || coupon.minOrderValue || '').toString(),
-            minProductCount: coupon.minProductCount?.toString() || '',
+            maxDiscount: fieldFromNumber(coupon.maxDiscount),
+            minPrice: fieldFromNumber(coupon.minPrice ?? coupon.minOrderValue, '0'),
+            minProductCount: fieldFromNumber(coupon.minProductCount),
             specificProducts,
             forNewUser: coupon.forNewUser || false,
             forMember: coupon.forMember || false,
