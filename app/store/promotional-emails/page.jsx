@@ -22,8 +22,8 @@ const TABS = [
   { id: 'history', label: 'History', icon: Clock },
 ];
 
-/** Recipients per request so large campaigns send in a queue without timing out. */
-const SEND_BATCH_SIZE = 15;
+/** Recipients per HTTP request. Larger batches hit nginx 60s timeout (504). */
+const SEND_BATCH_SIZE = 5;
 const MAX_CAMPAIGN_RECIPIENTS = 10000;
 
 function pad2(value) {
@@ -234,25 +234,12 @@ export default function PromotionalEmailsPage() {
     }
   };
 
-  const loadActiveCampaigns = async ({ runDue = true, silent = false } = {}) => {
+  const loadActiveCampaigns = async ({ silent = false } = {}) => {
     try {
       if (!silent) setCampaignsLoading(true);
       const headers = await authHeaders();
-      const qs = runDue ? 'status=active&runDue=1' : 'status=active';
-      const { data } = await axios.get(`/api/store/email-marketing/campaigns?${qs}`, { headers });
+      const { data } = await axios.get('/api/store/email-marketing/campaigns?status=active', { headers });
       setActiveCampaigns(data.campaigns || []);
-      const due = data.dueResult;
-      if (due?.slotsRun > 0) {
-        const sent = Number(due.emailsSent || 0);
-        const failed = Number(due.emailsFailed || 0);
-        const firstError = (due.processed || []).map((row) => row.error).find(Boolean);
-        setSendStatus(
-          firstError && !sent
-            ? `Scheduled send failed: ${firstError}`
-            : `Scheduled campaign sent: ${sent} email${sent === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.`,
-        );
-        if (sent > 0) loadHistory(1);
-      }
     } catch (error) {
       console.error('Error loading campaigns:', error);
       if (!silent) setActiveCampaigns([]);
@@ -313,7 +300,7 @@ export default function PromotionalEmailsPage() {
         action: 'stop',
       }, { headers });
       setSendStatus('Daily campaign disabled. It will not send again until you create a new one.');
-      loadActiveCampaigns({ runDue: false });
+      loadActiveCampaigns();
     } catch (error) {
       setSendStatus(error?.response?.data?.error || 'Failed to disable campaign.');
     }
@@ -322,7 +309,7 @@ export default function PromotionalEmailsPage() {
   useEffect(() => {
     if (tab !== 'send') return undefined;
     const timerId = window.setInterval(() => {
-      loadActiveCampaigns({ runDue: true, silent: true });
+      loadActiveCampaigns({ silent: true });
     }, 45000);
     return () => window.clearInterval(timerId);
   }, [tab]);
@@ -950,8 +937,13 @@ export default function PromotionalEmailsPage() {
       if (canceled) {
         setSendStatus('Send cancelled. Emails already sent in earlier batches will still be delivered.');
       } else {
+        const status = Number(error?.response?.status || 0);
         const msg = error?.response?.data?.error || error?.response?.data?.message || error.message;
-        setSendStatus(msg || 'Failed to send promotional emails.');
+        setSendStatus(
+          status === 504
+            ? 'Send timed out (504). Emails already sent in earlier batches are delivered. Wait a moment and send the rest again.'
+            : (msg || 'Failed to send promotional emails.'),
+        );
       }
     } finally {
       sendAbortRef.current = null;

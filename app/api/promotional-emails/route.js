@@ -10,7 +10,14 @@ import { getRandomTemplate, getTemplateById, getAllTemplateIds } from '@/lib/pro
 import { mapProductsForEmail, renderEmailFromBlocks, absolutizeEmailHtmlImages } from '@/lib/emailCampaignBuilder';
 import { inlineEmailCss, wrapMarketingEmailDocument } from '@/lib/inlineEmailCss';
 import { getCustomerSiteUrl } from '@/lib/appUrl';
-import { assertMarketingRecipientLimit, assertMarketingRecipientCount } from '@/lib/emailMarketingLimits';
+import {
+  assertMarketingRecipientLimit,
+  assertMarketingRecipientCount,
+  EMAIL_MARKETING_MAX_PER_REQUEST,
+} from '@/lib/emailMarketingLimits';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 import {
   createEmailTrackingToken,
   injectEmailEngagementTracking,
@@ -218,7 +225,7 @@ export async function GET() {
         }
 
         results.push({ email: customer.email, status: 'sent', template: template.id });
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        await new Promise((resolve) => setTimeout(resolve, 80));
       } catch (error) {
         if (storeObjectId) {
           await EmailHistory.create({
@@ -271,11 +278,13 @@ export async function POST(request) {
       }
     }
 
-    const recipientCheck = assertMarketingRecipientLimit(customerEmails);
+    const recipientCheck = assertMarketingRecipientLimit(customerEmails, {
+      max: EMAIL_MARKETING_MAX_PER_REQUEST,
+    });
     if (!recipientCheck.ok) {
       return NextResponse.json({
         success: false,
-        error: recipientCheck.error,
+        error: `Send this list in smaller batches of ${EMAIL_MARKETING_MAX_PER_REQUEST}. ${recipientCheck.error}`,
         maxRecipients: recipientCheck.max,
         recipientCount: recipientCheck.count,
       }, { status: 400 });
@@ -352,7 +361,7 @@ export async function POST(request) {
         }
 
         results.push({ email: customer.email, status: 'sent', template: campaign.id });
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        await new Promise((resolve) => setTimeout(resolve, 80));
       } catch (error) {
         if (historyId) {
           await EmailHistory.updateOne(
