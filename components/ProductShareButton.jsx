@@ -13,6 +13,7 @@ import shareMoreIcon from '@/assets/icons/share/more.svg'
 import shareCheckIcon from '@/assets/icons/share/check.svg'
 import { cleanDisplayText } from '@/lib/displayText'
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n'
+import { trackWhatsAppClick } from '@/lib/ga4Ecommerce'
 
 const PLACEHOLDER_IMAGE = 'https://store1920-images.s3.ap-south-1.amazonaws.com/uploads/placeholder.png'
 
@@ -105,6 +106,13 @@ export default function ProductShareButton({
     }
 
     if (shareUrls[platform]) {
+      if (platform === 'whatsapp') {
+        trackWhatsAppClick({
+          linkUrl: shareUrls.whatsapp,
+          itemId: productId,
+          itemName: displayName,
+        })
+      }
       window.open(shareUrls[platform], '_blank', 'width=600,height=400')
       closeMenu()
     }

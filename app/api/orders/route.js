@@ -1216,7 +1216,7 @@ export async function POST(request) {
                         name: product?.name || 'Product',
                         slug: product?.slug || '',
                         useProductsPath: product?.useProductsPath === true,
-                        sku: product?._id?.toString() || String(item.productId),
+                        sku: product?.sku || product?._id?.toString() || String(item.productId),
                         quantity: item.quantity,
                         unit_price: item.price,
                         total_amount: Number((item.price * item.quantity).toFixed(2)),
@@ -1293,7 +1293,7 @@ export async function POST(request) {
                 (o.orderItems || []).map(item => ({
                     productId: item.productId?._id?.toString() || String(item.productId),
                     name: item.productId?.name || 'Product',
-                    sku: item.productId?._id?.toString() || String(item.productId),
+                    sku: item.productId?.sku || item.sku || item.productId?._id?.toString() || String(item.productId),
                     quantity: item.quantity,
                     unit_price: item.price,
                 }))

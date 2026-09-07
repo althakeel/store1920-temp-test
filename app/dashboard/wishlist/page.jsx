@@ -74,6 +74,7 @@ export default function DashboardWishlistPage() {
         const productId = product?._id || product?.id;
         if (!productId) return;
         trackProductAddToCart({
+            product,
             productId,
             name: product?.name || product?.title || 'Product',
             price: Number(product?.price) || 0,

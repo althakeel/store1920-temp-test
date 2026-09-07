@@ -646,6 +646,15 @@ body::-webkit-scrollbar-thumb {
 
 .storefront-toaster {
     pointer-events: none !important;
+    padding-top: 6.75rem;
+    padding-bottom: 6rem;
+}
+
+@media (min-width: 1024px) {
+    .storefront-toaster {
+        padding-top: 7.5rem;
+        padding-bottom: 2rem;
+    }
 }
 
 /* Toast slot wrappers span the full toaster width; never let them steal clicks. */

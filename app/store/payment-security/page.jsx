@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Shield, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
+import { trackGa4Refund } from '@/lib/ga4Ecommerce';
 
 export default function PaymentSecurityPage() {
   const { getToken } = useAuth();
@@ -66,6 +67,12 @@ export default function PaymentSecurityPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
+      if (data?.executed) {
+        trackGa4Refund({
+          transactionId: data.transactionId || data.authorization?.orderId || refundForm.orderId,
+          value: Number(data.authorization?.amount || refundForm.amount || 0),
+        });
+      }
       toast.success(data.executed ? 'Refund executed' : 'Refund requested — awaiting second approval');
       setRefundForm({ orderId: '', amount: '', reason: '' });
       await load();
@@ -87,6 +94,12 @@ export default function PaymentSecurityPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
+      if (decision === 'approve' && data?.executed) {
+        trackGa4Refund({
+          transactionId: data.transactionId || data.authorization?.orderId || data.orderId,
+          value: Number(data.authorization?.amount || data.amount || 0),
+        });
+      }
       toast.success(decision === 'approve' ? 'Approved / executed' : 'Rejected');
       await load();
     } catch (err) {

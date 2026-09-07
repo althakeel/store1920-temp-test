@@ -68,7 +68,10 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
         position="top-center"
         containerClassName={hideStorefrontChrome ? 'store-toaster' : 'storefront-toaster'}
         containerStyle={{
-          top: hideStorefrontChrome ? 24 : 88,
+          top: hideStorefrontChrome ? 24 : 0,
+          bottom: hideStorefrontChrome ? 24 : 0,
+          left: 0,
+          right: 0,
           zIndex: 2147483000,
           pointerEvents: 'none',
         }}

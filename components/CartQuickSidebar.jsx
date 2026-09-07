@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/useAuth'
 import { getCartEntryProductId, getCartEntryQuantity, isFreeGiftEntry } from '@/lib/freeGiftUtils'
 import { pushGtmEcommerceEvent, toGtmItem } from '@/lib/pushGtmEcommerceEvent'
 import { GTM_EVENTS, gtmDedupeKey } from '@/lib/gtmEvents'
+import { GA4_CURRENCY } from '@/lib/ga4Item'
 import { resolveCartLinePricing } from '@/lib/bulkBundleCart'
 import { decrementCartItem, incrementCartItem } from '@/lib/bundleCartActions'
 
@@ -128,12 +129,15 @@ export default function CartQuickSidebar() {
     const row = cartRows.find((entry) => String(entry.productId) === id)
     if (row) {
       pushGtmEcommerceEvent(GTM_EVENTS.REMOVE_FROM_CART, {
-        currency: market.currency || 'AED',
-        value: Number(row.convertedLineTotal || row.convertedUnitPrice || 0),
-        items: [toGtmItem({
+        currency: GA4_CURRENCY,
+        value: Number(row.product?._cartPrice ?? row.product?.price ?? row.convertedUnitPrice ?? 0) * Number(row.qty || 1),
+        items: [toGtmItem(row.product || {
           _id: row.actualProductId,
           name: row.name,
-          price: row.convertedUnitPrice,
+          price: row.product?.price ?? row.convertedUnitPrice,
+          quantity: row.qty,
+        }, {
+          price: Number(row.product?._cartPrice ?? row.product?.price ?? row.convertedUnitPrice ?? 0),
           quantity: row.qty,
         })],
       })

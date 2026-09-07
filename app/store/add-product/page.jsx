@@ -737,7 +737,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
         const [draggingMediaKey, setDraggingMediaKey] = useState(null);
         const [dragOverMediaKey, setDragOverMediaKey] = useState(null);
         const [productInfo, setProductInfo] = useState({
-            name: '', nameAr: '', slug: '', brand: '', brandAr: '', shortDescription: '', shortDescriptionAr: '', shortDescription2: '', shortDescription2Ar: '', specTableEnabled: false, specTableTitle: 'Product information', specTableTitleAr: 'مواصفات المنتج', specTableColumns: ['Property', 'Value'], specTableColumnsAr: ['الخاصية', 'القيمة'], specTableRows: [['', '']], specTableRowsAr: [['', '']], description: '', descriptionAr: '', aPlusDesktop: '', aPlusMobile: '', aPlusDesktopAr: '', aPlusMobileAr: '', aPlusDesktopImages: [], aPlusMobileImages: [], AED: '', price: '', priceAr: '', AEDAr: '', category: '', sku: '', stockQuantity: 50, soldCount: 0, colors: [], sizes: [], fastDelivery: false, freeShippingEligible: false, useProductsPath: false, allowReturn: true, allowReplacement: true, reviews: [], badges: [], imageAspectRatio: '1:1', cardVideoPreviewEnabled: true, cardVideoPreviewDelaySec: 24, tags: [], seoTitle: '', seoDescription: '', seoKeywords: [], deliveredBy: '', soldBy: '', paymentInfo: '', hsCode: '', originCountry: '', shippingWeightKg: ''
+            name: '', nameAr: '', slug: '', brand: '', brandAr: '', shortDescription: '', shortDescriptionAr: '', shortDescription2: '', shortDescription2Ar: '', specTableEnabled: false, specTableTitle: 'Product information', specTableTitleAr: 'مواصفات المنتج', specTableColumns: ['Property', 'Value'], specTableColumnsAr: ['الخاصية', 'القيمة'], specTableRows: [['', '']], specTableRowsAr: [['', '']], description: '', descriptionAr: '', aPlusDesktop: '', aPlusMobile: '', aPlusDesktopAr: '', aPlusMobileAr: '', aPlusDesktopImages: [], aPlusMobileImages: [], AED: '', price: '', priceAr: '', AEDAr: '', category: '', sku: '', stockQuantity: 50, soldCount: 0, colors: [], sizes: [], fastDelivery: false, freeShippingEligible: false, useProductsPath: false, allowReturn: true, allowReplacement: true, reviews: [], badges: [], imageAspectRatio: '1:1', cardVideoPreviewEnabled: true, cardVideoPreviewDelaySec: 24, tags: [], seoTitle: '', seoH1: '', seoH1Ar: '', seoDescription: '', seoKeywords: [], deliveredBy: '', soldBy: '', paymentInfo: '', hsCode: '', originCountry: '', shippingWeightKg: ''
         });
         const [tagInput, setTagInput] = useState('');
         const [seoKeywordInput, setSeoKeywordInput] = useState('');
@@ -1081,6 +1081,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 cardVideoPreviewDelaySec: Number(product.cardVideoPreviewDelaySec) || 24,
                 tags: Array.isArray(product.tags) ? product.tags : [],
                 seoTitle: product.seoTitle || '',
+                seoH1: product.seoH1 || '',
+                seoH1Ar: product.seoH1Ar || '',
                 seoDescription: product.seoDescription || '',
                 seoKeywords: Array.isArray(product.seoKeywords) ? product.seoKeywords : [],
                 deliveredBy: product.attributes?.deliveredBy || '',
@@ -1548,6 +1550,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 patch: (prev) => ({
                     tags: appendUniqueTags(prev.tags || [], data?.tags || []),
                     seoTitle: data?.seoTitle || prev.seoTitle,
+                    seoH1: data?.seoH1 || prev.seoH1,
+                    seoH1Ar: data?.seoH1Ar || prev.seoH1Ar,
                     seoDescription: data?.seoDescription || prev.seoDescription,
                     seoKeywords: appendUniqueTags(prev.seoKeywords || [], data?.seoKeywords || []),
                     badges: appendUniqueTags(prev.badges || [], data?.badges || []),
@@ -1847,6 +1851,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 specTableRows: nextRows.length > 0 ? nextRows : prev.specTableRows,
                 tags: appendUniqueTags(prev.tags || [], imported.tags || []),
                 seoTitle: imported.seoTitle || prev.seoTitle,
+                seoH1: imported.seoH1 || prev.seoH1,
+                seoH1Ar: imported.seoH1Ar || prev.seoH1Ar,
                 seoDescription: imported.seoDescription || prev.seoDescription,
                 seoKeywords: appendUniqueTags(prev.seoKeywords || [], imported.seoKeywords || []),
                 // Keep existing SKU — import/AI must never overwrite it.
@@ -2295,6 +2301,8 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 cardVideoPreviewDelaySec: Number(productInfo.cardVideoPreviewDelaySec) || 24,
                 tags: productInfo.tags || [],
                 seoTitle: productInfo.seoTitle || '',
+                seoH1: productInfo.seoH1 || '',
+                seoH1Ar: productInfo.seoH1Ar || '',
                 seoDescription: productInfo.seoDescription || '',
                 seoKeywords: productInfo.seoKeywords || [],
                 specTableEnabled: Boolean(productInfo.specTableEnabled),
@@ -3093,6 +3101,15 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 <div className="space-y-3 pt-4 border-t border-slate-100">
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">SEO</label>
                         <div><label className="block text-xs font-medium mb-1 text-gray-500">Meta Title</label><input name="seoTitle" value={productInfo.seoTitle || ''} onChange={onChangeHandler} maxLength={120} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200" placeholder="SEO title" /></div>
+                        <div>
+                          <label className="block text-xs font-medium mb-1 text-gray-500">H1</label>
+                          <input name="seoH1" value={productInfo.seoH1 || ''} onChange={onChangeHandler} maxLength={180} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200" placeholder="Visible page heading (leave blank to use product name)" />
+                          <p className="mt-1 text-[11px] text-gray-400">Shown as the product page H1. Independent from Meta Title and product name.</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium mb-1 text-gray-500">H1 (Arabic)</label>
+                          <input name="seoH1Ar" value={productInfo.seoH1Ar || ''} onChange={onChangeHandler} maxLength={180} dir="rtl" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200" placeholder="عنوان الصفحة" />
+                        </div>
                         <div><label className="block text-xs font-medium mb-1 text-gray-500">Meta Description</label><textarea name="seoDescription" value={productInfo.seoDescription || ''} onChange={onChangeHandler} maxLength={320} rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200" placeholder="SEO description" /></div>
                         <div>
                             <label className="block text-xs font-medium mb-1 text-gray-500">Meta Keywords</label>

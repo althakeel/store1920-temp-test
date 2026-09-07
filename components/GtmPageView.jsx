@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { pushGtmEvent } from '@/lib/pushGtmEcommerceEvent';
 import { hasTrackedOnce, markTrackedOnce } from '@/lib/trackingDedupe';
 import { GTM_EVENTS, gtmDedupeKey, shouldSkipGtmPageView } from '@/lib/gtmEvents';
+import { ensureGa4CategoryCache } from '@/lib/ga4CategoryLookup';
 
 export default function GtmPageView() {
   const pathname = usePathname();
@@ -12,6 +13,7 @@ export default function GtmPageView() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !pathname) return;
+    ensureGa4CategoryCache();
 
     if (shouldSkipGtmPageView(pathname)) return;
 

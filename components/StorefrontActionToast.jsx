@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, ShoppingCart, X } from 'lucide-react';
+import { Check, Heart, Package, ShoppingCart, X } from 'lucide-react';
 
 const VARIANTS = {
   cart: {
@@ -15,6 +15,14 @@ const VARIANTS = {
   'wishlist-removed': {
     icon: Heart,
     iconClass: 'text-slate-500',
+  },
+  orders: {
+    icon: Package,
+    iconClass: 'text-slate-700',
+  },
+  success: {
+    icon: Check,
+    iconClass: 'text-emerald-700',
   },
 };
 

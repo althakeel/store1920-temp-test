@@ -7,6 +7,7 @@ import { FaStar } from 'react-icons/fa'
 import { Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react'
 import { useDispatch, useSelector } from 'react-redux'
 
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { addToCart, uploadCart, removeFromCart } from '@/lib/features/cart/cartSlice'
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket'
@@ -23,6 +24,10 @@ import {
 } from '@/lib/productMedia'
 import { PRODUCT_CARD_CELL_CLASS, PRODUCT_CARD_SHELL_CLASS } from '@/lib/storefrontCarousel'
 import { trackProductAddToCart } from '@/lib/ecommerceTracking'
+import { registerItemListImpression, trackSelectItem } from '@/lib/ga4Ecommerce'
+import { pushGtmEcommerceEvent } from '@/lib/pushGtmEcommerceEvent'
+import { productToGa4Item } from '@/lib/ga4Item'
+import { GTM_EVENTS } from '@/lib/gtmEvents'
 import { STORE_CURRENCY } from '@/lib/storeCurrency'
 import { getProductPath } from '@/lib/productUrl'
 
@@ -75,6 +80,9 @@ const ProductCard = ({
   onCardClick,
   compact = false,
   compactDesktopOnly = false,
+  itemListId,
+  itemListName,
+  itemListIndex,
 }) => {
   if (!product || typeof product !== 'object') return null
   if (!product.name) return null
@@ -97,6 +105,7 @@ const ProductCard = ({
   }
 
   const dispatch = useDispatch()
+  const pathname = usePathname()
   const { getToken } = useAuth()
   const { market, convertPrice, formatNumber } = useStorefrontMarket()
   const { t, language } = useStorefrontI18n()
@@ -117,6 +126,15 @@ const ProductCard = ({
   useEffect(() => {
     setIsCartHydrated(true)
   }, [])
+
+  useEffect(() => {
+    registerItemListImpression(product, {
+      itemListId,
+      itemListName,
+      index: itemListIndex,
+      pathname,
+    })
+  }, [product?._id, itemListId, itemListName, itemListIndex, pathname])
 
   let priceNum = getSalePrice(product)
   let AEDNum = getAEDPrice(product)
@@ -197,6 +215,7 @@ const ProductCard = ({
     }
     const unitPrice = Number(priceNum > 0 ? priceNum : product.price || 0)
     trackProductAddToCart({
+      product,
       productId: product._id,
       name: product.name || product.title || 'Product',
       price: unitPrice,
@@ -247,6 +266,12 @@ const ProductCard = ({
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
+                const unitPrice = Number(priceNum > 0 ? priceNum : product.price || 0)
+                pushGtmEcommerceEvent(GTM_EVENTS.REMOVE_FROM_CART, {
+                  currency: STORE_CURRENCY,
+                  value: unitPrice,
+                  items: [productToGa4Item(product, { price: unitPrice, quantity: 1 })],
+                })
                 dispatch(removeFromCart({ productId: product._id }))
                 dispatch(uploadCart({ getToken }))
               }}
@@ -263,6 +288,7 @@ const ProductCard = ({
                 e.stopPropagation()
                 const unitPrice = Number(priceNum > 0 ? priceNum : product.price || 0)
                 trackProductAddToCart({
+                  product,
                   productId: product._id,
                   name: product.name || product.title || 'Product',
                   price: unitPrice,
@@ -315,7 +341,15 @@ const ProductCard = ({
       href={getProductPath(product)}
       draggable={false}
       onDragStart={(event) => event.preventDefault()}
-      onClick={onCardClick}
+      onClick={(event) => {
+        trackSelectItem(product, {
+          itemListId,
+          itemListName,
+          index: itemListIndex,
+          pathname,
+        })
+        onCardClick?.(event)
+      }}
       onMouseEnter={hasSecondary ? () => setHovered(true) : undefined}
       onMouseLeave={hasSecondary ? () => setHovered(false) : undefined}
       className={`group ${PRODUCT_CARD_SHELL_CLASS} transition-colors duration-200 ${hasCarouselWidth ? 'hover:-translate-y-0.5 hover:shadow-md' : 'shadow-none hover:bg-slate-50/80'} ${hasCarouselWidth ? '' : hasCustomGridWidth ? 'min-w-0' : PRODUCT_CARD_CELL_CLASS} ${compactAll ? 'h-full' : ''} ${className}`.trim()}

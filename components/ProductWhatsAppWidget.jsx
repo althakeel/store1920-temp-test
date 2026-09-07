@@ -6,6 +6,7 @@ import {
   buildWhatsAppProductChatUrl,
   shouldShowWhatsAppProductWidget,
 } from '@/lib/whatsappProductWidget'
+import { trackWhatsAppClick } from '@/lib/ga4Ecommerce'
 
 function WhatsAppGlyph({ className = 'h-7 w-7' }) {
   return (
@@ -21,6 +22,7 @@ function WhatsAppGlyph({ className = 'h-7 w-7' }) {
 export default function ProductWhatsAppWidget({
   productId,
   productName = '',
+  productSku = '',
   productUrl = '',
   widget = null,
 }) {
@@ -62,6 +64,11 @@ export default function ProductWhatsAppWidget({
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
+      onClick={() => trackWhatsAppClick({
+        linkUrl: href,
+        itemId: productSku || productId,
+        itemName: productName,
+      })}
       className={`fixed bottom-[5.75rem] end-4 z-[95] inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full shadow-lg transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 lg:bottom-8 lg:end-8 ${
         useCustomImage
           ? 'bg-white shadow-slate-900/20'

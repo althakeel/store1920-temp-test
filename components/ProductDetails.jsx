@@ -37,6 +37,7 @@ import StorefrontActionToast from "./StorefrontActionToast";
 import { useAuth } from '@/lib/useAuth';
 import { trackMetaEvent } from "@/lib/metaPixelClient";
 import { trackViewContentDual, trackProductAddToCart } from "@/lib/ecommerceTracking";
+import { productToGa4Item } from "@/lib/ga4Item";
 import { getStorefrontLocale, formatLocalizedNumber } from '@/lib/storefrontMarket';
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
@@ -49,6 +50,7 @@ import {
 } from '@/lib/productMedia';
 import { useHorizontalCarouselDrag } from '@/lib/useHorizontalCarouselDrag';
 import { resolveCategoryHref } from '@/lib/categoryTreeUtils';
+import { getProductPageHeading, resolveProductCategoryChainFromMap } from '@/lib/productSeo';
 import { getAdjustedDeliveryDate } from '@/lib/deliveryEstimate';
 import { fetchShippingSettings } from '@/lib/shipping';
 import { getDefaultShippingOption } from '@/lib/shippingOptions';
@@ -837,12 +839,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       name: product.name || product.title || 'Product',
       price: eventPrice,
       currency: 'AED',
-      gtmItem: {
-        item_id: String(product._id || product.id || ''),
-        item_name: product.name || product.title || 'Product',
-        price: eventPrice,
-        quantity: 1,
-      },
+      gtmItem: productToGa4Item(product, { price: eventPrice, quantity: 1 }),
     });
   }, [product?._id, product?.id, product?.name, product?.title, product?.price]);
 
@@ -1499,6 +1496,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     ? product.nameAr
     : (product?.name || product?.title || '');
   const safeProductName = sanitizeDisplayText(localizedProductName || t('common.untitledProduct'));
+  const productHeading = sanitizeDisplayText(
+    getProductPageHeading(product, language) || safeProductName,
+  );
   const localizedShortDescription = sanitizeDisplayText(
     (isArabic && String(product?.shortDescriptionAr || '').trim())
       ? product.shortDescriptionAr
@@ -2406,11 +2406,13 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
         : Number(effPrice || product.price || 0));
 
     trackProductAddToCart({
+      product,
       productId: product._id || product.id,
       name: product.name || product.title || 'Product',
       price: gtmLinePrice,
       quantity: gtmQty,
       currency: 'AED',
+      variantOptions: selectedOptions,
     });
 
     if (isSignedIn) {
@@ -2631,6 +2633,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     );
 
     trackProductAddToCart({
+      product,
       productId: cartProductId,
       name: product.name || product.title || 'Product',
       price: Number(priceByProductId.get(cartProductId) ?? effPrice ?? 0),
@@ -2652,6 +2655,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     selectedBundleProducts.forEach((p) => {
       const productId = String(p._id);
       trackProductAddToCart({
+        product: p,
         productId,
         name: p.name || 'Product',
         price: Number(priceByProductId.get(productId) ?? p.price ?? 0),
@@ -2867,23 +2871,15 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                   ? category.nameAr
                   : category.name
               );
-              // Build ordered chain: resolve first category, walk up to parent
-              const firstCatId = product.categories?.[0];
-              const chain = [];
-              if (firstCatId && categoryMap[firstCatId]) {
-                let cur = firstCatId;
-                while (cur && categoryMap[cur]) {
-                  chain.unshift({
-                    id: cur,
-                    name: getCategoryLabel(categoryMap[cur]),
-                    slug: categoryMap[cur].slug || '',
-                    url: categoryMap[cur].url || '',
-                  });
-                  cur = categoryMap[cur].parentId;
-                }
-              }
-              if (chain.length === 0 && firstCatId) {
-                // ID not resolved yet - show nothing until loaded
+              const chain = resolveProductCategoryChainFromMap(product, categoryMap)
+                .map((category) => ({
+                  id: category._id || category.id || category.slug,
+                  name: getCategoryLabel(category),
+                  slug: category.slug || '',
+                  url: category.url || '',
+                }))
+                .filter((category) => category.name);
+              if (chain.length === 0 && (product.category || product.categories?.[0]) && !Object.keys(categoryMap).length) {
                 return null;
               }
               if (chain.length === 0) {
@@ -2897,7 +2893,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
               return chain.map((c, index) => {
                 const href = resolveCategoryHref(chain.slice(0, index + 1));
                 return (
-                <span key={c.id} className="flex items-center gap-x-1">
+                <span key={c.id || `${c.slug}-${index}`} className="flex items-center gap-x-1">
                   <span className="text-gray-400">{breadcrumbSep}</span>
                   <Link href={href} className="hover:underline hover:text-gray-800 whitespace-nowrap">{c.name}</Link>
                 </span>
@@ -2905,7 +2901,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
               });
             })()}
             <span className="text-gray-400">{isArabic ? '‹' : '›'}</span>
-            <span className="text-gray-700 truncate max-w-[160px] sm:max-w-xs md:max-w-sm">{safeProductName}</span>
+            <span className="text-gray-700 truncate max-w-[160px] sm:max-w-xs md:max-w-sm">{productHeading}</span>
           </nav>
         </div>
       </div>
@@ -3134,7 +3130,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
               <div className="space-y-1.5">
                 {renderSoldByLine('mb-0.5', true)}
                 <h1 dir={isArabic ? 'rtl' : 'ltr'} className="w-full min-w-0 text-[18px] font-semibold leading-snug text-gray-900 break-words whitespace-normal [overflow-wrap:anywhere]">
-                  {safeProductName}
+                  {productHeading}
                 </h1>
                 {mobileProductBrand ? (
                   <p className="text-[13px] leading-snug text-gray-600">
@@ -3294,7 +3290,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
             <div className="hidden lg:block bg-white space-y-4" dir={isArabic ? 'rtl' : 'ltr'}>
               <div>
                 {renderSoldByLine('mb-1.5')}
-                <h1 dir={isArabic ? 'rtl' : 'ltr'} className="min-w-0 text-2xl font-medium leading-snug text-gray-900">{safeProductName}</h1>
+                <h1 dir={isArabic ? 'rtl' : 'ltr'} className="min-w-0 text-2xl font-medium leading-snug text-gray-900">{productHeading}</h1>
                 {mobileProductBrand ? (
                   <p className="mt-1 text-sm leading-snug text-gray-600">
                     <span className="text-gray-500">{t('product.brandLabel')}: </span>
@@ -3971,6 +3967,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       `}</style>
       <ProductWhatsAppWidget
         productId={product?._id}
+        productSku={product?.sku}
         productName={isArabic ? (product?.nameAr || product?.name) : product?.name}
         widget={whatsappProductWidget}
       />

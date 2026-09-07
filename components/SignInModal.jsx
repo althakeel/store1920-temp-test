@@ -149,7 +149,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }).catch(() => {});
   };
 
-  const runPostAuthTasks = async (user, { isNewUser = false, emailOverride = '', nameOverride = '' } = {}) => {
+  const runPostAuthTasks = async (user, { isNewUser = false, emailOverride = '', nameOverride = '', method } = {}) => {
     try {
       const token = await user.getIdToken();
       trackLoginLocation(token);
@@ -159,10 +159,13 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
         phone: user.phoneNumber || '',
       });
 
+      const authMethod = method
+        || (emailOverride ? 'email' : (user.phoneNumber && !user.email ? 'phone' : 'google'));
+
       if (isNewUser) {
         pushGtmEvent(
           GTM_EVENTS.SIGN_UP,
-          { method: emailOverride ? 'email' : 'google' },
+          { method: authMethod },
           gtmDedupeKey(GTM_EVENTS.SIGN_UP, user.uid),
         );
 
@@ -179,6 +182,11 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
           console.error('Welcome email failed:', err?.response?.data || err?.message || err);
         });
       } else {
+        pushGtmEvent(
+          GTM_EVENTS.LOGIN,
+          { method: authMethod },
+          gtmDedupeKey(GTM_EVENTS.LOGIN, user.uid),
+        );
         axios.post('/api/send-login-email', {
           email: emailOverride || user.email,
           name: nameOverride || user.displayName || 'Customer',
@@ -193,7 +201,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }
   };
 
-  const finishAuthSuccess = async (user, { isNewUser = false, emailOverride = '', nameOverride = '' } = {}) => {
+  const finishAuthSuccess = async (user, { isNewUser = false, emailOverride = '', nameOverride = '', method } = {}) => {
     const token = await user.getIdToken();
     const loginMeta = await reportLoginResult({
       email: emailOverride || user.email,
@@ -226,7 +234,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }
 
     onClose();
-    void runPostAuthTasks(user, { isNewUser, emailOverride, nameOverride });
+    void runPostAuthTasks(user, { isNewUser, emailOverride, nameOverride, method });
   };
 
   const handleGoogleSignIn = async () => {
@@ -242,7 +250,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
         localStorage.removeItem('welcomeBonusClaimed');
       }
 
-      await finishAuthSuccess(result.user, { isNewUser });
+      await finishAuthSuccess(result.user, { isNewUser, method: 'google' });
     } catch (err) {
       console.error('Google sign-in error:', err);
       const errorMessage = getAuthErrorMessage(err, 'Google sign-in failed. Please try again.');
@@ -265,7 +273,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
         localStorage.removeItem('welcomeBonusClaimed');
       }
 
-      await finishAuthSuccess(result.user, { isNewUser });
+      await finishAuthSuccess(result.user, { isNewUser, method: 'facebook' });
     } catch (err) {
       console.error('Facebook sign-in error:', err);
       const errorMessage = getAuthErrorMessage(err, 'Facebook sign-in failed. Please try again.');
@@ -359,7 +367,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
       setView('auth');
       onClose();
       if (auth.currentUser) {
-        void runPostAuthTasks(auth.currentUser, { emailOverride: email });
+        void runPostAuthTasks(auth.currentUser, { emailOverride: email, method: 'email' });
       }
     } catch (err) {
       setError(err.message || 'MFA failed');
@@ -446,6 +454,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
           isNewUser: true,
           emailOverride: email,
           nameOverride: name,
+          method: 'email',
         });
       } else {
         try {
@@ -453,6 +462,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
           await finishAuthSuccess(userCredential.user, {
             emailOverride: email,
             nameOverride: userCredential.user.displayName || name || 'Customer',
+            method: 'email',
           });
         } catch (authErr) {
           await reportLoginResult({ email, success: false });

@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/useAuth';
 import { trackPurchase } from '@/lib/tracking';
 import { trackOrderSuccessPurchaseOnce } from '@/lib/orderSuccessMetaPurchase';
 import { canTrackMetaPurchaseOnOrderSuccess } from '@/lib/orderConfirmationPolicy';
+import { hasGa4PurchaseTracked } from '@/lib/gtmPurchase';
 import { hasTrackedPersistently, markTrackedPersistently, hasTrackedOnce, markTrackedOnce } from '@/lib/trackingDedupe';
 import { getMetaPurchaseDedupeKey } from '@/lib/metaPurchase';
 import { getDisplayOrderNumber } from '@/lib/orderDisplay';
@@ -257,7 +258,11 @@ function OrderSuccessContent() {
     const purchaseKey = getMetaPurchaseDedupeKey(orderId);
     const purchaseLoopKey = `order-success:purchase-loop:${orderId}`;
 
-    if (hasTrackedPersistently(orderTrackingKey) || hasTrackedPersistently(purchaseKey)) {
+    if (
+      hasTrackedPersistently(orderTrackingKey)
+      && hasGa4PurchaseTracked(order)
+      && hasTrackedPersistently(purchaseKey)
+    ) {
       purchaseTrackedRef.current = true;
       return;
     }
@@ -277,11 +282,14 @@ function OrderSuccessContent() {
       while (!cancelled && !purchaseTrackedRef.current && attempts < 60) {
         attempts += 1;
         const latestOrder = orderRef.current || order;
-        const ok = await trackOrderSuccessPurchaseOnce(latestOrder, {
+        await trackOrderSuccessPurchaseOnce(latestOrder, {
           onAnalytics: () => trackPurchase(latestOrder, { user: userRef.current, metaSkip: true }),
         });
         if (cancelled) return;
-        if (ok || hasTrackedPersistently(purchaseKey)) {
+        if (
+          hasGa4PurchaseTracked(latestOrder)
+          && (hasTrackedPersistently(purchaseKey) || !canTrackMetaPurchaseOnOrderSuccess(latestOrder))
+        ) {
           purchaseTrackedRef.current = true;
           markTrackedPersistently(orderTrackingKey);
           return;

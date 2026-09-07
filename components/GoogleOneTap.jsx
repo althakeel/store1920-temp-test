@@ -175,6 +175,12 @@ export default function GoogleOneTap() {
                   { method: 'google_one_tap' },
                   gtmDedupeKey(GTM_EVENTS.SIGN_UP, user.uid),
                 );
+              } else {
+                pushGtmEvent(
+                  GTM_EVENTS.LOGIN,
+                  { method: 'google_one_tap' },
+                  gtmDedupeKey(GTM_EVENTS.LOGIN, user.uid),
+                );
               }
             } catch (error) {
               console.warn('[GoogleOneTap] sign-in failed:', error?.message || error);

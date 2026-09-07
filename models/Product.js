@@ -56,6 +56,8 @@ const ProductSchema = new mongoose.Schema({
   storeId: String,
   tags: { type: [String], default: [] },
   seoTitle: { type: String, default: '' },
+  seoH1: { type: String, default: '' },
+  seoH1Ar: { type: String, default: '' },
   seoDescription: { type: String, default: '' },
   seoKeywords: { type: [String], default: [] },
   // Frequently Bought Together fields

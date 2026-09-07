@@ -6,6 +6,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Loading from '@/components/Loading';
 import { RefreshCw, Undo2, X, Image as ImageIcon, CheckCircle, XCircle, Package } from 'lucide-react';
+import { trackGa4Refund } from '@/lib/ga4Ecommerce';
 
 const TABS = [
     { id: 'new', label: 'New Requests' },
@@ -95,6 +96,14 @@ export default function StoreReturnRequests() {
             }, {
                 headers: { Authorization: `Bearer ${token}` },
             });
+            if (action === 'PROCESS_REFUND') {
+                const request = data.request || selected;
+                trackGa4Refund({
+                    transactionId: request?.orderNumber || selected?.orderNumber || request?.orderId,
+                    value: Number(request?.refund?.finalAmount || selected?.refund?.finalAmount || 0),
+                    items: request?.items || selected?.items || [],
+                });
+            }
             toast.success(data?.message || 'Updated');
             setShowReject(false);
             setShowInfo(false);

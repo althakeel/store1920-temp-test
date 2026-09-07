@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import toast from 'react-hot-toast'
 import { useAuth } from '@/lib/useAuth'
 import { linkGuestOrdersForCurrentUser } from '@/lib/linkGuestOrdersClient'
+import { showStorefrontActionToast } from '@/lib/storefrontActionToast'
+import { useStorefrontI18n } from '@/lib/useStorefrontI18n'
 
 export default function GuestOrderLinker() {
     const { user, loading, getToken } = useAuth()
+    const { t } = useStorefrontI18n()
     const isSignedIn = !!user
     const linkingRef = useRef(false)
     const lastAttemptRef = useRef({ uid: null, at: 0 })
@@ -34,8 +36,15 @@ export default function GuestOrderLinker() {
                 if (!active) return
 
                 if (data?.linked && data.count > 0) {
-                    toast.success(`Welcome back! We've linked ${data.count} previous order(s) to your account.`, {
-                        duration: 5000
+                    const count = Number(data.count) || 0
+                    showStorefrontActionToast({
+                        variant: 'orders',
+                        title: t('account.ordersLinkedTitle'),
+                        subtitle: t('account.ordersLinkedSubtitle').replace('{count}', String(count)),
+                        actionLabel: t('account.viewOrders'),
+                        actionHref: '/dashboard/orders',
+                        duration: 6000,
+                        position: 'bottom-center',
                     })
                 }
             } catch (error) {
@@ -56,7 +65,7 @@ export default function GuestOrderLinker() {
             clearTimeout(retryTimer)
             linkingRef.current = false
         }
-    }, [isSignedIn, user, getToken, loading])
+    }, [isSignedIn, user, getToken, loading, t])
 
     return null
 }

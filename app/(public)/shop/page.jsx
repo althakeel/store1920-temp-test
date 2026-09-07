@@ -15,6 +15,9 @@ import { getLocalizedCategoryDescription, getLocalizedCategoryName } from '@/lib
 import { toPublicCategoryPath } from '@/lib/categorySlug'
 import { findCategoryInList } from '@/lib/categoryTreeUtils'
 import CategoryHeroCard from '@/components/category/CategoryHeroCard'
+import { rememberGa4Categories } from '@/lib/ga4CategoryLookup'
+import { pushGtmEvent } from '@/lib/pushGtmEcommerceEvent'
+import { GTM_EVENTS, gtmDedupeKey } from '@/lib/gtmEvents'
 
 const SHOP_PAGE_SIZE = 60;
 
@@ -111,7 +114,9 @@ function ShopContent() {
             .then((res) => res.json())
             .then((data) => {
                 if (!isActive) return;
-                setCategories(Array.isArray(data?.categories) ? data.categories : []);
+                const list = Array.isArray(data?.categories) ? data.categories : [];
+                setCategories(list);
+                rememberGa4Categories(list);
             })
             .catch(() => {
                 if (!isActive) return;
@@ -211,6 +216,13 @@ function ShopContent() {
                 setProducts(list);
                 setTotalProducts(total);
                 setTotalPages(pages);
+                if (search?.trim()) {
+                    pushGtmEvent(
+                        GTM_EVENTS.SEARCH,
+                        { search_term: search.trim() },
+                        gtmDedupeKey(GTM_EVENTS.SEARCH, search.trim().toLowerCase()),
+                    );
+                }
             })
             .catch((error) => {
                 if (controller.signal.aborted || error?.name === 'AbortError') return;

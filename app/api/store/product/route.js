@@ -222,6 +222,8 @@ export async function POST(request) {
         const tags = parseCsvOrJsonList(formData.get("tags"));
         const seoKeywords = parseCsvOrJsonList(formData.get("seoKeywords"));
         const seoTitle = (formData.get("seoTitle") || '').toString().trim();
+        const seoH1 = (formData.get("seoH1") || '').toString().trim();
+        const seoH1Ar = (formData.get("seoH1Ar") || '').toString().trim();
         const seoDescription = (formData.get("seoDescription") || '').toString().trim();
 
         // Base pricing (used when no variants)
@@ -389,6 +391,8 @@ export async function POST(request) {
             cardVideoPreviewDelaySec,
             tags,
             seoTitle,
+            seoH1,
+            seoH1Ar,
             seoDescription,
             seoKeywords,
             stockQuantity,
@@ -763,6 +767,8 @@ export async function PUT(request) {
         const tags = parseCsvOrJsonList(formData.get("tags"));
         const seoKeywords = parseCsvOrJsonList(formData.get("seoKeywords"));
         const seoTitle = (formData.get("seoTitle") || '').toString().trim();
+        const seoH1 = (formData.get("seoH1") || '').toString().trim();
+        const seoH1Ar = (formData.get("seoH1Ar") || '').toString().trim();
         const seoDescription = (formData.get("seoDescription") || '').toString().trim();
         let slug = formData.get("slug")?.toString().trim() || "";
         if (slug) {
@@ -941,6 +947,8 @@ export async function PUT(request) {
             cardVideoPreviewDelaySec,
             tags,
             seoTitle,
+            seoH1,
+            seoH1Ar,
             seoDescription,
             seoKeywords,
         };

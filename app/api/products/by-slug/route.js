@@ -32,7 +32,7 @@ export async function GET(request) {
     }
 
     await dbConnect();
-    const selectFields = 'name nameAr slug description descriptionAr shortDescription shortDescriptionAr shortDescription2 aPlusDesktop aPlusMobile aPlusDesktopAr aPlusMobileAr aPlusDesktopImages aPlusMobileImages brand brandAr AED price images category categories sku inStock stockQuantity hasVariants variants attributes hasBulkPricing bulkPricing fastDelivery freeShippingEligible allowReturn allowReplacement specTableEnabled specTableColumns specTableRows storeId imageAspectRatio cardVideoPreviewEnabled cardVideoPreviewDelaySec createdAt updatedAt seoTitle seoDescription seoKeywords tags';
+    const selectFields = 'name nameAr slug description descriptionAr shortDescription shortDescriptionAr shortDescription2 aPlusDesktop aPlusMobile aPlusDesktopAr aPlusMobileAr aPlusDesktopImages aPlusMobileImages brand brandAr AED price images category categories sku inStock stockQuantity hasVariants variants attributes hasBulkPricing bulkPricing fastDelivery freeShippingEligible allowReturn allowReplacement specTableEnabled specTableColumns specTableRows storeId imageAspectRatio cardVideoPreviewEnabled cardVideoPreviewDelaySec createdAt updatedAt seoTitle seoH1 seoH1Ar seoDescription seoKeywords tags';
     let product = await Product.findOne({ slug })
         .select(selectFields)
         .lean();

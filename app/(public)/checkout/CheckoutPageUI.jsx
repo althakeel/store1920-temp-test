@@ -44,6 +44,7 @@ import { isStorefrontWalletEnabled } from "@/lib/storefrontWallet";
 import { trackCustomerEvent, withOrderTrackingFields, getOrCreateAnonymousId, getOrCreateSessionId } from '@/lib/trackingClient';
 import { pushGtmEcommerceEvent } from '@/lib/pushGtmEcommerceEvent';
 import { cartLinesToGtmItems, cartLinesToMetaItems } from '@/lib/gtmEcommerceHelpers';
+import { GA4_CURRENCY, toGa4PaymentType } from '@/lib/ga4Item';
 import { runTrackedOnce } from '@/lib/trackingDedupe';
 import { GTM_EVENTS, gtmDedupeKey } from '@/lib/gtmEvents';
 import { getCartEntryProductId, getCartEntryQuantity, isFreeGiftEntry } from "@/lib/freeGiftUtils";
@@ -1026,6 +1027,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
       gtmItems,
       metaItems: cartLinesToMetaItems(cartArray),
       pageKey: '/checkout',
+      coupon: String(appliedCoupon?.code || '').trim(),
     });
 
     trackCustomerEvent({
@@ -1116,6 +1118,15 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
     if (sessionStorage.getItem(eventKey)) return;
     sessionStorage.setItem(eventKey, '1');
 
+    const gtmItems = cartLinesToGtmItems(cartArray);
+    pushGtmEcommerceEvent(GTM_EVENTS.ADD_PAYMENT_INFO, {
+      currency: GA4_CURRENCY,
+      value: Number(totalAfterWallet || 0),
+      payment_type: toGa4PaymentType(form.payment),
+      coupon: String(appliedCoupon?.code || '').trim(),
+      items: gtmItems,
+    }, gtmDedupeKey(GTM_EVENTS.ADD_PAYMENT_INFO, paymentMethod));
+
     trackMetaEvent('AddPaymentInfo', {
       value: Number(totalAfterWallet || 0),
       currency: 'AED',
@@ -1127,7 +1138,33 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
       eventID: `api:${paymentMethod}`,
       dedupeKey: `meta:AddPaymentInfo:${eventKey}`,
     });
-  }, [form.payment, cartArray, totalAfterWallet]);
+  }, [form.payment, cartArray, totalAfterWallet, appliedCoupon]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!checkoutProductsLoaded) return;
+    if (!form.state && !shippingMethod) return;
+    const gtmItems = cartLinesToGtmItems(cartArray);
+    if (!gtmItems.length) return;
+    const value = Number(totalAfterWallet > 0 ? totalAfterWallet : (subtotal + effectiveShipping) || 0);
+    pushGtmEcommerceEvent(GTM_EVENTS.ADD_SHIPPING_INFO, {
+      currency: GA4_CURRENCY,
+      value,
+      shipping_tier: String(shippingMethod || form.state || 'standard'),
+      coupon: String(appliedCoupon?.code || '').trim(),
+      items: gtmItems,
+    }, gtmDedupeKey(GTM_EVENTS.ADD_SHIPPING_INFO, '/checkout'));
+  }, [
+    checkoutProductsLoaded,
+    form.state,
+    shippingMethod,
+    cartArray,
+    totalAfterWallet,
+    subtotal,
+    effectiveShipping,
+    market.currency,
+    appliedCoupon,
+  ]);
 
   // Load shipping settings - refetch on page load and when products change
   useEffect(() => {
@@ -2415,6 +2452,11 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
         setRemoveLastItemConfirm({ cartKey, product: item });
         return;
       }
+      pushGtmEcommerceEvent(GTM_EVENTS.REMOVE_FROM_CART, {
+        currency: GA4_CURRENCY,
+        value: Number(item._cartPrice ?? item.price ?? 0) * Number(item._displayQuantity ?? item.quantity ?? 1),
+        items: cartLinesToGtmItems([item]),
+      });
       dispatch(deleteItemFromCart({ productId: cartKey }));
       return;
     }
@@ -2468,6 +2510,13 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
       setRemoveLastItemConfirm({ cartKey, product: item });
       return;
     }
+    const unitPrice = Number(item._cartPrice ?? item.price ?? 0);
+    const qty = Number(item._displayQuantity ?? item.quantity ?? 1);
+    pushGtmEcommerceEvent(GTM_EVENTS.REMOVE_FROM_CART, {
+      currency: GA4_CURRENCY,
+      value: unitPrice * qty,
+      items: cartLinesToGtmItems([{ ...item, quantity: qty }]),
+    });
     dispatch(deleteItemFromCart({ productId: cartKey }));
   };
 
@@ -2500,6 +2549,13 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
     setRemoveLastItemConfirm(null);
     setShowAllOrderItemsModal(false);
     setLeavingCheckout(true);
+    if (product) {
+      pushGtmEcommerceEvent(GTM_EVENTS.REMOVE_FROM_CART, {
+        currency: GA4_CURRENCY,
+        value: Number(product._cartPrice ?? product.price ?? 0) * Number(product._displayQuantity ?? product.quantity ?? 1),
+        items: cartLinesToGtmItems([product]),
+      });
+    }
     dispatch(deleteItemFromCart({ productId: cartKey }));
     navigateAwayFromCheckout(product);
   };

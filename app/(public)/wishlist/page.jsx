@@ -345,6 +345,7 @@ function WishlistAuthed() {
         const productId = product._id || product.productId || product._pid || item?.productId || item?.id;
         if (!productId) return;
         trackProductAddToCart({
+          product,
           productId,
           name: product.name || product.title || 'Product',
           price: Number(product.price) || 0,
@@ -481,6 +482,7 @@ function WishlistAuthed() {
                       onAddToCart={() => {
                         const productId = product._id || product.productId || product._pid;
                         trackProductAddToCart({
+                          product,
                           productId,
                           name: product.name || product.title || 'Product',
                           price: Number(product.price) || 0,
