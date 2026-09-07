@@ -7,6 +7,7 @@ import {
   resolveStoreNavMenuItems,
   buildCategoryShopLink,
   enrichNavItemWithCategoryChildren,
+  findCategoryForNavItem,
 } from '@/lib/categoryNavigation'
 import ShowcaseProductBanners from './ShowcaseProductBanners'
 import ShowcaseLargeBannerSlider from './ShowcaseLargeBannerSlider'
@@ -89,7 +90,20 @@ function getCategoryHref(category, allCategories = []) {
   return buildCategoryShopLink(category, allCategories)
 }
 
-function mapShowcaseDropdownLinks(links = []) {
+function resolveShowcaseLinkHref(item = {}, catalog = []) {
+  const raw = String(item?.link || item?.url || item?.href || '').trim()
+  if (raw && raw !== '#' && raw !== '/shop') return raw
+
+  const match = findCategoryForNavItem(item, catalog)
+  if (match) {
+    const href = buildCategoryShopLink(match, catalog)
+    if (href && href !== '/shop') return href
+  }
+
+  return raw || '/shop'
+}
+
+function mapShowcaseDropdownLinks(links = [], catalog = []) {
   return (Array.isArray(links) ? links : [])
     .map((dropdownItem, dropdownIndex) => ({
       title: cleanDisplayText(
@@ -97,8 +111,8 @@ function mapShowcaseDropdownLinks(links = []) {
           dropdownItem?.title || dropdownItem?.label || dropdownItem?.name || `Option ${dropdownIndex + 1}`,
         ).trim(),
       ),
-      href: String(dropdownItem?.link || dropdownItem?.url || '#').trim() || '#',
-      children: mapShowcaseDropdownLinks(dropdownItem?.children),
+      href: resolveShowcaseLinkHref(dropdownItem, catalog),
+      children: mapShowcaseDropdownLinks(dropdownItem?.children, catalog),
     }))
     .filter((dropdownItem) => dropdownItem.title)
 }
@@ -110,10 +124,10 @@ function estimateShowcaseFlyoutHeight(links = []) {
   }, 2)
 }
 
-function toShowcaseMenuItem(item = {}) {
-  const href = String(item?.link || item?.url || item?.href || '#').trim() || '#'
+function toShowcaseMenuItem(item = {}, catalog = []) {
+  const href = resolveShowcaseLinkHref(item, catalog)
   const title = cleanDisplayText(String(item?.name || item?.label || item?.title || '').trim())
-  const dropdownLinks = mapShowcaseDropdownLinks(item?.megaMenu?.links || item?.dropdownLinks)
+  const dropdownLinks = mapShowcaseDropdownLinks(item?.megaMenu?.links || item?.dropdownLinks, catalog)
 
   return {
     title,
@@ -233,6 +247,8 @@ export default function ShopShowcaseSection({
   const [hoveredMenuIndex, setHoveredMenuIndex] = useState(null)
   const [flyoutPosition, setFlyoutPosition] = useState({
     top: 0,
+    left: null,
+    right: null,
     maxHeight: 0,
     needsScroll: false,
     bridgeTop: 0,
@@ -276,6 +292,8 @@ export default function ShopShowcaseSection({
     if (!row || !column) {
       setFlyoutPosition({
         top: 0,
+        left: null,
+        right: null,
         maxHeight: 0,
         needsScroll: false,
         bridgeTop: 0,
@@ -303,10 +321,12 @@ export default function ShopShowcaseSection({
     if (top < 0) top = 0
 
     setFlyoutPosition({
-      top,
+      top: columnRect.top + top,
+      left: isArabic ? undefined : columnRect.right - 1,
+      right: isArabic ? window.innerWidth - columnRect.left - 1 : undefined,
       maxHeight,
       needsScroll: contentHeight > maxHeight,
-      bridgeTop: Math.min(top, rowTop),
+      bridgeTop: columnRect.top + Math.min(top, rowTop),
       bridgeHeight: Math.max(rowBottom, top + height) - Math.min(top, rowTop),
     })
   }
@@ -480,7 +500,7 @@ export default function ShopShowcaseSection({
         hasDropdown: false,
         megaMenu: { linkColumns: 1, links: [], images: [] },
       }, categories, language))
-      .map(toShowcaseMenuItem)
+      .map((item) => toShowcaseMenuItem(item, categories))
       .filter((item) => item.title)
   }, [data?.categories, language])
 
@@ -500,7 +520,7 @@ export default function ShopShowcaseSection({
 
     const navItems = (resolvedItems.length ? resolvedItems : storeMenuItems)
       .map((item) => enrichNavItemWithCategoryChildren(item, catalog, language))
-      .map(toShowcaseMenuItem)
+      .map((item) => toShowcaseMenuItem(item, catalog))
       .filter((item) => item.title)
 
     if (navMenuUseParentCategories) return navItems
@@ -602,6 +622,7 @@ export default function ShopShowcaseSection({
   if (!config || config.enabled === false) return null
 
   const showCategoryFlyout = hoveredDropdownLinks.length > 0
+    && (isArabic ? flyoutPosition.right != null : flyoutPosition.left != null)
 
   const renderShowcaseBanner = (banner) => (
     <ShowcaseLargeBannerSlider
@@ -740,9 +761,11 @@ export default function ShopShowcaseSection({
           {showCategoryFlyout ? (
             <>
               <div
-                className="absolute z-10"
+                className="pointer-events-auto fixed z-[80]"
                 style={{
-                  ...(isArabic ? { right: 276 } : { left: 276 }),
+                  ...(isArabic
+                    ? { right: flyoutPosition.right ?? 0 }
+                    : { left: (flyoutPosition.left ?? 0) - 8 }),
                   top: flyoutPosition.bridgeTop ?? flyoutPosition.top,
                   width: 8,
                   height: flyoutPosition.bridgeHeight || flyoutPosition.maxHeight,
@@ -753,9 +776,11 @@ export default function ShopShowcaseSection({
               <div
                 ref={flyoutRef}
                 dir={isArabic ? 'rtl' : 'ltr'}
-                className={`absolute z-20 w-[280px] rounded-none border border-slate-200 shadow-sm ${isArabic ? 'right-[279px]' : 'left-[279px]'}`}
+                className="pointer-events-auto fixed z-[80] w-[280px] rounded-none border border-slate-200 shadow-sm"
                 style={{
                   top: flyoutPosition.top,
+                  left: isArabic ? undefined : flyoutPosition.left,
+                  right: isArabic ? flyoutPosition.right : undefined,
                   maxHeight: flyoutPosition.maxHeight,
                   height: flyoutPosition.needsScroll ? flyoutPosition.maxHeight : 'auto',
                   overflowY: flyoutPosition.needsScroll ? 'auto' : 'hidden',
@@ -763,6 +788,7 @@ export default function ShopShowcaseSection({
                   borderColor: menuStyle.showcaseFlyoutBorderColor,
                 }}
                 onMouseEnter={clearFlyoutCloseTimer}
+                onMouseDown={clearFlyoutCloseTimer}
                 onMouseLeave={scheduleFlyoutClose}
               >
                 <div className={`grid ${hoveredDropdownImages.length ? 'grid-cols-[minmax(0,1fr)_120px]' : 'grid-cols-1'}`}>
@@ -775,7 +801,7 @@ export default function ShopShowcaseSection({
                       >
                         <Link
                           href={dropdownItem.href}
-                          className={`group flex items-center px-4 py-3 text-[13px] font-medium leading-5 transition-colors ${isArabic ? 'flex-row-reverse text-right' : ''}`}
+                          className={`group flex cursor-pointer items-center px-4 py-3 text-[13px] font-medium leading-5 transition-colors ${isArabic ? 'flex-row-reverse text-right' : ''}`}
                           style={{ color: menuStyle.showcaseFlyoutLinkColor }}
                           onMouseEnter={(event) => {
                             event.currentTarget.style.backgroundColor = menuStyle.showcaseFlyoutHoverColor
@@ -792,7 +818,7 @@ export default function ShopShowcaseSection({
                               <Link
                                 key={`${childItem.title}-${childItem.href}-${childIndex}`}
                                 href={childItem.href}
-                                className={`block truncate py-1.5 text-[12px] leading-4 transition-colors ${isArabic ? 'text-right' : ''}`}
+                                className={`block cursor-pointer truncate py-1.5 text-[12px] leading-4 transition-colors ${isArabic ? 'text-right' : ''}`}
                                 style={{ color: menuStyle.showcaseFlyoutLinkColor }}
                                 onMouseEnter={(event) => {
                                   event.currentTarget.style.backgroundColor = menuStyle.showcaseFlyoutHoverColor
