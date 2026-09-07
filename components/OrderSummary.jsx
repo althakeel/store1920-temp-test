@@ -151,11 +151,6 @@ const OrderSummary = ({ totalPrice, items }) => {
     const handleCouponCode = async (event) => {
         event.preventDefault();
         try {
-            if(!user){
-                return toast.error('Please sign in to use coupons')
-            }
-            
-            // Get store ID from first item (assuming all items are from same store)
             const storeId = items[0]?.storeId;
             const productIds = items.map(item => item.id);
             
@@ -163,7 +158,7 @@ const OrderSummary = ({ totalPrice, items }) => {
                 code: couponCodeInput,
                 storeId: storeId,
                 orderTotal: totalPrice,
-                userId: user.uid,
+                userId: user?.uid || undefined,
                 cartProductIds: productIds
             })
             

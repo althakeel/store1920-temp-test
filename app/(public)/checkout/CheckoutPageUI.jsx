@@ -238,13 +238,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
       setCouponError('Coupons are available for Card and Cash on Delivery only.');
       return;
     }
-    
-    if (!user) {
-      setCouponError("Please sign in to use coupons.");
-      setShowSignIn(true);
-      return;
-    }
-    
+
     if (!storeId) {
       setCouponError("Store information not loaded. Please refresh.");
       return;
@@ -286,8 +280,8 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
           code: codeToApply.toUpperCase(),
           storeId: storeId,
           orderTotal: itemsTotal,
-          userId: user.uid,
-          cartProductIds: cartProductIds, // Send product IDs for product-specific validation
+          userId: user?.uid || undefined,
+          cartProductIds: cartProductIds,
         }),
       });
       
@@ -3436,10 +3430,6 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
               ) : !form.payment ? (
                 <p className="mt-2 text-xs text-amber-700">
                   Select <strong>Card</strong> or <strong>Cash on Delivery</strong> to use a coupon.
-                </p>
-              ) : !user ? (
-                <p className="mt-2 text-xs text-slate-600">
-                  Sign in to apply a coupon code.
                 </p>
               ) : null}
               {availableCoupons.length > 0 ? (

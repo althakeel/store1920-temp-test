@@ -314,8 +314,8 @@ export async function POST(request) {
             if (couponAccessError) {
                 return NextResponse.json({ error: couponAccessError }, { status: 400 });
             }
-            if (coupon.forNewUser) {
-                const userorders = await Order.find({ userId }).lean();
+            if (coupon.forNewUser && userId) {
+                const userorders = await Order.find({ userId }).select('_id').lean();
                 if (userorders.length > 0) return NextResponse.json({ error: 'Coupon valid for new users' }, { status: 400 });
             }
             if (coupon.forMember && !isPlusMember) {
