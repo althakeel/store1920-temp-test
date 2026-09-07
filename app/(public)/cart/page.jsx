@@ -373,7 +373,7 @@ function CartContent() {
         if (removedItem) {
             pushGtmEcommerceEvent(GTM_EVENTS.REMOVE_FROM_CART, {
                 currency: STORE_CURRENCY,
-                value: Number(removedItem._cartPrice ?? removedItem.price || 0) * Number(removedItem._displayQuantity ?? removedItem.quantity || 1),
+                value: Number(removedItem._cartPrice ?? removedItem.price ?? 0) * Number(removedItem._displayQuantity ?? removedItem.quantity ?? 1),
                 items: [toGtmItem(removedItem)],
             });
         }
