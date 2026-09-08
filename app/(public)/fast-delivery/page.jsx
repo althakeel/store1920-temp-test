@@ -89,7 +89,7 @@ export default function FastDeliveryPage() {
 
   return (
     <>
-      <PageTitle title={pageSettings.headerTitle || 'Fast Delivery & Top Sellers'} />
+      <PageTitle title={(pageSettings.headerTitleEnabled && pageSettings.headerTitle) || 'Fast Delivery & Top Sellers'} />
       <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef7f5_42%,#ffffff_100%)] -mt-12">
         <FastDeliveryPageHeader settings={pageSettings} />
 

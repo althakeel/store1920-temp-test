@@ -179,22 +179,43 @@ export default function FastDeliveryCustomizePage() {
 
         <label className="space-y-1 block">
           <span className="text-sm font-medium text-slate-700">Header Title</span>
+          <span className="flex items-center gap-3 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={form.headerTitleEnabled}
+              onChange={(e) => setForm((prev) => ({ ...prev, headerTitleEnabled: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            Show title on /fast-delivery
+          </span>
           <input
             type="text"
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900"
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 disabled:bg-slate-50 disabled:text-slate-400"
             value={form.headerTitle}
+            disabled={!form.headerTitleEnabled}
             onChange={(e) => setForm((prev) => ({ ...prev, headerTitle: e.target.value }))}
           />
         </label>
 
         <label className="space-y-1 block">
           <span className="text-sm font-medium text-slate-700">Header Subtitle</span>
+          <span className="flex items-center gap-3 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={form.headerSubtitleEnabled}
+              onChange={(e) => setForm((prev) => ({ ...prev, headerSubtitleEnabled: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            Show subtitle on /fast-delivery
+          </span>
           <textarea
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 resize-none"
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 resize-none disabled:bg-slate-50 disabled:text-slate-400"
             rows="2"
             value={form.headerSubtitle}
+            disabled={!form.headerSubtitleEnabled}
             onChange={(e) => setForm((prev) => ({ ...prev, headerSubtitle: e.target.value }))}
           />
+          <span className="text-xs text-slate-500">Clear a field and save to delete that text. Uncheck Show to hide it without deleting.</span>
         </label>
 
         <label className="space-y-1 block">

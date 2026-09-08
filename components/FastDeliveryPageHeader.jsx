@@ -4,11 +4,17 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { TruckIcon, ZapIcon } from 'lucide-react';
-import { getActiveFastDeliveryBannerSlides, normalizeFastDeliveryPage } from '@/lib/fastDeliveryPageSettings';
+import {
+  getActiveFastDeliveryBannerSlides,
+  getFastDeliveryHeaderText,
+  normalizeFastDeliveryPage,
+} from '@/lib/fastDeliveryPageSettings';
 
 export default function FastDeliveryPageHeader({ settings }) {
   const pageSettings = useMemo(() => normalizeFastDeliveryPage(settings || {}), [settings]);
   const slides = useMemo(() => getActiveFastDeliveryBannerSlides(pageSettings), [pageSettings]);
+  const headerText = useMemo(() => getFastDeliveryHeaderText(pageSettings), [pageSettings]);
+  const bannerAlt = headerText.title || 'Fast delivery banner';
   const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
@@ -25,20 +31,24 @@ export default function FastDeliveryPageHeader({ settings }) {
     return () => clearInterval(interval);
   }, [slides.length, pageSettings.headerBannerSliderInterval]);
 
-  const overlayContent = (
+  const overlayContent = headerText.showOverlay ? (
     <div className="relative z-10 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-center gap-3 mb-4">
         <TruckIcon size={40} className="animate-bounce" />
         <ZapIcon size={32} className="text-yellow-300" />
       </div>
-      <h1 className="text-3xl md:text-5xl font-bold text-center mb-4">
-        {pageSettings.headerTitle}
-      </h1>
-      <p className="text-center text-white/90 text-lg max-w-2xl mx-auto">
-        {pageSettings.headerSubtitle}
-      </p>
+      {headerText.showTitle ? (
+        <h1 className="text-3xl md:text-5xl font-bold text-center mb-4">
+          {headerText.title}
+        </h1>
+      ) : null}
+      {headerText.showSubtitle ? (
+        <p className="text-center text-white/90 text-lg max-w-2xl mx-auto">
+          {headerText.subtitle}
+        </p>
+      ) : null}
     </div>
-  );
+  ) : null;
 
   return (
     <div
@@ -51,7 +61,7 @@ export default function FastDeliveryPageHeader({ settings }) {
             const imageNode = (
               <Image
                 src={slide.image}
-                alt={slide.alt || pageSettings.headerTitle}
+                alt={slide.alt || bannerAlt}
                 fill
                 priority={index === 0}
                 className={`object-cover transition-opacity duration-1000 ${
@@ -100,7 +110,7 @@ export default function FastDeliveryPageHeader({ settings }) {
         <>
           <Image
             src={pageSettings.headerBgImage}
-            alt={pageSettings.headerTitle}
+            alt={bannerAlt}
             fill
             priority
             className="object-cover"
