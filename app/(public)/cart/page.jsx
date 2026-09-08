@@ -22,6 +22,7 @@ import { decrementCartItem } from "@/lib/bundleCartActions";
 import { PackageIcon } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
 import { trackViewCartDual } from "@/lib/ecommerceTracking";
+import { ensureGa4CategoryCache } from "@/lib/ga4CategoryLookup";
 import { pushGtmEcommerceEvent, toGtmItem } from "@/lib/pushGtmEcommerceEvent";
 import { GTM_EVENTS, gtmDedupeKey } from "@/lib/gtmEvents";
 import { STORE_CURRENCY } from "@/lib/storeCurrency";
@@ -511,6 +512,7 @@ function CartContent() {
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
+        ensureGa4CategoryCache();
         if (!productsLoaded) return;
         if (!inStockCartArray.length) return;
         if (viewCartTrackedRef.current) return;

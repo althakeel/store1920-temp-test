@@ -45,6 +45,7 @@ import { trackCustomerEvent, withOrderTrackingFields, getOrCreateAnonymousId, ge
 import { pushGtmEcommerceEvent } from '@/lib/pushGtmEcommerceEvent';
 import { cartLinesToGtmItems, cartLinesToMetaItems } from '@/lib/gtmEcommerceHelpers';
 import { GA4_CURRENCY, toGa4PaymentType } from '@/lib/ga4Item';
+import { ensureGa4CategoryCache } from '@/lib/ga4CategoryLookup';
 import { runTrackedOnce } from '@/lib/trackingDedupe';
 import { GTM_EVENTS, gtmDedupeKey } from '@/lib/gtmEvents';
 import { getCartEntryProductId, getCartEntryQuantity, isFreeGiftEntry } from "@/lib/freeGiftUtils";
@@ -1004,6 +1005,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    ensureGa4CategoryCache();
     if (!checkoutProductsLoaded) return;
     if (beginCheckoutTrackedRef.current) return;
 
@@ -1138,7 +1140,6 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!checkoutProductsLoaded) return;
-    if (!form.state && !shippingMethod) return;
     const gtmItems = cartLinesToGtmItems(cartArray);
     if (!gtmItems.length) return;
     const value = Number(totalAfterWallet > 0 ? totalAfterWallet : (subtotal + effectiveShipping) || 0);

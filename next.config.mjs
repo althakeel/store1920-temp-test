@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
+import path from 'path';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const productRedirects = require('./data/productRedirects.json');
 const categoryRedirects = require('./data/categoryRedirects.json');
 
@@ -54,6 +57,8 @@ try {
 } catch {}
 
 const nextConfig = {
+    // EC2 home has its own package-lock.json; keep tracing inside this repo.
+    outputFileTracingRoot: projectRoot,
     images: {
         unoptimized: false,
         remotePatterns: imageRemotePatterns,
