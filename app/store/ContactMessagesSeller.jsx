@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useAuth } from '@/lib/useAuth';
 
 export default function ContactMessagesSeller() {
+  const { getToken } = useAuth();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -11,7 +13,10 @@ export default function ContactMessagesSeller() {
 
   const fetchMessages = async () => {
     try {
-      const { data } = await axios.get('/api/store/contact-messages');
+      const token = getToken ? await getToken() : '';
+      const { data } = await axios.get('/api/store/contact-messages', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       setMessages(data.messages || []);
     } catch (error) {
       setMessages([]);

@@ -29,6 +29,8 @@ export default function ContactUs() {
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [navBg, setNavBg] = useState(DEFAULT_BG);
 
   useEffect(() => {
@@ -79,14 +81,31 @@ export default function ContactUs() {
 
   const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const subject = encodeURIComponent(`Contact form: ${form.name || 'Customer'}`);
-    const body = encodeURIComponent(
-      `Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`,
-    );
-    window.location.href = `mailto:${STORE1920_SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-    setSubmitted(true);
+    if (submitting) return;
+    setSubmitError('');
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          message: form.message,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not send your message. Please try again.');
+      }
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error?.message || 'Could not send your message. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -132,7 +151,7 @@ export default function ContactUs() {
                 ),
                 label: 'Email Us',
                 value: STORE1920_SUPPORT_EMAIL,
-                href: `mailto:${STORE1920_SUPPORT_EMAIL}`,
+                href: null,
               },
               {
                 icon: (
@@ -223,6 +242,11 @@ export default function ContactUs() {
                     <p className="text-sm text-gray-400 mb-6">Fill in the form below and we&apos;ll get back to you shortly.</p>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
+                      {submitError ? (
+                        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+                          {submitError}
+                        </p>
+                      ) : null}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
                           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Full Name</label>
@@ -268,13 +292,14 @@ export default function ContactUs() {
 
                       <button
                         type="submit"
-                        className="w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold text-white text-sm shadow-md transition-opacity hover:opacity-90 active:scale-[0.98]"
+                        disabled={submitting}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold text-white text-sm shadow-md transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                         style={{ backgroundColor: navBg, boxShadow: `0 4px 14px rgba(${r},${g},${b},0.35)` }}
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                           <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
                         </svg>
-                        Send Message
+                        {submitting ? 'Sending…' : 'Send Message'}
                       </button>
                     </form>
                   </>
