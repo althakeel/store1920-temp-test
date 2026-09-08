@@ -340,8 +340,11 @@ export default function ShopShowcaseSection({
   useEffect(() => {
     setLanguage(readPersistedStorefrontLanguage())
 
-    const handleLanguageChange = () => {
-      setLanguage(readPersistedStorefrontLanguage())
+    const handleLanguageChange = (event) => {
+      const nextLanguage = event?.detail?.language
+      setLanguage(nextLanguage === 'ar' || nextLanguage === 'en'
+        ? nextLanguage
+        : readPersistedStorefrontLanguage())
     }
 
     window.addEventListener(STOREFRONT_LANGUAGE_EVENT, handleLanguageChange)

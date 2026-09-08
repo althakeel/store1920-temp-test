@@ -87,12 +87,6 @@ export default async function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <head>
-        <script
-          id="google-tag-manager"
-          dangerouslySetInnerHTML={{
-            __html: getGtmHeadScript(GTM_ID),
-          }}
-        />
         {/* S3 media preconnect */}
         {s3Origin && (
           <>
@@ -126,6 +120,13 @@ export default async function RootLayout({ children }) {
         </noscript>
         <EarlyHeadScripts />
         <StorefrontLanguageInitScript />
+        <Script
+          id="google-tag-manager"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: getGtmHeadScript(GTM_ID),
+          }}
+        />
         <Script
           id="meta-pixel"
           strategy="afterInteractive"

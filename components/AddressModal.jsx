@@ -400,7 +400,10 @@ const AddressModal = ({ open, setShowAddressModal, onAddressAdded, initialAddres
             })
         } catch (error) {
             console.log(error)
-            toast.error(error?.response?.data?.error || error?.response?.data?.message || error.message)
+            const message = error?.response?.data?.error || error?.response?.data?.message || error.message
+            if (!/too many requests|rate limit|slow down/i.test(String(message || ''))) {
+                toast.error(message)
+            }
         }
     }
 

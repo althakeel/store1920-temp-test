@@ -1,7 +1,6 @@
 import connectDB from "@/lib/mongodb";
 import Product from "@/models/Product";
 import { NextResponse } from "next/server";
-import { localizeRecord, resolveStorefrontLanguage } from "@/lib/storefrontLanguage";
 import { getProductThumbnailUrl } from "@/lib/productMedia";
 import { PLACEHOLDER_IMAGE } from "@/lib/mediaUrls";
 import { isProductPublished } from '@/lib/productVisibility';
@@ -15,7 +14,6 @@ function hasDisplayableImage(product) {
 export async function POST(req) {
     try {
         await connectDB();
-        const language = resolveStorefrontLanguage(req);
         const { productIds } = await req.json();
 
         if (!productIds || !Array.isArray(productIds)) {
@@ -46,7 +44,7 @@ export async function POST(req) {
           validProductIds
             .map((id) => productMap.get(id))
             .filter((product) => product && isProductPublished(product) && product.name && product.slug && hasDisplayableImage(product))
-            .map((product) => localizeRecord(product, language, ['name', 'shortDescription', 'brand']))
+            .map((product) => product)
             .filter(Boolean)
         );
 

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import ProductCard from '@/components/ProductCard'
 import { HOME_PRODUCT_GRID_CLASS, HOME_SECTION_CLASS, HOME_SECTION_GRID_INNER_CLASS, HOME_SECTION_TITLE_CLASS } from '@/lib/storefrontCarousel'
+import { localizeField } from '@/lib/storefrontLanguage'
+import { useStorefrontI18n } from '@/lib/useStorefrontI18n'
 
 const TOP_DEALS_SECTION_KEYS = new Set(['top_deals', 'top-deals', 'topdeals'])
 
@@ -49,15 +51,18 @@ export default function TopDeals({
   initialProducts = null,
   initialTitle = 'Top Deals',
 }) {
+  const { language } = useStorefrontI18n()
   const hasInitialProducts = Array.isArray(initialProducts) && initialProducts.length > 0
   const [products, setProducts] = useState(hasInitialProducts ? initialProducts : [])
   const [loading, setLoading] = useState(!hasInitialProducts)
   const [title, setTitle] = useState(initialTitle)
+  const [titleAr, setTitleAr] = useState('')
 
   useEffect(() => {
     if (hasInitialProducts) {
       setProducts(initialProducts)
       setTitle(initialTitle)
+      setTitleAr('')
       setLoading(false)
       return undefined
     }
@@ -75,6 +80,7 @@ export default function TopDeals({
       try {
         const section = findTopDealsSection(homeSections)
         setTitle(section?.title || 'Top Deals')
+        setTitleAr(section?.titleAr || '')
 
         if (!section) {
           const { data } = await axios.get('/api/products?limit=12')
@@ -121,10 +127,15 @@ export default function TopDeals({
     return null
   }
 
+  const section = findTopDealsSection(homeSections)
+  const displayTitle = localizeField(section, 'title', language)
+    || localizeField({ title, titleAr }, 'title', language)
+    || 'Top Deals'
+
   return (
     <section className={HOME_SECTION_CLASS}>
       <div className={HOME_SECTION_GRID_INNER_CLASS}>
-        <h2 className={HOME_SECTION_TITLE_CLASS}>{title}</h2>
+        <h2 className={HOME_SECTION_TITLE_CLASS}>{displayTitle}</h2>
 
         {loading ? (
           <TopDealsSkeleton />

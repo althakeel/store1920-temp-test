@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { readPersistedStorefrontLanguage } from '@/lib/storefrontLanguage';
 
 /**
  * Forces English LTR for /store and locks the shell to the viewport
@@ -9,8 +10,6 @@ import { useEffect } from 'react';
 export default function StoreLanguageScope({ children }) {
   useEffect(() => {
     const root = document.documentElement;
-    const previousLang = root.getAttribute('lang');
-    const previousDir = root.getAttribute('dir');
     const previousRootOverflow = root.style.overflow;
     const previousBodyOverflow = document.body.style.overflow;
 
@@ -20,18 +19,10 @@ export default function StoreLanguageScope({ children }) {
     document.body.style.overflow = 'hidden';
 
     return () => {
-      if (previousLang) {
-        root.setAttribute('lang', previousLang);
-      } else {
-        root.removeAttribute('lang');
-      }
-
-      if (previousDir) {
-        root.setAttribute('dir', previousDir);
-      } else {
-        root.removeAttribute('dir');
-      }
-
+      const restored = readPersistedStorefrontLanguage();
+      const isArabic = restored === 'ar';
+      root.setAttribute('lang', isArabic ? 'ar' : 'en');
+      root.setAttribute('dir', isArabic ? 'rtl' : 'ltr');
       root.style.overflow = previousRootOverflow;
       document.body.style.overflow = previousBodyOverflow;
     };

@@ -6,7 +6,6 @@ import { getAuth } from '@/lib/firebase-admin'
 import authSeller from '@/middlewares/authSeller'
 import Store from '@/models/Store'
 import Product from '@/models/Product'
-import { localizeRecord, resolveStorefrontLanguage } from '@/lib/storefrontLanguage'
 import { attachProductRatings } from '@/lib/attachProductRatings'
 
 const DEFAULT_FEATURED_RESPONSE = {
@@ -67,7 +66,6 @@ async function getUserIdFromAuthHeader(request) {
 export async function GET(request) {
     try {
         await connectDB()
-        const language = resolveStorefrontLanguage(request)
 
         const { searchParams } = new URL(request.url)
         const includeProducts = searchParams.get('includeProducts') === 'true'
@@ -82,7 +80,7 @@ export async function GET(request) {
         }
 
         const isPublicRequest = !userId
-        const cacheKey = isPublicRequest ? `public:featured-products:api:v3:${includeProducts}:${limit}` : null
+        const cacheKey = isPublicRequest ? `public:featured-products:api:v4:${includeProducts}:${limit}` : null
         if (cacheKey) {
             const cached = getCachedData(cacheKey)
             if (cached) {
@@ -120,7 +118,7 @@ export async function GET(request) {
                 const productsRaw = await Product.find({ _id: { $in: productIds } })
                     .select(buildProductProjection)
                     .lean()
-                const productMap = new Map(productsRaw.map((product) => [product._id.toString(), localizeRecord(product, language, ['name'])]))
+                const productMap = new Map(productsRaw.map((product) => [product._id.toString(), product]))
                 return productIds.map((id) => productMap.get(id)).filter(Boolean)
             }
 
@@ -137,7 +135,7 @@ export async function GET(request) {
                 .select(buildProductProjection)
                 .lean()
 
-            return productsRaw.map((product) => localizeRecord(product, language, ['name']))
+            return productsRaw
         }
 
         if (!includeProducts) {

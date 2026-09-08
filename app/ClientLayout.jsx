@@ -11,6 +11,7 @@ import MetaPixel from "@/components/MetaPixel";
 import TikTokPixel from "@/components/TikTokPixel";
 import GtmPageView from "@/components/GtmPageView";
 import { Toaster } from "react-hot-toast";
+import SilentDomErrorBoundary from "@/components/SilentDomErrorBoundary";
 
 const SpinWheelWidget = dynamic(() => import("@/components/SpinWheelWidget"), { ssr: false });
 const GiveawayCartManager = dynamic(() => import("@/components/GiveawayCartManager"), { ssr: false });
@@ -49,7 +50,14 @@ function shouldHideStorefrontChrome(pathname) {
 export default function ClientLayout({ children, initialStorefrontLanguage = 'en' }) {
   const pathname = usePathname();
   const hideStorefrontChrome = shouldHideStorefrontChrome(pathname);
-  const isCheckoutPage = pathname === '/checkout';
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.removeItem('store1920-chunk-reload');
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [pathname]);
 
   return (
     <ReduxProvider>
@@ -106,7 +114,7 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
       <DynamicMetaTags />
       <AuthSessionGuard />
       {!hideStorefrontChrome ? <GoogleOneTap /> : null}
-      {children}
+      <SilentDomErrorBoundary>{children}</SilentDomErrorBoundary>
       {!hideStorefrontChrome && (
         <>
           <DeferredWidgets />

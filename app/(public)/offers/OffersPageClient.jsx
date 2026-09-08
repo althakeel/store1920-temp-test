@@ -7,6 +7,10 @@ import ProductCard from '@/components/ProductCard';
 import { OFFERS_PAGE_SIZE } from '@/lib/offersPageSettings';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 
+function productKey(product, index) {
+  return String(product?._id || product?.id || product?.slug || index);
+}
+
 export default function OffersPageClient({ initialData = null }) {
   const router = useRouter();
   const { t } = useStorefrontI18n();
@@ -23,27 +27,37 @@ export default function OffersPageClient({ initialData = null }) {
     total: 0,
     totalPages: 1,
   });
-  const skipScrollRef = useRef(true);
-  const skipInitialFetchRef = useRef(Boolean(initialData));
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef(null);
+  const loadingMoreRef = useRef(false);
+  const pageRef = useRef(Number(initialData?.pagination?.page) || 1);
+  const totalPagesRef = useRef(Number(initialData?.pagination?.totalPages) || 1);
+  const seenIdsRef = useRef(new Set(
+    (Array.isArray(initialData?.products) ? initialData.products : [])
+      .map((product) => String(product?._id || product?.id || ''))
+      .filter(Boolean),
+  ));
 
-  const applyPayload = useCallback((data, targetPage) => {
+  pageRef.current = page;
+  totalPagesRef.current = Number(pagination.totalPages) || 1;
+
+  const applyCopy = useCallback((data) => {
     if (!data) return;
-    setProducts(Array.isArray(data.products) ? data.products : []);
-    setPagination(data.pagination || {
-      page: targetPage,
-      limit: OFFERS_PAGE_SIZE,
-      total: 0,
-      totalPages: 1,
-    });
     if (typeof data.eyebrow === 'string') setEyebrow(data.eyebrow.trim());
     if (typeof data.title === 'string' && data.title.trim()) setTitle(data.title.trim());
     if (typeof data.subtitle === 'string') setSubtitle(data.subtitle.trim());
   }, []);
 
-  const loadOffers = useCallback(async (targetPage) => {
+  const loadMore = useCallback(async () => {
+    const nextPage = pageRef.current + 1;
+    if (loadingMoreRef.current || nextPage > totalPagesRef.current) return;
+
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+
     try {
       const params = new URLSearchParams({
-        page: String(targetPage),
+        page: String(nextPage),
         limit: String(OFFERS_PAGE_SIZE),
         t: String(Date.now()),
       });
@@ -55,63 +69,53 @@ export default function OffersPageClient({ initialData = null }) {
         },
       });
       if (!response.ok) return;
-      applyPayload(await response.json(), targetPage);
+
+      const data = await response.json();
+      const incoming = Array.isArray(data?.products) ? data.products : [];
+      const unique = incoming.filter((product) => {
+        const id = String(product?._id || product?.id || '');
+        if (!id || seenIdsRef.current.has(id)) return false;
+        seenIdsRef.current.add(id);
+        return true;
+      });
+
+      if (unique.length) {
+        setProducts((prev) => [...prev, ...unique]);
+      }
+      if (data?.pagination) {
+        setPagination(data.pagination);
+        totalPagesRef.current = Number(data.pagination.totalPages) || 1;
+      }
+      setPage(nextPage);
+      pageRef.current = nextPage;
+      applyCopy(data);
     } catch {
       // Keep the products already on screen.
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
-  }, [applyPayload]);
+  }, [applyCopy]);
 
   useEffect(() => {
-    if (skipInitialFetchRef.current) {
-      skipInitialFetchRef.current = false;
-      return;
-    }
-    loadOffers(page);
-  }, [loadOffers, page]);
+    const node = sentinelRef.current;
+    if (!node) return undefined;
 
-  useEffect(() => {
-    if (skipScrollRef.current) {
-      skipScrollRef.current = false;
-      return;
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        loadMore();
+      },
+      { root: null, rootMargin: '480px 0px', threshold: 0 },
+    );
 
-  const goToPage = (nextPage) => {
-    const safePage = Math.min(Math.max(1, nextPage), pagination.totalPages);
-    setPage(safePage);
-  };
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loadMore, products.length]);
 
-  const rangeFrom = pagination.total
-    ? (pagination.page - 1) * pagination.limit + 1
-    : 0;
-  const rangeTo = pagination.total
-    ? Math.min(pagination.page * pagination.limit, pagination.total)
-    : 0;
-
-  const paginationBar = pagination.totalPages > 1 ? (
-    <div className="mt-auto flex flex-wrap items-center justify-center gap-2 border-t border-gray-200 bg-gray-50 pt-6">
-      <button
-        type="button"
-        onClick={() => goToPage(pagination.page - 1)}
-        disabled={pagination.page <= 1}
-        className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {t('shop.previous')}
-      </button>
-      <span className="px-3 text-sm text-gray-600">
-        {t('shop.pageOf', { page: pagination.page, total: pagination.totalPages })}
-      </span>
-      <button
-        type="button"
-        onClick={() => goToPage(pagination.page + 1)}
-        disabled={pagination.page >= pagination.totalPages}
-        className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {t('shop.next')}
-      </button>
-    </div>
-  ) : null;
+  const hasMore = page < (Number(pagination.totalPages) || 1);
+  const rangeFrom = products.length ? 1 : 0;
+  const rangeTo = products.length;
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-1 flex-col bg-gray-50">
@@ -160,14 +164,24 @@ export default function OffersPageClient({ initialData = null }) {
             <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {products.map((product, index) => (
                 <ProductCard
-                  key={product._id || product.id || product.slug}
+                  key={productKey(product, index)}
                   product={product}
-                  priorityImages={pagination.page === 1 && index < 6}
+                  priorityImages={index < 6}
                 />
               ))}
             </div>
 
-            {paginationBar}
+            {hasMore ? (
+              <div ref={sentinelRef} className="mt-8 flex justify-center py-4">
+                {loadingMore ? (
+                  <p className="text-sm text-gray-500">{t('category.loadingMore')}</p>
+                ) : (
+                  <span className="sr-only">{t('exploreInterests.loadMore')}</span>
+                )}
+              </div>
+            ) : pagination.total > OFFERS_PAGE_SIZE ? (
+              <p className="mt-8 text-center text-sm text-gray-500">{t('category.allLoaded')}</p>
+            ) : null}
           </div>
         ) : (
           <div className="rounded-lg border border-gray-200 bg-white py-16 text-center">

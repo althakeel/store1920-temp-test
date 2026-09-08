@@ -1,23 +1,33 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 const CHUNK_RELOAD_KEY = 'store1920-chunk-reload';
+
+function isDomReconcileError(message = '') {
+  return /removeChild|insertBefore|not a child of this node|The node before which/i.test(message);
+}
 
 export default function PublicError({ error, reset }) {
   const message = String(error?.message || '');
   const isChunkError = /chunk|loading|failed to fetch|dynamically imported module/i.test(message);
+  const isDomError = isDomReconcileError(message);
 
-  useEffect(() => {
-    console.error('[storefront] page error:', error);
-  }, [error]);
+  useLayoutEffect(() => {
+    if (isDomError) {
+      reset();
+      return;
+    }
 
-  useEffect(() => {
     if (!isChunkError || typeof window === 'undefined') return;
     if (sessionStorage.getItem(CHUNK_RELOAD_KEY)) return;
     sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
     window.location.reload();
-  }, [isChunkError]);
+  }, [isChunkError, isDomError, reset]);
+
+  if (isDomError) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center bg-slate-50 px-4 py-12 text-center">

@@ -13,17 +13,11 @@ async function getStorefrontLanguage() {
   return resolveStorefrontLanguage({ cookies: cookieStore, headers: requestHeaders });
 }
 
-function parsePage(value) {
-  const page = parseInt(String(value || '1'), 10);
-  return Number.isFinite(page) && page > 0 ? page : 1;
-}
-
-export async function generateMetadata({ searchParams }) {
+export async function generateMetadata() {
   try {
-    const params = await searchParams;
     const language = await getStorefrontLanguage();
     const data = await getCachedPublicOffersPage({
-      page: parsePage(params?.page),
+      page: 1,
       limit: OFFERS_PAGE_SIZE,
       language,
     });
@@ -39,11 +33,10 @@ export async function generateMetadata({ searchParams }) {
   }
 }
 
-export default async function OffersPage({ searchParams }) {
-  const params = await searchParams;
+export default async function OffersPage() {
   const language = await getStorefrontLanguage();
   const initialData = await getCachedPublicOffersPage({
-    page: parsePage(params?.page),
+    page: 1,
     limit: OFFERS_PAGE_SIZE,
     language,
   });

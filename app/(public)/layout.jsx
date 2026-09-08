@@ -2,6 +2,7 @@
 'use client'
 import MobileBottomNav from "@/components/MobileBottomNav";
 import GuestOrderLinker from "@/components/GuestOrderLinker";
+import SilentDomErrorBoundary from "@/components/SilentDomErrorBoundary";
 import dynamic from "next/dynamic";
 import { useEffect, Suspense, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -58,7 +59,9 @@ function PublicLayoutContent({ children }) {
         <div className={`flex flex-col ${isCartPage || isProductPage ? '' : 'min-h-screen'}`}>
             <GuestOrderLinker />
             <DeferredTrackers />
-            <main className={`${isProductPage ? '' : 'flex flex-1 flex-col'} min-w-0 overflow-x-clip ${mobileMainPadding} lg:pb-0`}>{children}</main>
+            <main className={`${isProductPage ? '' : 'flex flex-1 flex-col'} min-w-0 overflow-x-clip ${mobileMainPadding} lg:pb-0`}>
+                <SilentDomErrorBoundary>{children}</SilentDomErrorBoundary>
+            </main>
             {showMobileBottomNav && <MobileBottomNav />}
         </div>
     );

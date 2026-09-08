@@ -4,7 +4,7 @@ import Rating from "@/models/Rating";
 import Category from "@/models/Category";
 import { NextResponse } from "next/server";
 import { getCachedData, setCachedData, generateCacheKey, invalidateCachePattern } from "@/lib/cache";
-import { localizeRecord, resolveStorefrontLanguage } from "@/lib/storefrontLanguage";
+import { resolveStorefrontLanguage } from "@/lib/storefrontLanguage";
 import {
   applyCategoriesFilter,
   applyStorefrontVisibilityFilters,
@@ -259,15 +259,8 @@ export async function GET(request){
 
         // Normalize category/categories and calculate discount
         products = products.map((product) => {
-            const localizedProduct = localizeRecord(product, language, [
-                'name',
-                'description',
-                'shortDescription',
-                'brand',
-            ]);
-
             return {
-            ...localizedProduct,
+            ...product,
             category: product.category && typeof product.category === 'object'
                 ? (language === 'ar' && product.category.nameAr ? product.category.nameAr : (product.category.name || product.category.slug || null))
                 : (product.category || null),

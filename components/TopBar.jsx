@@ -10,7 +10,7 @@ import {
   formatCustomerSupportPhoneDisplay,
 } from '@/lib/storeContact';
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
-import tabbyLogo from '@/assets/payments/tabby.webp';
+// import tabbyLogo from '@/assets/payments/tabby.webp';
 import tamaraLogo from '@/assets/payments/tamara.webp';
 import {
   STOREFRONT_LANGUAGE_EVENT,
@@ -31,7 +31,7 @@ const GCC_MARKETS = [
 
 const BNPL_PARTNERS = [
   { key: 'tamara', name: 'Tamara', nameAr: 'تمارا', logoUrl: tamaraLogo.src, logoWidth: 74 },
-  { key: 'tabby', name: 'Tabby', nameAr: 'تابي', logoUrl: tabbyLogo.src, logoWidth: 62 },
+  // { key: 'tabby', name: 'Tabby', nameAr: 'تابي', logoUrl: tabbyLogo.src, logoWidth: 62 },
 ];
 
 export default function TopBar({ initialLanguage = 'en' }) {

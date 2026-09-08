@@ -1,3 +1,4 @@
+import { getProductSlug } from '@/lib/productUrl';
 import { buildProductSeoJsonLdDocuments, safeJsonLd } from '@/lib/productSeo';
 
 export default function ProductJsonLd({ product, reviews = [], categoryChain = [] }) {
@@ -9,15 +10,21 @@ export default function ProductJsonLd({ product, reviews = [], categoryChain = [
 
   if (!documents.length) return null;
 
+  const slug = getProductSlug(product) || 'product';
+
   return (
     <>
-      {documents.map((document, index) => (
-        <script
-          key={`${document['@type']}-${index}`}
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLd(document) }}
-        />
-      ))}
+      {documents.map((document) => {
+        const type = String(document?.['@type'] || 'schema').toLowerCase();
+        return (
+          <script
+            key={`jsonld-${type}-${slug}`}
+            id={`jsonld-${type}-${slug}`}
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: safeJsonLd(document) }}
+          />
+        );
+      })}
     </>
   );
 }

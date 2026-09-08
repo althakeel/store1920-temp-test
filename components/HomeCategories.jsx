@@ -7,11 +7,14 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { HOME_SECTION_CLASS } from '@/lib/storefrontCarousel';
 import { HomeCategoryRowSkeleton } from '@/components/home/HomeSectionSkeletons';
 import { cleanDisplayText } from '@/lib/displayText';
+import { getLocalizedCategoryName } from '@/lib/categoryLocalization';
+import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 import { normalizeMediaUrl } from '@/lib/mediaUrls';
 import { useHorizontalCarouselDrag } from '@/lib/useHorizontalCarouselDrag';
 import { normalizeStorefrontCategoryHref, toPublicCategoryPath } from '@/lib/categorySlug';
 
 export default function HomeCategories() {
+  const { language } = useStorefrontI18n();
   const {
     scrollRef,
     handlePointerDown,
@@ -211,7 +214,7 @@ export default function HomeCategories() {
                 <>
                   <Image 
                     src={resolveCategoryImage(cat.image)} 
-                    alt={cat.name}
+                    alt={getLocalizedCategoryName(cat, language) || cat.name}
                     fill
                     className="object-cover"
                     onError={(e) => {
@@ -234,7 +237,7 @@ export default function HomeCategories() {
               )}
             </div>
             <span className="mt-2 text-[10px] sm:text-xs md:text-sm text-center font-medium line-clamp-2 leading-tight w-full">
-              {cleanDisplayText(cat.name)}
+              {getLocalizedCategoryName(cat, language) || cleanDisplayText(cat.name)}
             </span>
           </Link>
         ))}

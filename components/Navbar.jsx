@@ -20,7 +20,6 @@ import { fetchAddress, clearAddresses } from '@/lib/features/address/addressSlic
 import {
   STOREFRONT_LANGUAGE_EVENT,
   STOREFRONT_LANGUAGE_KEY,
-  persistStorefrontLanguage,
   readPersistedStorefrontLanguage,
 } from '@/lib/storefrontLanguage';
 import { translateStaticText } from '@/lib/useStorefrontI18n';
@@ -159,7 +158,6 @@ const Navbar = () => {
   // Initialize with safe defaults to avoid hydration mismatch
   // Will be updated from localStorage in useEffect after mount
   const [storefrontLanguage, setStorefrontLanguage] = useState('en');
-  const [languageHydrated, setLanguageHydrated] = useState(false);
   // Skeleton until cache/API provides logo + background (no static logo/bg flash).
   const [navbarAppearance, setNavbarAppearance] = useState(EMPTY_NAVBAR_APPEARANCE);
   const [navbarAppearanceLoading, setNavbarAppearanceLoading] = useState(true);
@@ -448,12 +446,13 @@ const Navbar = () => {
 
     const readLanguage = () => {
       setStorefrontLanguage(readPersistedStorefrontLanguage());
-      setLanguageHydrated(true);
     };
 
     const handleLanguageChange = (event) => {
       const nextLanguage = event?.detail?.language;
-      setStorefrontLanguage(nextLanguage === 'ar' ? 'ar' : 'en');
+      setStorefrontLanguage(nextLanguage === 'ar' || nextLanguage === 'en'
+        ? nextLanguage
+        : readPersistedStorefrontLanguage());
     };
 
     const handleStorage = (event) => {
@@ -471,13 +470,6 @@ const Navbar = () => {
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (!languageHydrated) return;
-
-    persistStorefrontLanguage(storefrontLanguage, { dispatchEvent: false });
-  }, [storefrontLanguage, languageHydrated]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

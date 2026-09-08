@@ -272,7 +272,12 @@ export default function NavbarMenuBar() {
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
-    const syncLanguage = () => setStorefrontLanguage(readPersistedStorefrontLanguage());
+    const syncLanguage = (event) => {
+      const nextLanguage = event?.detail?.language;
+      setStorefrontLanguage(nextLanguage === 'ar' || nextLanguage === 'en'
+        ? nextLanguage
+        : readPersistedStorefrontLanguage());
+    };
     syncLanguage();
     window.addEventListener(STOREFRONT_LANGUAGE_EVENT, syncLanguage);
 

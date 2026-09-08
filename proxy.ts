@@ -13,6 +13,7 @@ import {
   corsPreflightResponse,
   createRequestId,
   getClientIp,
+  isCheckoutPaymentApiPath,
   isWebhookOrInternalApiPath,
   logApiRequest,
   resolveApiRateLimit,
@@ -126,7 +127,7 @@ export async function proxy(request: NextRequest) {
 
   let rateResult: ReturnType<typeof checkRateLimit> | undefined;
 
-  if (isApiRoute && !isWebhookOrInternalApiPath(pathname)) {
+  if (isApiRoute && !isWebhookOrInternalApiPath(pathname) && !isCheckoutPaymentApiPath(pathname)) {
     const burst = resolveBurstLimit(pathname, method);
     if (burst) {
       // Public reads use a separate bucket so they don't compete with mutations.

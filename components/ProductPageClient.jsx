@@ -1,8 +1,7 @@
 "use client";
 
-import { Component, useEffect, useRef, useState } from "react";
+import { Component, useEffect, useState } from "react";
 import axios from "axios";
-import { useStorefrontI18n } from "@/lib/useStorefrontI18n";
 import ProductDetails from "@/components/ProductDetails";
 import ProductPageSkeleton from "@/components/ProductPageSkeleton";
 
@@ -44,14 +43,22 @@ function ProductDetailsLoadError({ onRetry, detail }) {
 class ProductDetailsErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, generation: 0 };
   }
 
   static getDerivedStateFromError(error) {
+    const message = String(error?.message || '');
+    if (/removeChild|insertBefore|not a child of this node|The node before which/i.test(message)) {
+      return { error: null, generation: Date.now() };
+    }
     return { error };
   }
 
   componentDidCatch(error) {
+    const message = String(error?.message || '');
+    if (/removeChild|insertBefore|not a child of this node|The node before which/i.test(message)) {
+      return;
+    }
     console.error("[ProductPageClient] ProductDetails render error:", error);
   }
 
@@ -62,56 +69,30 @@ class ProductDetailsErrorBoundary extends Component {
         <ProductDetailsLoadError
           detail={message}
           onRetry={() => {
-            this.setState({ error: null });
+            this.setState({ error: null, generation: Date.now() });
             window.location.reload();
           }}
         />
       );
     }
 
-    return this.props.children;
+    return (
+      <div key={this.state.generation} className="contents">
+        {this.props.children}
+      </div>
+    );
   }
 }
 
 export default function ProductPageClient({ slug, initialData }) {
-  const { language } = useStorefrontI18n();
   const [product, setProduct] = useState(initialData?.product || null);
   const [reviews, setReviews] = useState(initialData?.reviews || []);
   const [recommendedProducts, setRecommendedProducts] = useState(initialData?.relatedProducts || []);
   const [fbt, setFbt] = useState(initialData?.fbt || null);
-  const [refreshingLanguage, setRefreshingLanguage] = useState(false);
-  const initialLanguageRef = useRef(language);
-
-  const refreshPageData = async (targetLanguage) => {
-    setRefreshingLanguage(true);
-    try {
-      const { data } = await axios.get(
-        `/api/products/page?slug=${encodeURIComponent(slug)}&lang=${targetLanguage}`,
-        { validateStatus: (status) => status === 200 || status === 404 },
-      );
-
-      if (data?.product) {
-        setProduct(data.product);
-        setReviews(data.reviews || []);
-        setRecommendedProducts(data.relatedProducts || []);
-        setFbt(data.fbt || null);
-      }
-    } catch (error) {
-      console.error("Error refreshing product page data:", error);
-    } finally {
-      setRefreshingLanguage(false);
-    }
-  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [slug]);
-
-  useEffect(() => {
-    if (language === initialLanguageRef.current) return;
-    initialLanguageRef.current = language;
-    refreshPageData(language);
-  }, [language, slug]);
 
   useEffect(() => {
     const productId = product?._id || product?.id;
@@ -190,7 +171,7 @@ export default function ProductPageClient({ slug, initialData }) {
     }
   };
 
-  if (!product || refreshingLanguage) {
+  if (!product) {
     return <ProductPageSkeleton />;
   }
 
