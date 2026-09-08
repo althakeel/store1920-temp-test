@@ -2241,8 +2241,8 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
         }
         setFormError(msg);
         setPlacingOrder(false);
-        const isInputValidationError = /pincode|phone|shipping address|required|missing/i.test(String(msg || '').toLowerCase());
-        if (!isInputValidationError) {
+        const isStayOnCheckoutError = /pincode|phone|shipping address|required|missing|too many requests|rate limit|slow down/i.test(String(msg || '').toLowerCase());
+        if (!isStayOnCheckoutError) {
           router.push(`/order-failed?reason=${encodeURIComponent(msg)}`);
         }
         return;
