@@ -125,15 +125,68 @@
     }
 
     .navbar-deals-btn {
-        background: transparent;
         box-shadow: none;
-        border: none;
     }
 
     .navbar-deals-btn:hover {
         box-shadow: none;
         transform: none;
         opacity: 0.92;
+    }
+
+    .navbar-deals-btn[data-font="poppins"],
+    .navbar-deals-btn[data-font="poppins"] * {
+        font-family: var(--font-poppins), Poppins, system-ui, sans-serif !important;
+    }
+
+    .navbar-deals-btn[data-font="montserrat"],
+    .navbar-deals-btn[data-font="montserrat"] * {
+        font-family: var(--font-montserrat), Montserrat, system-ui, sans-serif !important;
+    }
+
+    .navbar-deals-btn[data-font="arial"],
+    .navbar-deals-btn[data-font="arial"] * {
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+
+    .navbar-deals-btn[data-font="helvetica"],
+    .navbar-deals-btn[data-font="helvetica"] * {
+        font-family: Helvetica, Arial, sans-serif !important;
+    }
+
+    .navbar-deals-btn[data-font="georgia"],
+    .navbar-deals-btn[data-font="georgia"] * {
+        font-family: Georgia, serif !important;
+    }
+
+    .navbar-deals-btn[data-font="times"],
+    .navbar-deals-btn[data-font="times"] * {
+        font-family: "Times New Roman", Times, serif !important;
+    }
+
+    .navbar-deals-btn[data-font="verdana"],
+    .navbar-deals-btn[data-font="verdana"] * {
+        font-family: Verdana, Geneva, sans-serif !important;
+    }
+
+    .navbar-deals-btn[data-font="trebuchet"],
+    .navbar-deals-btn[data-font="trebuchet"] * {
+        font-family: "Trebuchet MS", Helvetica, sans-serif !important;
+    }
+
+    .navbar-deals-btn[data-font="tahoma"],
+    .navbar-deals-btn[data-font="tahoma"] * {
+        font-family: Tahoma, Geneva, sans-serif !important;
+    }
+
+    .navbar-deals-btn[data-font="garamond"],
+    .navbar-deals-btn[data-font="garamond"] * {
+        font-family: Garamond, Baskerville, serif !important;
+    }
+
+    .navbar-deals-btn[data-font="system"],
+    .navbar-deals-btn[data-font="system"] * {
+        font-family: system-ui, -apple-system, sans-serif !important;
     }
 
     .navbar-deals-text-shine {

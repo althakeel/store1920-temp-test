@@ -11,7 +11,7 @@ import { useStoreOrderNotifications } from "./StoreOrderNotificationProvider"
 
 
 
-const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
+const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {}, canViewActivityHistory = false }) => {
 
     const pathname = usePathname()
     const { unreadCount, canViewOrders, overduePickupCount } = useStoreOrderNotifications()
@@ -679,6 +679,18 @@ const StoreSidebar = ({ storeInfo, isOwner = false, permissions = {} }) => {
                 {canAccessHref('/store/settings') && (
 
                     <div className="shrink-0 border-t border-slate-200 bg-slate-50/50 px-1.5 py-2 lg:px-2">
+
+                        {canViewActivityHistory ? (
+                            <StoreNavLink
+                                href="/store/settings/history"
+                                title="Settings history"
+                                aria-label="Settings history"
+                                className="mb-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 lg:px-3"
+                            >
+                                <span className="hidden lg:inline">History</span>
+                                <span className="lg:hidden">Log</span>
+                            </StoreNavLink>
+                        ) : null}
 
                         <StoreNavLink
 

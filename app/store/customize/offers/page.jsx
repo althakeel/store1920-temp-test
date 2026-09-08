@@ -23,6 +23,7 @@ import {
   DEFAULT_OFFERS_NAV_STYLE,
   DEFAULT_OFFERS_PAGE,
   OFFERS_DISCOUNT_PRESETS,
+  OFFERS_NAV_FONT_OPTIONS,
   getOffersNavButtonAppearance,
   getOffersPageSubtitle,
   normalizeOffersPage,
@@ -368,7 +369,8 @@ export default function OffersCustomizePage() {
                 </p>
                 <div className="mt-3 flex items-center">
                   <span
-                    className="inline-flex items-center font-extrabold uppercase tracking-[0.06em]"
+                    className="navbar-deals-btn inline-flex items-center font-extrabold uppercase tracking-[0.06em]"
+                    data-font={navButtonPreview.fontId || 'inherit'}
                     style={{
                       ...navButtonPreview.style,
                       color: navButtonPreview.useShine
@@ -464,6 +466,28 @@ export default function OffersCustomizePage() {
 
                 <div className="mt-3 space-y-3">
                   <label className="block">
+                    <span className="mb-1.5 block text-xs font-medium text-slate-500">Font</span>
+                    <select
+                      value={navStyle.fontFamily || 'inherit'}
+                      onChange={(e) => updateNavStyle({ fontFamily: e.target.value })}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                    >
+                      {OFFERS_NAV_FONT_OPTIONS.map((font) => (
+                        <option key={font.id} value={font.id}>
+                          {font.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p
+                      className="navbar-deals-btn mt-2 text-sm font-semibold text-slate-800"
+                      data-font={navStyle.fontFamily || 'inherit'}
+                      style={{ fontFamily: navButtonPreview.style.fontFamily }}
+                    >
+                      {(form.navLabel || "Today's Deals")} · {OFFERS_NAV_FONT_OPTIONS.find((font) => font.id === (navStyle.fontFamily || 'inherit'))?.label || 'Default'}
+                    </p>
+                  </label>
+
+                  <label className="block">
                     <span className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
                       Font size
                       <span className="tabular-nums text-slate-700">{navStyle.fontSize}px</span>
@@ -477,6 +501,50 @@ export default function OffersCustomizePage() {
                       className="w-full accent-rose-600"
                     />
                   </label>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-slate-500">Font color</span>
+                      <button
+                        type="button"
+                        onClick={() => updateNavStyle({ fontColorAuto: !navStyle.fontColorAuto })}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+                          navStyle.fontColorAuto
+                            ? 'bg-slate-900 text-white'
+                            : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        Auto
+                      </button>
+                    </div>
+                    <div
+                      className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 ${
+                        navStyle.fontColorAuto ? 'opacity-50' : ''
+                      }`}
+                    >
+                      <input
+                        type="color"
+                        value={navStyle.fontColor || '#ffffff'}
+                        disabled={navStyle.fontColorAuto}
+                        onChange={(e) => updateNavStyle({
+                          fontColor: e.target.value,
+                          fontColorAuto: false,
+                        })}
+                        className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed"
+                        aria-label="Font color"
+                      />
+                      <input
+                        type="text"
+                        value={navStyle.fontColorAuto ? 'auto' : navStyle.fontColor}
+                        disabled={navStyle.fontColorAuto}
+                        onChange={(e) => updateNavStyle({
+                          fontColor: e.target.value,
+                          fontColorAuto: false,
+                        })}
+                        className="w-full border-0 bg-transparent text-sm text-slate-700 outline-none disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
 
                   <div>
                     <span className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">

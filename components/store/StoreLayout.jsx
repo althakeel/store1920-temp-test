@@ -20,6 +20,7 @@ import {
     getPermissionLabel,
 } from "@/lib/storeDashboardPermissions";
 import { readSellerCache, writeSellerCache } from "@/lib/storeDashboardCache";
+import StoreActivityLogger from "@/components/store/StoreActivityLogger";
 
 const ACCESS_REFRESH_MS = 5 * 60 * 1000;
 
@@ -38,6 +39,7 @@ const StoreLayout = ({ children }) => {
         permissions: buildDeniedPermissions(),
         accessRole: 'member',
         canManageTeamAccess: false,
+        canViewActivityHistory: false,
     });
     const sellerCacheHydratedRef = useRef(false);
     const lastAccessFetchRef = useRef(0);
@@ -79,6 +81,7 @@ const StoreLayout = ({ children }) => {
                 permissions: data.permissions || buildDeniedPermissions(),
                 accessRole: data.accessRole || 'member',
                 canManageTeamAccess: Boolean(data.canManageTeamAccess),
+                canViewActivityHistory: Boolean(data.canViewActivityHistory),
             };
             setDashboardAccess(nextAccess);
             writeSellerCache({
@@ -141,6 +144,7 @@ const StoreLayout = ({ children }) => {
             permissions: buildDeniedPermissions(),
             accessRole: 'member',
             canManageTeamAccess: false,
+            canViewActivityHistory: false,
         });
         setSellerLoading(false);
     }, []);
@@ -169,8 +173,11 @@ const StoreLayout = ({ children }) => {
     const showAuthShell = (loading || sellerLoading) && !hasCachedSeller && !(isSeller && storeInfo);
 
     const canViewCurrentPage = useMemo(
-        () => canAccessStorePath(pathname, dashboardAccess.permissions, { isOwner: dashboardAccess.isOwner }),
-        [pathname, dashboardAccess.permissions, dashboardAccess.isOwner]
+        () => canAccessStorePath(pathname, dashboardAccess.permissions, {
+            isOwner: dashboardAccess.isOwner,
+            canViewActivityHistory: dashboardAccess.canViewActivityHistory,
+        }),
+        [pathname, dashboardAccess.permissions, dashboardAccess.isOwner, dashboardAccess.canViewActivityHistory]
     );
 
     useEffect(() => {
@@ -219,10 +226,12 @@ const StoreLayout = ({ children }) => {
         <div className="flex h-full max-h-full flex-col overflow-hidden bg-slate-50">
             <SellerNavbar storeInfo={storeInfo} />
             <div className="flex min-h-0 flex-1 overflow-hidden">
+                <StoreActivityLogger />
                 <SellerSidebar
                     storeInfo={storeInfo}
                     isOwner={dashboardAccess.isOwner}
                     permissions={dashboardAccess.permissions}
+                    canViewActivityHistory={dashboardAccess.canViewActivityHistory}
                 />
                 <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 lg:p-5">
                     {canViewCurrentPage ? children : (

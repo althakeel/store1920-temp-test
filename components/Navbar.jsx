@@ -301,11 +301,15 @@ const Navbar = () => {
                 appearance.hasChrome ? 'max-w-[140px]' : 'h-8 max-w-[54px]'
               }`
         } ${className}`.trim()}
+        data-font={appearance.fontId || 'inherit'}
         style={appearance.style}
       >
         <span
           className={`${shineClass} flex flex-col items-center leading-[1.05]`.trim()}
-          style={appearance.textColor ? { color: appearance.textColor } : undefined}
+          style={{
+            fontFamily: 'inherit',
+            ...(appearance.textColor ? { color: appearance.textColor } : {}),
+          }}
         >
         {isDesktop ? (
           dealsNavLabel

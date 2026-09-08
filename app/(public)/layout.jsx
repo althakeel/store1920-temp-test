@@ -58,7 +58,7 @@ function PublicLayoutContent({ children }) {
         <div className={`flex flex-col ${isCartPage || isProductPage ? '' : 'min-h-screen'}`}>
             <GuestOrderLinker />
             <DeferredTrackers />
-            <main className={`${isProductPage ? '' : 'flex-1'} min-w-0 overflow-x-clip ${mobileMainPadding} lg:pb-0`}>{children}</main>
+            <main className={`${isProductPage ? '' : 'flex flex-1 flex-col'} min-w-0 overflow-x-clip ${mobileMainPadding} lg:pb-0`}>{children}</main>
             {showMobileBottomNav && <MobileBottomNav />}
         </div>
     );

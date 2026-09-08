@@ -98,7 +98,9 @@ export default function PermissionPicker({ value = {}, onChange, compact = false
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    checked={value[component.id] !== false}
+                                                    checked={component.action
+                                                      ? value[component.id] === true
+                                                      : value[component.id] !== false}
                                                     onChange={(e) => togglePermission(component.id, e.target.checked)}
                                                     className="h-4 w-4 rounded border-slate-300"
                                                 />

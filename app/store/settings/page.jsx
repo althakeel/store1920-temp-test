@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CreditCard,
   Database,
+  History,
   Mail,
   Save,
   Shield,
@@ -57,6 +58,11 @@ const TAB_META = {
     label: "Data Import",
     icon: Database,
     description: "Migrate WordPress / WooCommerce",
+  },
+  history: {
+    label: "History",
+    icon: History,
+    description: "Super admin activity log",
   },
 };
 
@@ -188,12 +194,14 @@ export default function SettingsPage() {
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [isStoreOwner, setIsStoreOwner] = useState(false);
   const [canManageTeamAccess, setCanManageTeamAccess] = useState(false);
+  const [canViewActivityHistory, setCanViewActivityHistory] = useState(false);
 
   const settingsTabs = useMemo(() => {
     const tabs = ["profile", "store", "preferences", "payments", "dataImport"];
     if (canManageTeamAccess) tabs.splice(4, 0, "dashboardAccess");
+    if (canViewActivityHistory) tabs.push("history");
     return tabs;
-  }, [canManageTeamAccess]);
+  }, [canManageTeamAccess, canViewActivityHistory]);
 
   const isFormTab = ["profile", "store", "preferences", "payments"].includes(activeTab);
   const activeMeta = TAB_META[activeTab] || TAB_META.profile;
@@ -301,8 +309,10 @@ export default function SettingsPage() {
         });
         setIsStoreOwner(Boolean(data?.isOwner));
         setCanManageTeamAccess(Boolean(data?.canManageTeamAccess));
+        setCanViewActivityHistory(Boolean(data?.canViewActivityHistory));
       } catch {
         setIsStoreOwner(false);
+        setCanViewActivityHistory(false);
       }
     };
 
@@ -322,6 +332,14 @@ export default function SettingsPage() {
       setActiveTab("dashboardAccess");
     }
   }, [canManageTeamAccess]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !canViewActivityHistory) return;
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "history") {
+      window.location.replace("/store/settings/history");
+    }
+  }, [canViewActivityHistory]);
 
   const fetchTeamMembers = async () => {
     setLoadingTeam(true);
@@ -1082,15 +1100,11 @@ export default function SettingsPage() {
               const meta = TAB_META[tab];
               const Icon = meta.icon;
               const active = activeTab === tab;
-              return (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`mb-1 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition last:mb-0 ${
-                    active ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100" : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
+              const className = `mb-1 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition last:mb-0 ${
+                active ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100" : "text-slate-600 hover:bg-slate-50"
+              }`;
+              const content = (
+                <>
                   <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
                     <Icon size={16} />
                   </span>
@@ -1098,6 +1112,23 @@ export default function SettingsPage() {
                     <span className="block text-sm font-semibold">{meta.label}</span>
                     <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{meta.description}</span>
                   </span>
+                </>
+              );
+              if (tab === "history") {
+                return (
+                  <Link key={tab} href="/store/settings/history" className={className}>
+                    {content}
+                  </Link>
+                );
+              }
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={className}
+                >
+                  {content}
                 </button>
               );
             })}

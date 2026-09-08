@@ -45,6 +45,7 @@ export async function GET(request) {
         }
 
         const { resolveDashboardAccess } = await import("@/lib/storeAccessControl");
+        const { canViewStoreActivityHistory } = await import("@/lib/storeActivityLog");
         const access = await resolveDashboardAccess(userId, decodedToken);
 
         if (!access.isSeller) {
@@ -62,6 +63,7 @@ export async function GET(request) {
             accessRole: access.accessRole,
             permissions: access.permissions,
             canManageTeamAccess: access.isOwner,
+            canViewActivityHistory: canViewStoreActivityHistory(decodedToken.email, access.permissions),
         });
     } catch (error) {
         console.error("[is-seller API] Error:", error);

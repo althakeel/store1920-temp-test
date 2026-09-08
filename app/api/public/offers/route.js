@@ -1,18 +1,10 @@
-import dbConnect from '@/lib/mongodb';
-import Product from '@/models/Product';
-import Store from '@/models/Store';
 import { NextResponse } from 'next/server';
 import { resolveStorefrontLanguage } from '@/lib/storefrontLanguage';
-import { resolvePublicAppearancePreference } from '@/lib/storePreferencePublic';
-import {
-  OFFERS_PAGE_SIZE,
-  fetchOffersProducts,
-  normalizeOfferProduct,
-} from '@/lib/offersCatalog';
+import { getPublicOffersPage } from '@/lib/offersPageData';
 import {
   DEFAULT_OFFERS_PAGE,
   getOffersPageCopy,
-  normalizeOffersPage,
+  OFFERS_PAGE_SIZE,
 } from '@/lib/offersPageSettings';
 
 export const dynamic = 'force-dynamic';
@@ -24,11 +16,6 @@ const NO_STORE_HEADERS = {
   Expires: '0',
 };
 
-async function loadOffersPageSettings() {
-  const preference = await resolvePublicAppearancePreference(Store, Product);
-  return normalizeOffersPage(preference?.appearanceSections?.offersPage || DEFAULT_OFFERS_PAGE);
-}
-
 export async function GET(request) {
   const language = resolveStorefrontLanguage(request);
   const { searchParams } = new URL(request.url);
@@ -38,37 +25,7 @@ export async function GET(request) {
   const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 48) : OFFERS_PAGE_SIZE;
 
   try {
-    await dbConnect();
-    const settings = await loadOffersPageSettings();
-    const copy = getOffersPageCopy(settings);
-
-    const result = await fetchOffersProducts(Product, {
-      page,
-      limit,
-      mode: settings.mode,
-      minDiscount: settings.minDiscountPercent,
-      productIds: settings.productIds,
-      categoryIds: settings.categoryIds,
-    });
-
-    const payload = {
-      products: result.products.map((product) => normalizeOfferProduct(product, language)),
-      pagination: {
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-        totalPages: result.totalPages,
-      },
-      minDiscountPercent: settings.minDiscountPercent,
-      mode: settings.mode,
-      eyebrow: copy.eyebrow,
-      title: copy.title,
-      subtitle: copy.subtitle,
-      navLabel: copy.navLabel,
-      navLabelAr: copy.navLabelAr,
-      savedAt: Number(settings.savedAt) || 0,
-    };
-
+    const payload = await getPublicOffersPage({ page, limit, language });
     return NextResponse.json(payload, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('[public/offers] fetch failed:', error);
