@@ -117,7 +117,7 @@ const selectionPages = [
   },
   {
     title: 'Today\'s Deals / Offers',
-    description: 'Edit /offers title and subtitle, and choose products by discount, search, or category.',
+    description: 'Edit the header deals button text and style, /offers title, and choose products by discount, search, or category.',
     href: '/store/customize/offers',
     icon: Tag,
   },

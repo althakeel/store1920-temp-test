@@ -7,6 +7,7 @@ import authSeller from '@/middlewares/authSeller'
 import Store from '@/models/Store'
 import Product from '@/models/Product'
 import { localizeRecord, resolveStorefrontLanguage } from '@/lib/storefrontLanguage'
+import { attachProductRatings } from '@/lib/attachProductRatings'
 
 const DEFAULT_FEATURED_RESPONSE = {
     productIds: [],
@@ -81,7 +82,7 @@ export async function GET(request) {
         }
 
         const isPublicRequest = !userId
-        const cacheKey = isPublicRequest ? `public:featured-products:api:v2:${includeProducts}:${limit}` : null
+        const cacheKey = isPublicRequest ? `public:featured-products:api:v3:${includeProducts}:${limit}` : null
         if (cacheKey) {
             const cached = getCachedData(cacheKey)
             if (cached) {
@@ -159,6 +160,7 @@ export async function GET(request) {
         if (limit > 0) {
             products = products.slice(0, limit)
         }
+        products = await attachProductRatings(products)
 
         const resolvedProductIds = products.map((product) => normalizeId(product?._id || product?.id)).filter(Boolean)
 

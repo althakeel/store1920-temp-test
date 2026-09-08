@@ -8,6 +8,11 @@ import { useSelector } from 'react-redux'
 import { useAuth } from '@/lib/useAuth'
 import { isProductDetailPath } from '@/lib/productUrl'
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n'
+import {
+  DEFAULT_OFFERS_NAV_LABEL,
+  DEFAULT_OFFERS_NAV_LABEL_AR,
+  splitOffersNavLabel,
+} from '@/lib/offersPageSettings'
 
 const DEFAULT_BRAND_COLOR = '#8f3404'
 const INACTIVE_NAV_COLOR = '#94a3b8'
@@ -159,8 +164,54 @@ export default function MobileBottomNav() {
   const { user } = useAuth()
   const { t, language } = useStorefrontI18n()
   const brandColor = useBrandColor()
+  const [dealsNavLabels, setDealsNavLabels] = useState({
+    en: DEFAULT_OFFERS_NAV_LABEL,
+    ar: DEFAULT_OFFERS_NAV_LABEL_AR,
+  })
   const isSignedIn = !!user
   const isArabic = language === 'ar'
+  const dealsNavLabel = isArabic ? dealsNavLabels.ar : dealsNavLabels.en
+  const dealsNavParts = splitOffersNavLabel(dealsNavLabel)
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('offersNavLabelCache')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed?.en || parsed?.ar) {
+          setDealsNavLabels({
+            en: String(parsed.en || DEFAULT_OFFERS_NAV_LABEL).trim() || DEFAULT_OFFERS_NAV_LABEL,
+            ar: String(parsed.ar || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
+          })
+        }
+      }
+    } catch {
+      // Ignore storage read failures.
+    }
+
+    const controller = new AbortController()
+    fetch(`/api/store/appearance/sections/public?t=${Date.now()}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!data?.offersPage) return
+        const nextLabels = {
+          en: String(data.offersPage.navLabel || DEFAULT_OFFERS_NAV_LABEL).trim() || DEFAULT_OFFERS_NAV_LABEL,
+          ar: String(data.offersPage.navLabelAr || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
+        }
+        setDealsNavLabels(nextLabels)
+        try {
+          window.localStorage.setItem('offersNavLabelCache', JSON.stringify(nextLabels))
+        } catch {
+          // Ignore storage write failures.
+        }
+      })
+      .catch(() => {})
+
+    return () => controller.abort()
+  }, [])
 
   if (isProductDetailPath(pathname)) {
     return null
@@ -211,8 +262,8 @@ export default function MobileBottomNav() {
 
         <CenterTodayDealsItem
           pathname={pathname}
-          line1={t('navbar.todaysDealsTop')}
-          line2={t('navbar.todaysDealsBottom')}
+          line1={dealsNavParts.top}
+          line2={dealsNavParts.bottom || dealsNavLabel}
         />
 
         {rightItems.map((item) => (

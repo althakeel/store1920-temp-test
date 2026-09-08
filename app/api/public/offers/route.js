@@ -64,6 +64,8 @@ export async function GET(request) {
       eyebrow: copy.eyebrow,
       title: copy.title,
       subtitle: copy.subtitle,
+      navLabel: copy.navLabel,
+      navLabelAr: copy.navLabelAr,
       savedAt: Number(settings.savedAt) || 0,
     };
 
@@ -80,6 +82,8 @@ export async function GET(request) {
         eyebrow: fallbackCopy.eyebrow,
         title: fallbackCopy.title,
         subtitle: fallbackCopy.subtitle,
+        navLabel: fallbackCopy.navLabel,
+        navLabelAr: fallbackCopy.navLabelAr,
         savedAt: 0,
       },
       { status: 500, headers: NO_STORE_HEADERS },

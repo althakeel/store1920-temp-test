@@ -162,7 +162,7 @@ const ProductCard = ({
   const isOutOfStock = product.inStock === false || (typeof product.stockQuantity === 'number' && product.stockQuantity <= 0)
 
   const ratingValue = Math.round(Number(product.averageRating) || 0)
-  const reviewCount = Math.max(0, Number(product.ratingCount) || 0)
+  const reviewCount = Math.max(0, Number(product.ratingCount ?? product.reviewCount) || 0)
 
   const fallbackName = product.name || product.title || t('common.untitledProduct')
   const productName = getLocalizedProductName(product, language, fallbackName)

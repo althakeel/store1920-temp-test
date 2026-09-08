@@ -25,6 +25,14 @@ import {
 } from '@/lib/storefrontLanguage';
 import { translateStaticText } from '@/lib/useStorefrontI18n';
 import {
+  DEFAULT_OFFERS_NAV_LABEL,
+  DEFAULT_OFFERS_NAV_LABEL_AR,
+  DEFAULT_OFFERS_NAV_STYLE,
+  getOffersNavButtonAppearance,
+  normalizeOffersNavStyle,
+  splitOffersNavLabel,
+} from '@/lib/offersPageSettings';
+import {
   getCategoryDisplayName as getNavCategoryDisplayName,
   getCategoryRecordId,
   filterParentCategories,
@@ -155,7 +163,14 @@ const Navbar = () => {
   // Skeleton until cache/API provides logo + background (no static logo/bg flash).
   const [navbarAppearance, setNavbarAppearance] = useState(EMPTY_NAVBAR_APPEARANCE);
   const [navbarAppearanceLoading, setNavbarAppearanceLoading] = useState(true);
+  const [dealsNavLabels, setDealsNavLabels] = useState({
+    en: DEFAULT_OFFERS_NAV_LABEL,
+    ar: DEFAULT_OFFERS_NAV_LABEL_AR,
+  });
+  const [dealsNavStyle, setDealsNavStyle] = useState(DEFAULT_OFFERS_NAV_STYLE);
   const t = (key, replacements = {}) => translateStaticText(key, storefrontLanguage, replacements);
+  const dealsNavLabel = storefrontLanguage === 'ar' ? dealsNavLabels.ar : dealsNavLabels.en;
+  const dealsNavParts = splitOffersNavLabel(dealsNavLabel);
 
   const getShortName = (value) => {
     const name = (value || '').trim();
@@ -270,23 +285,34 @@ const Navbar = () => {
   const renderTodaysDealsButton = ({ variant = 'desktop', className = '' }) => {
     const isDesktop = variant === 'desktop';
     const useLightText = isDesktop || mobileNavbarUsesBrandColor;
+    const appearance = getOffersNavButtonAppearance(dealsNavStyle, isDesktop ? 'desktop' : 'mobile');
+    const shineClass = appearance.useShine
+      ? `navbar-deals-text-shine ${useLightText ? '' : 'navbar-deals-text-shine-dark'}`
+      : '';
 
     return (
       <Link
         href="/offers"
+        aria-label={dealsNavLabel}
         className={`navbar-deals-btn shrink-0 font-extrabold uppercase tracking-[0.06em] transition hover:opacity-90 ${
           isDesktop
-            ? 'hidden lg:inline-flex h-[44px] shrink-0 items-center px-1 text-[12px] leading-none'
-            : 'inline-flex h-8 max-w-[54px] flex-col items-center justify-center px-1 text-[9px] leading-[1.05]'
+            ? 'hidden lg:inline-flex shrink-0 items-center leading-none'
+            : `inline-flex flex-col items-center justify-center leading-[1.05] ${
+                appearance.hasChrome ? 'max-w-[140px]' : 'h-8 max-w-[54px]'
+              }`
         } ${className}`.trim()}
+        style={appearance.style}
       >
-        <span className={`navbar-deals-text-shine ${useLightText ? '' : 'navbar-deals-text-shine-dark'} flex flex-col items-center leading-[1.05]`}>
+        <span
+          className={`${shineClass} flex flex-col items-center leading-[1.05]`.trim()}
+          style={appearance.textColor ? { color: appearance.textColor } : undefined}
+        >
         {isDesktop ? (
-          t('navbar.todaysDeals')
+          dealsNavLabel
         ) : (
           <>
-            <span>{t('navbar.todaysDealsTop')}</span>
-            <span>{t('navbar.todaysDealsBottom')}</span>
+            <span>{dealsNavParts.top}</span>
+            {dealsNavParts.bottom ? <span>{dealsNavParts.bottom}</span> : null}
           </>
         )}
         </span>
@@ -492,6 +518,23 @@ const Navbar = () => {
         window.dispatchEvent(new CustomEvent('navbarAppearanceUpdated', { detail: cached }));
       }, 0);
     }
+    try {
+      const raw = window.localStorage.getItem('offersNavLabelCache');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.en || parsed?.ar) {
+          setDealsNavLabels({
+            en: String(parsed.en || DEFAULT_OFFERS_NAV_LABEL).trim() || DEFAULT_OFFERS_NAV_LABEL,
+            ar: String(parsed.ar || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
+          });
+        }
+        if (parsed?.style) {
+          setDealsNavStyle(normalizeOffersNavStyle(parsed.style));
+        }
+      }
+    } catch {
+      // Ignore storage read failures.
+    }
 
     return undefined;
   }, []);
@@ -552,6 +595,35 @@ const Navbar = () => {
     };
 
     fetchNavbarAppearance();
+
+    const fetchDealsNavLabel = async () => {
+      try {
+        const response = await fetch(`/api/store/appearance/sections/public?t=${Date.now()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const nextLabels = {
+          en: String(data?.offersPage?.navLabel || DEFAULT_OFFERS_NAV_LABEL).trim() || DEFAULT_OFFERS_NAV_LABEL,
+          ar: String(data?.offersPage?.navLabelAr || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
+        };
+        const nextStyle = normalizeOffersNavStyle(data?.offersPage?.navStyle);
+        setDealsNavLabels(nextLabels);
+        setDealsNavStyle(nextStyle);
+        try {
+          window.localStorage.setItem('offersNavLabelCache', JSON.stringify({
+            ...nextLabels,
+            style: nextStyle,
+          }));
+        } catch {
+          // Ignore storage write failures.
+        }
+      } catch (error) {
+        if (error?.name === 'AbortError' || String(error?.message || '').includes('abort')) return;
+      }
+    };
+    fetchDealsNavLabel();
 
     const handleNavbarAppearanceUpdate = (event) => {
       const detail = event?.detail || {};

@@ -7,6 +7,7 @@ import { FEATURED_SECTIONS_CACHE_KEY } from '@/lib/categorySliderCache';
 import { normalizeCategorySliderBackground, normalizeCategorySliderSideImagePosition, normalizeCategorySliderAutoSlide, normalizeCategorySliderAutoSlideInterval } from '@/lib/categorySliderTheme';
 import { sortCategorySliders, backfillCategorySliderSortOrdersIfNeeded } from '@/lib/categorySliderOrder';
 import mongoose from 'mongoose';
+import { attachProductRatings } from '@/lib/attachProductRatings';
 
 const CACHE_KEY = FEATURED_SECTIONS_CACHE_KEY;
 const SERVER_CACHE_TTL_SECONDS = 30;
@@ -58,9 +59,11 @@ export async function GET() {
     ];
 
     const products = allProductIds.length
-      ? await Product.find({ _id: { $in: allProductIds }, published: { $ne: false } })
-          .select('name nameAr slug price mrp AED images category inStock stockQuantity fastDelivery freeShippingEligible useProductsPath imageAspectRatio averageRating ratingCount')
-          .lean()
+      ? await attachProductRatings(
+          await Product.find({ _id: { $in: allProductIds }, published: { $ne: false } })
+            .select('name nameAr slug price mrp AED images category inStock stockQuantity fastDelivery freeShippingEligible useProductsPath imageAspectRatio legacySourceId')
+            .lean()
+        )
       : [];
 
     const payload = {

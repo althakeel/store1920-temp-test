@@ -7,6 +7,7 @@ import Link from 'next/link'
 import {
   Check,
   FolderTree,
+  Languages,
   Loader2,
   Package,
   Percent,
@@ -19,8 +20,10 @@ import PageSkeleton from '@/components/PageSkeleton'
 import { getProductThumbnailUrl, normalizeProductImages } from '@/lib/productMedia'
 import { PLACEHOLDER_IMAGE } from '@/lib/mediaUrls'
 import {
+  DEFAULT_OFFERS_NAV_STYLE,
   DEFAULT_OFFERS_PAGE,
   OFFERS_DISCOUNT_PRESETS,
+  getOffersNavButtonAppearance,
   getOffersPageSubtitle,
   normalizeOffersPage,
 } from '@/lib/offersPageSettings'
@@ -99,6 +102,7 @@ export default function OffersCustomizePage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [pagination, setPagination] = useState({ page: 1, limit: PRODUCTS_PER_PAGE, total: 0, totalPages: 1 })
   const [selectedProducts, setSelectedProducts] = useState([])
+  const [translatingNav, setTranslatingNav] = useState(false)
   const searchDebounceRef = useRef(null)
   const productsAbortRef = useRef(null)
 
@@ -110,6 +114,18 @@ export default function OffersCustomizePage() {
   const categoryOptions = useMemo(() => buildUniqueCategoryOptions(categories), [categories])
 
   const previewSubtitle = useMemo(() => getOffersPageSubtitle(form), [form])
+  const navStyle = form.navStyle || DEFAULT_OFFERS_NAV_STYLE
+  const navButtonPreview = useMemo(
+    () => getOffersNavButtonAppearance(navStyle, 'desktop'),
+    [navStyle]
+  )
+
+  const updateNavStyle = (patch) => {
+    setForm((prev) => ({
+      ...prev,
+      navStyle: { ...(prev.navStyle || DEFAULT_OFFERS_NAV_STYLE), ...patch },
+    }))
+  }
 
   const fetchProductsPage = useCallback(async ({ page = 1, search = debouncedSearch } = {}) => {
     productsAbortRef.current?.abort()
@@ -240,6 +256,42 @@ export default function OffersCustomizePage() {
     })
   }
 
+  const translateNavLabelToArabic = async () => {
+    const english = String(form.navLabel || '').trim()
+    if (!english) {
+      toast.error('Enter the English navbar button first')
+      return
+    }
+
+    try {
+      setTranslatingNav(true)
+      const token = await getToken()
+      if (!token) {
+        toast.error('Please sign in again')
+        return
+      }
+
+      const { data } = await axios.post(
+        '/api/store/categories/translate-arabic',
+        { text: english },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const translated = String(data?.descriptionAr || '').trim().slice(0, 40)
+      if (!translated) {
+        toast.error('Could not translate to Arabic')
+        return
+      }
+
+      setForm((prev) => ({ ...prev, navLabelAr: translated }))
+      toast.success('Arabic navbar button updated')
+    } catch (error) {
+      console.error('Translate navbar button failed:', error)
+      toast.error(error?.response?.data?.error || 'Failed to translate to Arabic')
+    } finally {
+      setTranslatingNav(false)
+    }
+  }
+
   const saveSettings = async () => {
     if (saving) return
     if (form.mode === 'manual' && form.productIds.length === 0) {
@@ -310,9 +362,25 @@ export default function OffersCustomizePage() {
             <div className="bg-slate-900 p-5 text-white">
               <p className="text-xs font-bold uppercase tracking-wider text-red-300">{form.eyebrow || 'Hot Deals'}</p>
               <p className="mt-1 text-xl font-bold">{form.title || 'Special Offers'}</p>
-              <p className="mt-2 text-sm text-white/70">{previewSubtitle}</p>
+                <p className="mt-2 text-sm text-white/70">{previewSubtitle}</p>
+                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/80">
+                  Navbar · /offers
+                </p>
+                <div className="mt-3 flex items-center">
+                  <span
+                    className="inline-flex items-center font-extrabold uppercase tracking-[0.06em]"
+                    style={{
+                      ...navButtonPreview.style,
+                      color: navButtonPreview.useShine
+                        ? '#ffffff'
+                        : navButtonPreview.textColor,
+                    }}
+                  >
+                    {form.navLabel || "Today's Deals"}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
             <h2 className="mb-4 text-sm font-semibold text-slate-900">Page copy</h2>
@@ -349,6 +417,156 @@ export default function OffersCustomizePage() {
                 <p className="mt-1 text-[11px] text-slate-400">
                   Leave blank to auto-generate from the product source below.
                 </p>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">Navbar button (English)</label>
+                <input
+                  type="text"
+                  value={form.navLabel}
+                  onChange={(e) => setForm((prev) => ({ ...prev, navLabel: e.target.value }))}
+                  placeholder="Today's Deals"
+                  maxLength={40}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Display text only. The button always opens /offers — the URL never changes.
+                </p>
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <label className="block text-xs font-medium text-slate-500">Navbar button (Arabic)</label>
+                  <button
+                    type="button"
+                    onClick={translateNavLabelToArabic}
+                    disabled={translatingNav || !String(form.navLabel || '').trim()}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {translatingNav ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
+                    {translatingNav ? 'Translating...' : 'Translate'}
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  dir="rtl"
+                  value={form.navLabelAr}
+                  onChange={(e) => setForm((prev) => ({ ...prev, navLabelAr: e.target.value }))}
+                  placeholder="عروض اليوم"
+                  maxLength={40}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <h3 className="text-xs font-semibold text-slate-800">Navbar button style</h3>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Changes the look of the header button only. The link stays /offers.
+                </p>
+
+                <div className="mt-3 space-y-3">
+                  <label className="block">
+                    <span className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
+                      Font size
+                      <span className="tabular-nums text-slate-700">{navStyle.fontSize}px</span>
+                    </span>
+                    <input
+                      type="range"
+                      min={8}
+                      max={22}
+                      value={navStyle.fontSize}
+                      onChange={(e) => updateNavStyle({ fontSize: Number(e.target.value) })}
+                      className="w-full accent-rose-600"
+                    />
+                  </label>
+
+                  <div>
+                    <span className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
+                      Border
+                      <span className="tabular-nums text-slate-700">{navStyle.borderWidth}px</span>
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={6}
+                      value={navStyle.borderWidth}
+                      onChange={(e) => updateNavStyle({ borderWidth: Number(e.target.value) })}
+                      className="w-full accent-rose-600"
+                    />
+                    <div className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5">
+                      <input
+                        type="color"
+                        value={navStyle.borderColor}
+                        onChange={(e) => updateNavStyle({ borderColor: e.target.value })}
+                        className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                        aria-label="Border color"
+                      />
+                      <input
+                        type="text"
+                        value={navStyle.borderColor}
+                        onChange={(e) => updateNavStyle({ borderColor: e.target.value })}
+                        className="w-full border-0 bg-transparent text-sm text-slate-700 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <label className="block">
+                    <span className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
+                      Border radius
+                      <span className="tabular-nums text-slate-700">{navStyle.borderRadius}px</span>
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={24}
+                      value={navStyle.borderRadius}
+                      onChange={(e) => updateNavStyle({ borderRadius: Number(e.target.value) })}
+                      className="w-full accent-rose-600"
+                    />
+                  </label>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-slate-500">Background</span>
+                      <button
+                        type="button"
+                        onClick={() => updateNavStyle({ backgroundTransparent: !navStyle.backgroundTransparent })}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+                          navStyle.backgroundTransparent
+                            ? 'bg-slate-900 text-white'
+                            : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        Transparent
+                      </button>
+                    </div>
+                    <div
+                      className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 ${
+                        navStyle.backgroundTransparent ? 'opacity-50' : ''
+                      }`}
+                    >
+                      <input
+                        type="color"
+                        value={navStyle.backgroundColor}
+                        disabled={navStyle.backgroundTransparent}
+                        onChange={(e) => updateNavStyle({
+                          backgroundColor: e.target.value,
+                          backgroundTransparent: false,
+                        })}
+                        className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed"
+                        aria-label="Background color"
+                      />
+                      <input
+                        type="text"
+                        value={navStyle.backgroundTransparent ? 'transparent' : navStyle.backgroundColor}
+                        disabled={navStyle.backgroundTransparent}
+                        onChange={(e) => updateNavStyle({
+                          backgroundColor: e.target.value,
+                          backgroundTransparent: false,
+                        })}
+                        className="w-full border-0 bg-transparent text-sm text-slate-700 outline-none disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
