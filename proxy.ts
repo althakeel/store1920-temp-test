@@ -96,7 +96,30 @@ function enforceStoreAuth(request: NextRequest, pathname: string, method: string
   return null;
 }
 
+function redirectApexHostToWww(request: NextRequest) {
+  const host = String(
+    request.headers.get('x-forwarded-host') || request.headers.get('host') || '',
+  )
+    .split(',')[0]
+    .trim()
+    .toLowerCase()
+    .replace(/:\d+$/, '');
+
+  if (host !== 'store1920.com') return null;
+
+  const { pathname, search } = request.nextUrl;
+  if (pathname === '/api' || pathname.startsWith('/api/')) return null;
+
+  return NextResponse.redirect(
+    new URL(`https://www.store1920.com${pathname}${search}`),
+    301,
+  );
+}
+
 export async function proxy(request: NextRequest) {
+  const apexRedirect = redirectApexHostToWww(request);
+  if (apexRedirect) return apexRedirect;
+
   const { pathname } = request.nextUrl;
   const method = request.method || 'GET';
   const requestId = request.headers.get('x-request-id') || createRequestId();

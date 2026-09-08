@@ -525,7 +525,7 @@ Description: Your one-stop online shop for everything you need - electronics, fa
 - Orders above AED 2,000 are not eligible for return
 - Sale items are generally non-refundable
 - Approved refunds go to the original payment method (COD may use bank transfer)
-- Full details: https://store1920.com/return-policy
+- Full details: https://www.store1920.com/return-policy
 
 **PAYMENT OPTIONS:**
 - Credit/Debit Cards (Visa, Mastercard, Amex)

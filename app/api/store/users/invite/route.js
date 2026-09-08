@@ -6,14 +6,14 @@ import StoreUser from '@/models/StoreUser';
 import { getAuth } from '@/lib/firebase-admin';
 import { randomBytes } from "crypto";
 import { sendMail } from '@/lib/email';
-import { getAppBaseUrl } from '@/lib/appUrl';
+import { getAppBaseUrl, getCustomerSiteUrl } from '@/lib/appUrl';
 
 function buildInviteEmailHtml({ storeName, inviteUrl }) {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 620px; width: 100%; margin: auto;">
       <h2 style="color: #ff6600;">Store1920 Store Invitation</h2>
       <p>Hello,</p>
-      <p><b>${storeName}</b> has invited you to join their store team on <a href="https://store1920.com" style="color: #ff6600;">Store1920</a>.</p>
+      <p><b>${storeName}</b> has invited you to join their store team on <a href="${getCustomerSiteUrl()}" style="color: #ff6600;">Store1920</a>.</p>
       <p style="margin: 24px 0;">
         <a href="${inviteUrl}" style="background: #ff6600; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Accept Invitation</a>
       </p>

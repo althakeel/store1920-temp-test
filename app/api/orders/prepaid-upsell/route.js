@@ -10,6 +10,7 @@ import { stripeSecureCheckoutOptions } from '@/lib/paymentSecurity';
 import { logPaymentEvent } from '@/lib/paymentTransactionLog';
 import ShippingSetting from '@/models/ShippingSetting';
 import { getPaymentMethodLimitError } from '@/lib/paymentMethodLimits';
+import { resolveCheckoutOrigin } from '@/lib/checkoutOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,9 +112,7 @@ export async function POST(request) {
     }
 
     const discountedTotal = Number((baseTotal * 0.95).toFixed(2));
-    const origin = request.headers.get('origin')
-      || process.env.NEXT_PUBLIC_BASE_URL
-      || 'https://store1920.com';
+    const origin = resolveCheckoutOrigin(request);
 
     const stripe = new Stripe(secret);
     const storedSessionId = String(order.stripeCheckoutSessionId || '').trim();

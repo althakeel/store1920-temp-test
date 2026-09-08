@@ -116,7 +116,7 @@ const PREVIEW_IFRAME_SCRIPT = `
 `;
 
 function buildPreviewIframeDocument(bodyHtml, origin = '') {
-  const baseHref = String(origin || '').replace(/\/$/, '') || 'https://store1920.com';
+  const baseHref = String(origin || '').replace(/\/$/, '') || 'https://www.store1920.com';
   const raw = String(bodyHtml || '');
   const previewAssets = [
     `<meta name="referrer" content="no-referrer"><base href="${baseHref}/">`,
@@ -1296,7 +1296,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
               value={block.logoLink || ''}
               onChange={(e) => set('logoLink', e.target.value)}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              placeholder="https://store1920.com"
+              placeholder="https://www.store1920.com"
             />
           </label>
           <label className="block text-xs text-gray-600">
@@ -1445,7 +1445,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
                         key={preset.id}
                         type="button"
                         onClick={() => {
-                          const base = String(block.logoLink || 'https://store1920.com').replace(/\/$/, '');
+                          const base = String(block.logoLink || 'https://www.store1920.com').replace(/\/$/, '');
                           set('navItems', preset.items.map((item) => ({
                             id: createBlockId(),
                             label: item.label,
@@ -1584,7 +1584,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
                       onClick={() => {
                         const next = [
                           ...(Array.isArray(block.navItems) ? block.navItems : []),
-                          { id: createBlockId(), label: 'New link', url: block.logoLink || 'https://store1920.com' },
+                          { id: createBlockId(), label: 'New link', url: block.logoLink || 'https://www.store1920.com' },
                         ];
                         set('navItems', next);
                       }}
@@ -1621,7 +1621,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
                               set('navItems', next);
                             }}
                             className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-                            placeholder="https://store1920.com"
+                            placeholder="https://www.store1920.com"
                           />
                         </label>
                         <button
@@ -2189,7 +2189,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
                     value={block.ctaUrl || ''}
                     onChange={(e) => set('ctaUrl', e.target.value)}
                     className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-                    placeholder="https://store1920.com"
+                    placeholder="https://www.store1920.com"
                   />
                 </label>
                 <label className="block text-xs text-gray-600">
@@ -2631,7 +2631,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
           </label>
           <label className="block text-xs text-gray-600">
             Signup / success URL
-            <input value={block.successUrl || ''} onChange={(e) => set('successUrl', e.target.value)} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" placeholder="https://store1920.com/welcome-offer" />
+            <input value={block.successUrl || ''} onChange={(e) => set('successUrl', e.target.value)} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" placeholder="https://www.store1920.com/welcome-offer" />
           </label>
         </div>
       );
@@ -2749,7 +2749,7 @@ function BlockEditor({ block, onChange, previewProducts, heroImages, categories,
               value={block.companyWebsite || ''}
               onChange={(e) => set('companyWebsite', e.target.value)}
               className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-              placeholder="https://store1920.com"
+              placeholder="https://www.store1920.com"
             />
           </label>
           <label className="inline-flex items-center gap-2 text-xs text-gray-700">
@@ -2990,7 +2990,7 @@ export default function EmailCampaignBuilder({
     const frame = previewFrameRef.current;
     if (!frame) return undefined;
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://store1920.com';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.store1920.com';
     const html = buildPreviewIframeDocument(previewHtml, origin);
 
     // Avoid rewriting the same document — setting srcdoc fires "load" and was

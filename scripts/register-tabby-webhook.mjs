@@ -16,7 +16,7 @@ function resolveWebhookUrl() {
     const explicit = String(process.env.TABBY_WEBHOOK_URL || '').trim();
     if (explicit) return explicit.replace(/\/+$/, '');
 
-    const base = String(process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://store1920.com')
+    const base = String(process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.store1920.com')
         .trim()
         .replace(/\/+$/, '');
     return `${base}/api/tabby/webhook`;

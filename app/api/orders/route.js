@@ -29,7 +29,7 @@ import { allocateShortOrderNumber } from '@/lib/orderNumber';
 import { ensurePersistedShortOrderNumber, ensurePersistedShortOrderNumbers } from '@/lib/orderDisplayServer';
 import { fetchNormalizedDelhiveryTracking } from '@/lib/delhivery';
 import { createTamaraSession } from '@/lib/tamara';
-import { buildCheckoutRedirectUrl, resolveTamaraMerchantBaseUrl } from '@/lib/checkoutOrigin';
+import { buildCheckoutRedirectUrl, resolveCheckoutOrigin, resolveTamaraMerchantBaseUrl } from '@/lib/checkoutOrigin';
 import { getProductAbsoluteUrl } from '@/lib/productUrl';
 import { createTabbySession, buildTabbyBuyerHistory, buildTabbyOrderHistoryEntries } from '@/lib/tabby';
 import { formatPaymentProviderOrderReference } from '@/lib/orderPaymentReference';
@@ -1120,7 +1120,7 @@ export async function POST(request) {
         if (paymentMethod === 'STRIPE') {
             const clientIp = getClientIpFromRequest(request);
             const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || 'https://store1920.com';
+            const origin = resolveCheckoutOrigin(request);
             const primaryOrderId = orderIds[0] || '';
             const primaryOrderMeta = primaryOrderId
                 ? await Order.findById(primaryOrderId).select('storeId').lean()

@@ -3,6 +3,7 @@ import { getAuth } from '@/lib/firebase-admin';
 import { issueOtp, verifyOtp } from '@/lib/authOtp';
 import { getOrCreateSecurity, normalizeEmail } from '@/lib/authSecurity';
 import { sendMail } from '@/lib/email';
+import { getCustomerSiteUrl, normalizePublicSiteUrl } from '@/lib/appUrl';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +43,9 @@ export async function POST(request) {
     }
 
     try {
-      const origin = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://store1920.com';
+      const origin = normalizePublicSiteUrl(
+        process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || getCustomerSiteUrl()
+      );
       await getAuth().generateEmailVerificationLink(email, {
         url: `${origin.replace(/\/$/, '')}/dashboard/security`,
       });

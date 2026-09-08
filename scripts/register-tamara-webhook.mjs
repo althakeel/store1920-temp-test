@@ -24,7 +24,7 @@ function resolveWebhookUrl() {
     const explicit = String(process.env.TAMARA_WEBHOOK_URL || '').trim();
     if (explicit) return explicit.replace(/\/+$/, '');
 
-    const base = String(process.env.TAMARA_MERCHANT_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://store1920.com')
+    const base = String(process.env.TAMARA_MERCHANT_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.store1920.com')
         .trim()
         .replace(/\/+$/, '');
     return `${base}/api/tamara/webhook`;

@@ -14,16 +14,17 @@ import {
 } from '@/lib/authOtp';
 import { sendMail } from '@/lib/email';
 import { getAuth } from '@/lib/firebase-admin';
+import { getCustomerSiteUrl, normalizePublicSiteUrl } from '@/lib/appUrl';
 
 export const dynamic = 'force-dynamic';
 
 function siteOrigin(request) {
-  return (
+  return normalizePublicSiteUrl(
     process.env.NEXT_PUBLIC_SITE_URL
     || process.env.SITE_URL
     || request.headers.get('origin')
-    || 'https://store1920.com'
-  ).replace(/\/$/, '');
+    || getCustomerSiteUrl()
+  );
 }
 
 /**

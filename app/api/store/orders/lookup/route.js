@@ -16,7 +16,7 @@ function ensureAbsoluteHttpsUrl(url) {
   if (!value || value === '/placeholder.png') return '';
   if (/^https:\/\//i.test(value)) return value;
   if (/^http:\/\//i.test(value)) return value.replace(/^http:/i, 'https:');
-  const base = String(getCustomerSiteUrl() || 'https://store1920.com').replace(/\/+$/, '');
+  const base = String(getCustomerSiteUrl() || 'https://www.store1920.com').replace(/\/+$/, '');
   if (value.startsWith('//')) return `https:${value}`;
   if (value.startsWith('/')) return `${base}${value}`;
   return `${base}/${value.replace(/^\//, '')}`;

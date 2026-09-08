@@ -6,10 +6,11 @@
 function getCustomerSiteUrl() {
   const explicit = String(process.env.CUSTOMER_FACING_URL || process.env.NEXT_PUBLIC_CUSTOMER_URL || '').trim();
   if (explicit && /^https?:\/\//i.test(explicit)) return explicit.replace(/\/+$/, '');
-  const base = String(process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://store1920.com').replace(/\/+$/, '');
+  const base = String(process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.store1920.com').replace(/\/+$/, '');
   try {
     const { hostname } = new URL(base);
-    if (hostname === 'store1920.store' || hostname === 'www.store1920.store') return 'https://store1920.com';
+    if (hostname === 'store1920.store' || hostname === 'www.store1920.store') return 'https://www.store1920.com';
+    if (hostname === 'store1920.com') return 'https://www.store1920.com';
   } catch { /* ignore */ }
   return base;
 }

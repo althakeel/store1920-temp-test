@@ -233,7 +233,26 @@ const nextConfig = {
             { source: '/cancellation-policy/', destination: '/return-policy', permanent: true },
         ];
 
+        // Apex host → www (HTML pages only). Leave /api on the requested host
+        // so Stripe / Tabby / Tamara / Waslah webhooks keep working if they
+        // are still registered on https://store1920.com/api/...
+        const apexToWwwRedirects = [
+            {
+                source: '/',
+                has: [{ type: 'host', value: 'store1920.com' }],
+                destination: 'https://www.store1920.com/',
+                permanent: true,
+            },
+            {
+                source: '/:path((?!api/).*)',
+                has: [{ type: 'host', value: 'store1920.com' }],
+                destination: 'https://www.store1920.com/:path',
+                permanent: true,
+            },
+        ];
+
         return [
+            ...apexToWwwRedirects,
             ...productSlugRedirects,
             ...categoryPathRedirects,
             ...policyCanonicalRedirects,
