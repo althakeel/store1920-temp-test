@@ -52,13 +52,17 @@ export default function FastDeliveryPage() {
       setLoading(true);
       setError(null);
 
-      const [fastRes, topRes] = await Promise.all([
+      const [fastRes, topRes, settingsRes] = await Promise.all([
         axios.get('/api/products', {
           params: { fastDelivery: true, all: true, slim: true, inStockOnly: true },
         }),
         axios.get('/api/products', {
           params: { bestSeller: true, all: true, slim: true, inStockOnly: true },
         }).catch(() => ({ data: { products: [] } })),
+        axios.get('/api/store/appearance/sections/public', {
+          headers: { 'Cache-Control': 'no-cache' },
+          params: { t: Date.now() },
+        }).catch(() => ({ data: {} })),
       ]);
 
       const merged = mergeUniqueProducts(
@@ -67,18 +71,10 @@ export default function FastDeliveryPage() {
       );
       setProducts(merged);
       setShuffleSeed((value) => value + 1);
-
-      try {
-        const settingsRes = await axios.get('/api/store/appearance/sections/public', {
-          headers: { 'Cache-Control': 'no-cache' },
-        });
-        setPageSettings(normalizeFastDeliveryPage({
-          ...DEFAULT_FAST_DELIVERY_PAGE,
-          ...(settingsRes.data?.fastDeliveryPage || {}),
-        }));
-      } catch (_) {
-        setPageSettings(DEFAULT_FAST_DELIVERY_PAGE);
-      }
+      setPageSettings(normalizeFastDeliveryPage({
+        ...DEFAULT_FAST_DELIVERY_PAGE,
+        ...(settingsRes.data?.fastDeliveryPage || {}),
+      }));
     } catch (fetchError) {
       console.error('Error fetching fast delivery products:', fetchError);
       setError('Failed to load fast delivery products');
@@ -95,14 +91,7 @@ export default function FastDeliveryPage() {
     <>
       <PageTitle title={pageSettings.headerTitle || 'Fast Delivery & Top Sellers'} />
       <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef7f5_42%,#ffffff_100%)] -mt-12">
-        <FastDeliveryPageHeader
-          settings={{
-            ...pageSettings,
-            headerTitle: pageSettings.headerTitle || 'Fast Delivery',
-            headerSubtitle: pageSettings.headerSubtitle
-              || 'Express shipping picks and top sellers — shuffled fresh each visit.',
-          }}
-        />
+        <FastDeliveryPageHeader settings={pageSettings} />
 
         <div className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6 sm:py-12">
           {error ? (

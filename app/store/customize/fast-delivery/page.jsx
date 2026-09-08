@@ -16,7 +16,7 @@ const createBannerSlide = (overrides = {}) => ({
 })
 
 export default function FastDeliveryCustomizePage() {
-  const { getToken } = useAuth()
+  const { user, loading: authLoading, getToken } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingIndex, setUploadingIndex] = useState(null)
@@ -25,7 +25,11 @@ export default function FastDeliveryCustomizePage() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const token = await getToken()
+      const token = (await getToken()) || (await getToken(true))
+      if (!token) {
+        toast.error('Please sign in again to edit this page')
+        return
+      }
       const res = await axios.get('/api/store/appearance/sections', {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -42,7 +46,7 @@ export default function FastDeliveryCustomizePage() {
           : [createBannerSlide({ alt: 'Banner 1' })],
       })
     } catch (error) {
-      toast.error('Failed to load fast delivery settings')
+      toast.error(error?.response?.data?.error || 'Failed to load fast delivery settings')
       console.error(error)
     } finally {
       setLoading(false)
@@ -50,8 +54,13 @@ export default function FastDeliveryCustomizePage() {
   }
 
   useEffect(() => {
+    if (authLoading) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
     loadData()
-  }, [])
+  }, [authLoading, user])
 
   const updateSlide = (index, key, value) => {
     setForm((prev) => ({
@@ -108,19 +117,29 @@ export default function FastDeliveryCustomizePage() {
   const save = async () => {
     try {
       setSaving(true)
-      const token = await getToken()
+      const token = (await getToken()) || (await getToken(true))
+      if (!token) {
+        toast.error('Please sign in again to save')
+        return
+      }
       const normalized = normalizeFastDeliveryPage(form)
 
-      await axios.post('/api/store/appearance/sections', {
+      const { data } = await axios.post('/api/store/appearance/sections', {
         fastDeliveryPage: normalized,
       }, {
         headers: { Authorization: `Bearer ${token}` }
       })
 
-      setForm(normalized)
+      const saved = normalizeFastDeliveryPage(data?.fastDeliveryPage || normalized)
+      setForm({
+        ...saved,
+        headerBannerSlides: saved.headerBannerSlides.length
+          ? saved.headerBannerSlides
+          : [createBannerSlide({ alt: 'Banner 1' })],
+      })
       toast.success('Fast delivery page settings saved')
     } catch (error) {
-      toast.error('Failed to save fast delivery settings')
+      toast.error(error?.response?.data?.error || 'Failed to save fast delivery settings')
       console.error(error)
     } finally {
       setSaving(false)
@@ -139,9 +158,20 @@ export default function FastDeliveryCustomizePage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Fast Delivery Page Design</h1>
-        <p className="text-sm text-slate-600 mt-1">Customize the header banner slider, colors, and empty state for the fast delivery products page.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Fast Delivery Page Design</h1>
+          <p className="text-sm text-slate-600 mt-1">Edit the title, subtitle, banners, and empty state. Click Save to update /fast-delivery.</p>
+        </div>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || authLoading || !user}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
       </div>
 
       <div className="bg-white border rounded-xl p-5 space-y-4">

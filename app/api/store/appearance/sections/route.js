@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import StorePreference from '@/models/StorePreference'
 import authSeller from '@/middlewares/authSeller'
+import { getAuth } from '@/lib/firebase-admin'
 import { deleteCacheKey, invalidateCachePattern } from '@/lib/cache'
 import { DEFAULT_FAST_DELIVERY_PAGE, normalizeFastDeliveryPage } from '@/lib/fastDeliveryPageSettings'
 import { DEFAULT_OFFERS_PAGE, normalizeOffersPage } from '@/lib/offersPageSettings'
@@ -106,10 +107,6 @@ async function getUserIdFromRequest(request) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null
 
   const idToken = authHeader.split(' ')[1]
-  const { getAuth } = await import('firebase-admin/auth')
-  const { initializeApp, getApps } = await import('firebase-admin/app')
-  if (getApps().length === 0) initializeApp()
-
   try {
     const decoded = await getAuth().verifyIdToken(idToken)
     return decoded.uid
@@ -300,6 +297,7 @@ export async function POST(request) {
     deleteCacheKey('public:appearance-sections:v2')
     deleteCacheKey('public:appearance-sections:v3')
     deleteCacheKey('public:appearance-sections:v4')
+    deleteCacheKey('public:appearance-sections:v5')
     invalidateCachePattern('public:appearance-sections')
     invalidateCachePattern('public:offers')
 

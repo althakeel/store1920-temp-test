@@ -9,7 +9,7 @@ import {
   normalizeWhatsAppProductWidget,
 } from '@/lib/whatsappProductWidget'
 
-const APPEARANCE_CACHE_KEY = 'public:appearance-sections:v4'
+const APPEARANCE_CACHE_KEY = 'public:appearance-sections:v5'
 
 const DEFAULT_APPEARANCE = {
   categorySliders: { enabled: true, title: 'Featured Collections', description: 'Browse our curated collections' },
