@@ -1,21 +1,20 @@
 'use client';
 
 import { useLayoutEffect } from 'react';
+import { isDomReconcileError, reloadOnceForDomRace } from '@/lib/domReconcileError';
 
 const CHUNK_RELOAD_KEY = 'store1920-chunk-reload';
-
-function isDomReconcileError(message = '') {
-  return /removeChild|insertBefore|not a child of this node|The node before which/i.test(message);
-}
 
 export default function PublicError({ error, reset }) {
   const message = String(error?.message || '');
   const isChunkError = /chunk|loading|failed to fetch|dynamically imported module/i.test(message);
-  const isDomError = isDomReconcileError(message);
+  const isDomError = isDomReconcileError(error);
 
   useLayoutEffect(() => {
     if (isDomError) {
-      reset();
+      if (!reloadOnceForDomRace()) {
+        reset();
+      }
       return;
     }
 
@@ -41,11 +40,6 @@ export default function PublicError({ error, reset }) {
             ? 'The page script failed to download. This often happens after a new deploy — reload to fetch the latest files.'
             : 'Something went wrong while opening this page. Please try again.'}
         </p>
-        {message ? (
-          <p className="mt-3 break-words rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-500">
-            {message}
-          </p>
-        ) : null}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"

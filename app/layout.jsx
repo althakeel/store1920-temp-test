@@ -42,6 +42,9 @@ const shadowsIntoLight = Shadows_Into_Light({
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
+  alternates: {
+    canonical: "./",
+  },
   title: "store1920 - Shop smarter",
   description:
     "Discover trending gadgets, fashion, home essentials & more at the best price. Fast delivery, secure checkout, and deals you don't want to miss.",
@@ -109,17 +112,17 @@ export default async function RootLayout({ children }) {
         <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
       </head>
       <body className={`${poppins.className} overflow-x-clip antialiased`} suppressHydrationWarning>
-        <noscript>
-          <iframe
-            src={getGtmNoscriptSrc(GTM_ID)}
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-            title="Google Tag Manager"
-          />
-        </noscript>
-        <EarlyHeadScripts />
-        <StorefrontLanguageInitScript />
+        <div id="store1920-root" suppressHydrationWarning>
+          <EarlyHeadScripts />
+          <StorefrontLanguageInitScript />
+          <ClientLayout initialStorefrontLanguage={storefrontLanguage}>{children}</ClientLayout>
+          <OrganizationJsonLd />
+        </div>
+        <noscript
+          dangerouslySetInnerHTML={{
+            __html: `<iframe src="${getGtmNoscriptSrc(GTM_ID)}" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe>`,
+          }}
+        />
         <Script
           id="google-tag-manager"
           strategy="afterInteractive"
@@ -141,9 +144,6 @@ export default async function RootLayout({ children }) {
             __html: getTikTokPixelBootstrapScript(TIKTOK_PIXEL_ID),
           }}
         />
-        {/* Add Navbar and Footer globally via ClientLayout */}
-        <ClientLayout initialStorefrontLanguage={storefrontLanguage}>{children}</ClientLayout>
-        <OrganizationJsonLd />
       </body>
     </html>
   );

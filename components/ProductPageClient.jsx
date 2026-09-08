@@ -4,6 +4,7 @@ import { Component, useEffect, useState } from "react";
 import axios from "axios";
 import ProductDetails from "@/components/ProductDetails";
 import ProductPageSkeleton from "@/components/ProductPageSkeleton";
+import { isDomReconcileError } from "@/lib/domReconcileError";
 
 function ProductDetailsLoadError({ onRetry, detail }) {
   return (
@@ -15,7 +16,7 @@ function ProductDetailsLoadError({ onRetry, detail }) {
       <p className="mt-2 text-sm text-slate-600">
         The product page failed to load. This can happen after a site update — try reloading.
       </p>
-      {detail ? (
+      {detail && !isDomReconcileError({ message: detail }) ? (
         <p className="mt-3 break-words rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-500">
           {detail}
         </p>
@@ -47,16 +48,14 @@ class ProductDetailsErrorBoundary extends Component {
   }
 
   static getDerivedStateFromError(error) {
-    const message = String(error?.message || '');
-    if (/removeChild|insertBefore|not a child of this node|The node before which/i.test(message)) {
+    if (isDomReconcileError(error)) {
       return { error: null, generation: Date.now() };
     }
     return { error };
   }
 
   componentDidCatch(error) {
-    const message = String(error?.message || '');
-    if (/removeChild|insertBefore|not a child of this node|The node before which/i.test(message)) {
+    if (isDomReconcileError(error)) {
       return;
     }
     console.error("[ProductPageClient] ProductDetails render error:", error);
@@ -77,7 +76,7 @@ class ProductDetailsErrorBoundary extends Component {
     }
 
     return (
-      <div key={this.state.generation} className="contents">
+      <div key={this.state.generation} className="min-w-0">
         {this.props.children}
       </div>
     );

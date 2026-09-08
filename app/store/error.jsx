@@ -25,7 +25,7 @@ export default function StoreError({ error, reset }) {
               ? 'The page script failed to download. This often happens after a new deploy — reload to fetch the latest files.'
               : 'Something went wrong while opening this store page.'}
         </p>
-        {message ? (
+        {message && !/removeChild|insertBefore|not a child of this node/i.test(message) ? (
           <p className="mt-3 break-words rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-slate-400">
             {message}
           </p>

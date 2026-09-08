@@ -1,8 +1,27 @@
 'use client';
 
+import { useLayoutEffect } from 'react';
+import { isDomReconcileError, reloadOnceForDomRace } from '@/lib/domReconcileError';
+
 export default function GlobalError({ error, reset }) {
-  const message = String(error?.message || '');
-  const isChunkError = /chunk|loading|failed to fetch|dynamically imported module/i.test(message);
+  const isDomError = isDomReconcileError(error);
+  const isChunkError = /chunk|loading|failed to fetch|dynamically imported module/i.test(
+    String(error?.message || ''),
+  );
+
+  useLayoutEffect(() => {
+    if (isDomError) {
+      reloadOnceForDomRace();
+    }
+  }, [isDomError]);
+
+  if (isDomError) {
+    return (
+      <html lang="en">
+        <body style={{ margin: 0, background: '#fff' }} />
+      </html>
+    );
+  }
 
   return (
     <html lang="en">
@@ -32,23 +51,6 @@ export default function GlobalError({ error, reset }) {
                 ? 'The page script failed to download. This often happens after a new deploy — reload to fetch the latest files.'
                 : 'Something went wrong while opening this page. Please try again.'}
             </p>
-            {message ? (
-              <p
-                style={{
-                  marginTop: '0.75rem',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid #e2e8f0',
-                  background: '#fff',
-                  fontSize: '0.75rem',
-                  color: '#64748b',
-                  textAlign: 'left',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {message}
-              </p>
-            ) : null}
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
