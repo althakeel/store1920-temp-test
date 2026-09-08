@@ -23,6 +23,7 @@ import { TableHeader } from '@tiptap/extension-table-header'
 
 import { useAuth } from '@/lib/useAuth';
 import { readSellerCache } from '@/lib/storeDashboardCache';
+import { canChangeProductPricing } from '@/lib/productSaveGuards';
 import { Trash2 } from 'lucide-react';
 import { formatStorefrontMoney } from '@/lib/storefrontMarket';
 import { getProductImageAspectRatioClass } from '@/lib/productMedia';
@@ -776,9 +777,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
     // ...existing state declarations...
     const sellerAccess = readSellerCache()?.dashboardAccess || {};
     const canEditPricing = Boolean(
-        sellerAccess.isOwner
-        || sellerAccess.accessRole === 'owner'
-        || sellerAccess.accessRole === 'admin'
+        canChangeProductPricing(sellerAccess)
         || !product?._id // new products: allow initial price
     );
 
@@ -2192,7 +2191,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                 }
                 if (product?._id && !canEditPricing) {
                     setLoading(false)
-                    return toast.error('Only the store owner or store admin can change pack prices.')
+                    return toast.error('You do not have permission to change pack prices. Ask the store owner to enable Change product prices in Team Access.')
                 }
                 variantsToSend = mapPackRowsToVariants(validBundles)
                 hasVariantsFlag = true
@@ -2600,7 +2599,7 @@ export default function ProductForm({ product = null, onClose, onSubmitSuccess }
                   </div>
                   {!canEditPricing ? (
                     <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                      Only the store owner or store admin can change prices. Saving will keep the current prices.
+                      You cannot change prices. Ask the store owner to enable Change product prices in Team Access. Saving will keep the current prices.
                     </p>
                   ) : null}
 

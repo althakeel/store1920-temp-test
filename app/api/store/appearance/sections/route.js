@@ -283,6 +283,12 @@ export async function POST(request) {
       ...(body || {})
     }
     const appearanceSections = normalizeAppearance(mergedPayload)
+    if (body?.offersPage) {
+      appearanceSections.offersPage = {
+        ...appearanceSections.offersPage,
+        savedAt: Date.now(),
+      }
+    }
 
     await StorePreference.findOneAndUpdate(
       { storeId },
@@ -294,6 +300,7 @@ export async function POST(request) {
     deleteCacheKey('public:appearance-sections:v2')
     deleteCacheKey('public:appearance-sections:v3')
     deleteCacheKey('public:appearance-sections:v4')
+    invalidateCachePattern('public:appearance-sections')
     invalidateCachePattern('public:offers')
 
     return NextResponse.json({ message: 'Appearance settings saved', ...appearanceSections })

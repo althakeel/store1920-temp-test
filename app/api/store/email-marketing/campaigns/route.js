@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import EmailMarketingCampaign from '@/models/EmailMarketingCampaign';
 import authSeller from '@/middlewares/authSeller';
@@ -6,6 +6,9 @@ import { getAuth } from '@/lib/firebase-admin';
 import { parseDubaiDateTimeLocal, uniqueDailyTimes } from '@/lib/emailMarketingSchedule';
 import { getPresetBlocks } from '@/lib/emailCampaignPresets';
 import { assertMarketingRecipientLimit } from '@/lib/emailMarketingLimits';
+import { runDueEmailMarketingCampaigns } from '@/lib/runEmailMarketingCampaigns';
+import { inngest } from '@/inngest/client';
+
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
@@ -56,7 +59,8 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const scheduleMode = body.scheduleMode === 'once' ? 'once' : 'daily';
+    const sendNow = body.sendNow === true || body.scheduleMode === 'now';
+    const scheduleMode = sendNow || body.scheduleMode === 'once' ? 'once' : 'daily';
     const recipientCheck = assertMarketingRecipientLimit(body.customerEmails);
     if (!recipientCheck.ok) {
       return NextResponse.json({
@@ -85,14 +89,16 @@ export async function POST(request) {
     }
 
     const dailyTimes = uniqueDailyTimes(body.dailyTimes || body.autoTimes || ['09:00']);
-    const onceAtList = (Array.isArray(body.onceAtList) ? body.onceAtList : [])
-      .map((value) => parseDubaiDateTimeLocal(value))
-      .filter(Boolean);
+    const onceAtList = sendNow
+      ? [new Date(Date.now() - 1000)]
+      : (Array.isArray(body.onceAtList) ? body.onceAtList : [])
+        .map((value) => parseDubaiDateTimeLocal(value))
+        .filter(Boolean);
 
-    if (scheduleMode === 'daily' && !dailyTimes.length) {
+    if (!sendNow && scheduleMode === 'daily' && !dailyTimes.length) {
       return NextResponse.json({ error: 'Add at least one daily send time (HH:mm)' }, { status: 400 });
     }
-    if (scheduleMode === 'once' && !onceAtList.length) {
+    if (!sendNow && scheduleMode === 'once' && !onceAtList.length) {
       return NextResponse.json({ error: 'Add at least one schedule datetime' }, { status: 400 });
     }
 
@@ -117,12 +123,31 @@ export async function POST(request) {
       createdBy: seller.uid,
     });
 
+    if (sendNow) {
+      after(async () => {
+        inngest.send({
+          name: 'app/email-marketing.send-due',
+          data: { storeId: String(seller.storeId) },
+        }).catch((error) => {
+          console.error('[email-marketing send-now inngest]', error);
+        });
+        try {
+          await runDueEmailMarketingCampaigns({ storeId: seller.storeId });
+        } catch (error) {
+          console.error('[email-marketing send-now]', error);
+        }
+      });
+    }
+
     return NextResponse.json({
       success: true,
+      queued: sendNow,
       campaign,
-      message: scheduleMode === 'daily'
-        ? `Daily campaign active. Sends at ${dailyTimes.join(', ')} (Asia/Dubai) until you disable it.`
-        : `Scheduled campaign queued for ${onceAtList.length} send time${onceAtList.length === 1 ? '' : 's'}.`,
+      message: sendNow
+        ? `Sending to ${customerEmails.length} customer(s) in the background. Check History in a minute — this page will not time out.`
+        : scheduleMode === 'daily'
+          ? `Daily campaign active. Sends at ${dailyTimes.join(', ')} (Asia/Dubai) until you disable it.`
+          : `Scheduled campaign queued for ${onceAtList.length} send time${onceAtList.length === 1 ? '' : 's'}.`,
     }, { status: 201 });
   } catch (error) {
     console.error('[email-marketing campaigns POST]', error);

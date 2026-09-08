@@ -1,9 +1,9 @@
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
-import StorePreference from '@/models/StorePreference';
+import Store from '@/models/Store';
 import { NextResponse } from 'next/server';
-import { generateCacheKey, getCachedData, setCachedData } from '@/lib/cache';
 import { resolveStorefrontLanguage } from '@/lib/storefrontLanguage';
+import { resolvePublicAppearancePreference } from '@/lib/storePreferencePublic';
 import {
   OFFERS_PAGE_SIZE,
   fetchOffersProducts,
@@ -13,14 +13,19 @@ import {
   DEFAULT_OFFERS_PAGE,
   getOffersPageCopy,
   normalizeOffersPage,
-  offersPageCacheToken,
 } from '@/lib/offersPageSettings';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
 async function loadOffersPageSettings() {
-  const preference = await StorePreference.findOne({})
-    .sort({ updatedAt: -1 })
-    .select('appearanceSections.offersPage')
-    .lean();
+  const preference = await resolvePublicAppearancePreference(Store, Product);
   return normalizeOffersPage(preference?.appearanceSections?.offersPage || DEFAULT_OFFERS_PAGE);
 }
 
@@ -36,24 +41,6 @@ export async function GET(request) {
     await dbConnect();
     const settings = await loadOffersPageSettings();
     const copy = getOffersPageCopy(settings);
-    const cacheToken = offersPageCacheToken(settings);
-
-    const cacheKey = generateCacheKey('public:offers', {
-      page,
-      limit,
-      token: cacheToken,
-      language,
-    });
-
-    const cached = getCachedData(cacheKey);
-    if (cached) {
-      return NextResponse.json(cached, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
-          'X-Cache': 'HIT',
-        },
-      });
-    }
 
     const result = await fetchOffersProducts(Product, {
       page,
@@ -77,16 +64,10 @@ export async function GET(request) {
       eyebrow: copy.eyebrow,
       title: copy.title,
       subtitle: copy.subtitle,
+      savedAt: Number(settings.savedAt) || 0,
     };
 
-    setCachedData(cacheKey, payload, 120);
-
-    return NextResponse.json(payload, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
-        'X-Cache': 'MISS',
-      },
-    });
+    return NextResponse.json(payload, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('[public/offers] fetch failed:', error);
     const fallbackCopy = getOffersPageCopy(DEFAULT_OFFERS_PAGE);
@@ -99,8 +80,9 @@ export async function GET(request) {
         eyebrow: fallbackCopy.eyebrow,
         title: fallbackCopy.title,
         subtitle: fallbackCopy.subtitle,
+        savedAt: 0,
       },
-      { status: 500 },
+      { status: 500, headers: NO_STORE_HEADERS },
     );
   }
 }

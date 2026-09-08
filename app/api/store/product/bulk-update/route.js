@@ -77,7 +77,7 @@ export async function PATCH(request) {
     if (price !== undefined || aed !== undefined) {
       if (!canChangePrice) {
         return NextResponse.json(
-          { error: 'Only the store owner or store admin can change product prices.' },
+          { error: 'You do not have permission to change prices. Ask the store owner to enable Change product prices in Team Access.' },
           { status: 403 },
         )
       }

@@ -98,6 +98,7 @@ export default function OffersCustomizePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [pagination, setPagination] = useState({ page: 1, limit: PRODUCTS_PER_PAGE, total: 0, totalPages: 1 })
+  const [selectedProducts, setSelectedProducts] = useState([])
   const searchDebounceRef = useRef(null)
   const productsAbortRef = useRef(null)
 
@@ -184,6 +185,33 @@ export default function OffersCustomizePage() {
     fetchProductsPage({ page: pagination.page, search: debouncedSearch })
   }, [form.mode, loading, pagination.page, debouncedSearch, fetchProductsPage])
 
+  useEffect(() => {
+    if (form.mode !== 'manual' || loading) return
+    const ids = form.productIds.map(normalizeProductId).filter(Boolean)
+    if (!ids.length) {
+      setSelectedProducts([])
+      return undefined
+    }
+
+    let cancelled = false
+    const loadSelected = async () => {
+      try {
+        const token = await getToken()
+        const { data } = await axios.get('/api/store/product', {
+          params: { ids: ids.join(',') },
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!cancelled) setSelectedProducts(Array.isArray(data?.products) ? data.products : [])
+      } catch {
+        if (!cancelled) setSelectedProducts([])
+      }
+    }
+    loadSelected()
+    return () => {
+      cancelled = true
+    }
+  }, [form.mode, form.productIds, loading, getToken])
+
   const toggleProduct = (productId) => {
     const id = normalizeProductId(productId)
     if (!id) return
@@ -227,13 +255,13 @@ export default function OffersCustomizePage() {
       setSaving(true)
       const token = await getToken()
       const payload = normalizeOffersPage(form)
-      await axios.post(
+      const { data } = await axios.post(
         '/api/store/appearance/sections',
         { offersPage: payload },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setForm(payload)
-      toast.success('Offers page saved', { id: SAVE_TOAST_ID })
+      setForm(normalizeOffersPage(data?.offersPage || payload))
+      toast.success('Offers page saved. /offers will show this list now.', { id: SAVE_TOAST_ID })
     } catch (error) {
       console.error(error)
       toast.error('Failed to save offers page', { id: SAVE_TOAST_ID })
@@ -257,7 +285,7 @@ export default function OffersCustomizePage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/offers"
+              href={`/offers?refresh=${Date.now()}`}
               target="_blank"
               className="rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
             >
@@ -395,7 +423,7 @@ export default function OffersCustomizePage() {
                   <div>
                     <h2 className="text-base font-semibold text-slate-900">Select products</h2>
                     <p className="text-xs text-slate-500">
-                      {form.productIds.length} selected · search by name or SKU
+                      {form.productIds.length} selected · search by name or SKU · click Save to show them on /offers
                     </p>
                   </div>
                   <div className="relative w-full sm:max-w-xs">
@@ -410,6 +438,32 @@ export default function OffersCustomizePage() {
                   </div>
                 </div>
               </div>
+
+              {form.productIds.length ? (
+                <div className="border-b border-rose-100 bg-rose-50/70 px-4 py-3 sm:px-6">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">
+                    Selected for /offers ({form.productIds.length})
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {form.productIds.map((id) => {
+                      const product = selectedProducts.find((item) => normalizeProductId(item) === id)
+                        || products.find((item) => normalizeProductId(item) === id)
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleProduct(id)}
+                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-rose-200 bg-white px-2.5 py-1 text-xs text-slate-700 hover:border-rose-400"
+                          title="Click to remove"
+                        >
+                          <span className="truncate">{product?.name || id.slice(-6)}</span>
+                          <span className="text-rose-500">×</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="max-h-[70vh] overflow-y-auto p-4 sm:p-6">
                 {productsLoading ? (

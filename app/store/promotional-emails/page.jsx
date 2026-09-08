@@ -12,6 +12,7 @@ import { getPresetBlocks } from '@/lib/emailCampaignPresets';
 import { listStockImagesForPicker } from '@/lib/emailTemplateStockImages';
 import { renderEmailFromBlocks, toEmailPreviewSrcDoc } from '@/lib/emailCampaignBuilder';
 import { formatDubaiDateTime, parseDubaiDateTimeLocal } from '@/lib/emailMarketingSchedule';
+import StorePagination from '@/components/store/StorePagination';
 
 const TABS = [
   { id: 'send', label: 'Send campaign', icon: Mail },
@@ -22,9 +23,22 @@ const TABS = [
   { id: 'history', label: 'History', icon: Clock },
 ];
 
-/** Recipients per HTTP request. Larger batches hit nginx 60s timeout (504). */
-const SEND_BATCH_SIZE = 5;
 const MAX_CAMPAIGN_RECIPIENTS = 10000;
+const HISTORY_PAGE_SIZES = [20, 50, 100];
+
+function friendlyCampaignError(error) {
+  const status = Number(error?.response?.status || 0);
+  const msg = error?.response?.data?.error || error?.response?.data?.message || error?.message || '';
+  const timedOut = status === 504
+    || status === 524
+    || status === 408
+    || error?.code === 'ECONNABORTED'
+    || /timeout|timed out|504|gateway/i.test(String(msg));
+  if (timedOut) {
+    return 'The page stopped waiting, but the campaign may still be sending in the background. Check History in a minute.';
+  }
+  return msg || 'Failed to send promotional emails.';
+}
 
 function pad2(value) {
   return String(value).padStart(2, '0');
@@ -67,7 +81,9 @@ export default function PromotionalEmailsPage() {
   const [recentClicks, setRecentClicks] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [historyLimit, setHistoryLimit] = useState(20);
   const [statusFilter, setStatusFilter] = useState('all');
+  const historyTableRef = useRef(null);
 
   const [presets, setPresets] = useState([]);
   const [customTemplates, setCustomTemplates] = useState([]);
@@ -140,7 +156,7 @@ export default function PromotionalEmailsPage() {
     }
     if (tab === 'send') loadActiveCampaigns();
     if (tab === 'leads') loadLeads(1);
-  }, [statusFilter, tab, leadsStatusFilter]);
+  }, [statusFilter, tab, leadsStatusFilter, historyLimit]);
 
   useEffect(() => {
     if (tab === 'history' && page > 1) loadHistory(page);
@@ -158,7 +174,7 @@ export default function PromotionalEmailsPage() {
       const headers = await authHeaders();
       const statusQuery = statusFilter !== 'all' ? `&status=${statusFilter}` : '';
       const { data } = await axios.get(
-        `/api/store/email-history?page=${pageNumber}&limit=20&type=promotional${statusQuery}`,
+        `/api/store/email-history?page=${pageNumber}&limit=${historyLimit}&type=promotional${statusQuery}`,
         { headers },
       );
       setHistory(data.history || []);
@@ -880,53 +896,27 @@ export default function PromotionalEmailsPage() {
         );
         loadActiveCampaigns();
       } else {
-        let sent = 0;
-        let failed = 0;
-        let cancelled = false;
-        const total = emailsToSend.length;
-        const batches = Math.ceil(total / SEND_BATCH_SIZE);
-
-        for (let index = 0; index < total; index += SEND_BATCH_SIZE) {
-          if (sendCancelRequestedRef.current) {
-            cancelled = true;
-            break;
-          }
-
-          const chunk = emailsToSend.slice(index, index + SEND_BATCH_SIZE);
-          const batchNumber = Math.floor(index / SEND_BATCH_SIZE) + 1;
-          setSendStatus(
-            total > SEND_BATCH_SIZE
-              ? `Sending queue… batch ${batchNumber} of ${batches} (${Math.min(index + chunk.length, total)} / ${total})`
-              : 'Sending…',
-          );
-
-          const { data } = await axios.post('/api/promotional-emails', {
-            ...payload,
-            customerEmails: chunk,
-            limit: chunk.length,
-            totalRecipients: total,
-            audience,
-            scheduleTime: null,
-          }, { headers, signal: abortController?.signal });
-
-          sent += Number(data.emailsSent || 0);
-          failed += Number(data.emailsFailed || 0);
-          setSendProgress({ done: Math.min(index + chunk.length, total), total });
+        setSendStatus(`Queuing send to ${emailsToSend.length} customer(s)…`);
+        const { data } = await axios.post('/api/store/email-marketing/campaigns', {
+          ...payload,
+          name: payload.subject || builderName || 'Send now',
+          sendNow: true,
+          scheduleMode: 'now',
+          customerEmails: emailsToSend,
+          audience,
+          timezone: 'Asia/Dubai',
+        }, { headers, signal: abortController?.signal });
+        if (sendCancelRequestedRef.current) {
+          setSendStatus('Send cancelled before the campaign was queued.');
+          return;
         }
-
-        if (cancelled || sendCancelRequestedRef.current) {
-          setSendStatus(
-            `Send cancelled. ${sent} of ${total} email(s) already went out`
-            + (failed > 0 ? ` (${failed} failed).` : '.'),
-          );
-        } else {
-          clearAudienceSelection();
-          setSendStatus(
-            failed > 0
-              ? `Sent ${sent} of ${total} customer(s). ${failed} failed — check History.`
-              : `Sent to ${sent} customer(s).`,
-          );
-        }
+        clearAudienceSelection();
+        setSendProgress({ done: emailsToSend.length, total: emailsToSend.length });
+        setSendStatus(
+          data.message
+          || `Sending to ${emailsToSend.length} customer(s) in the background. Check History in a minute.`,
+        );
+        loadActiveCampaigns();
       }
       loadHistory(1);
     } catch (error) {
@@ -935,15 +925,9 @@ export default function PromotionalEmailsPage() {
         || error?.name === 'CanceledError'
         || error?.name === 'AbortError';
       if (canceled) {
-        setSendStatus('Send cancelled. Emails already sent in earlier batches will still be delivered.');
+        setSendStatus('Send cancelled.');
       } else {
-        const status = Number(error?.response?.status || 0);
-        const msg = error?.response?.data?.error || error?.response?.data?.message || error.message;
-        setSendStatus(
-          status === 504
-            ? 'Send timed out (504). Emails already sent in earlier batches are delivered. Wait a moment and send the rest again.'
-            : (msg || 'Failed to send promotional emails.'),
-        );
+        setSendStatus(friendlyCampaignError(error));
       }
     } finally {
       sendAbortRef.current = null;
@@ -956,7 +940,7 @@ export default function PromotionalEmailsPage() {
     return <Loading />;
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / 20));
+  const totalPages = Math.max(1, Math.ceil(total / historyLimit));
   const activeAudience = audiences.find((item) => item.id === audience);
 
   return (
@@ -1481,6 +1465,11 @@ export default function PromotionalEmailsPage() {
                     </span>
                   </div>
                 )}
+                {scheduleMode === 'send' && (
+                  <span className="text-[11px] text-slate-500">
+                    Sends in the background so this page does not time out. Check History in a minute.
+                  </span>
+                )}
                 {scheduleMode === 'auto' && (
                   <div className="flex flex-wrap items-center gap-2">
                     {autoTimes.map((time, index) => (
@@ -1549,9 +1538,7 @@ export default function PromotionalEmailsPage() {
                   className="rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {sending
-                    ? (sendProgress.total > SEND_BATCH_SIZE
-                      ? `Queue ${sendProgress.done}/${sendProgress.total}`
-                      : 'Processing...')
+                    ? 'Queuing…'
                     : scheduleMode === 'send'
                       ? 'Send campaign'
                       : scheduleMode === 'auto'
@@ -2208,14 +2195,26 @@ export default function PromotionalEmailsPage() {
             )}
           </div>
 
-          <div className="flex items-center justify-between">
+          <div ref={historyTableRef} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-800">Email history</h3>
               <p className="mt-1 text-sm text-slate-500">
                 See who received each email, who opened it, and who clicked a link.
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <span>Per page</span>
+                <select
+                  value={historyLimit}
+                  onChange={(e) => setHistoryLimit(Number(e.target.value) || 20)}
+                  className="rounded-lg border border-gray-300 px-3 py-2"
+                >
+                  {HISTORY_PAGE_SIZES.map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -2303,27 +2302,21 @@ export default function PromotionalEmailsPage() {
             <div className="py-8 text-center text-gray-500">No promotional email history found</div>
           )}
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => loadHistory(Math.max(1, page - 1))}
-                disabled={page <= 1}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
-              <button
-                type="button"
-                onClick={() => loadHistory(Math.min(totalPages, page + 1))}
-                disabled={page >= totalPages}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
+          <StorePagination
+            pagination={{
+              page,
+              limit: historyLimit,
+              total,
+              totalPages,
+            }}
+            itemLabel="emails"
+            disabled={loading}
+            onPageChange={(nextPage) => {
+              const safePage = Math.max(1, Math.min(totalPages, Number(nextPage) || 1));
+              loadHistory(safePage);
+              historyTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          />
         </div>
       )}
     </div>

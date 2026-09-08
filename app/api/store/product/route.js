@@ -487,7 +487,7 @@ export async function GET(request) {
         }
 
         if (idsParam) {
-            const ids = idsParam.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 20);
+            const ids = idsParam.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 200);
             const products = await fetchPickerProductsByIds(Product, storeId, ids);
             return NextResponse.json(
                 { products },

@@ -102,8 +102,13 @@ export default function PermissionPicker({ value = {}, onChange, compact = false
                                                     onChange={(e) => togglePermission(component.id, e.target.checked)}
                                                     className="h-4 w-4 rounded border-slate-300"
                                                 />
-                                                <span className="truncate text-xs text-slate-700">
-                                                    {component.icon} {component.label}
+                                                <span className="min-w-0 text-xs text-slate-700">
+                                                    <span className="block truncate">{component.icon} {component.label}</span>
+                                                    {component.description ? (
+                                                        <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+                                                            {component.description}
+                                                        </span>
+                                                    ) : null}
                                                 </span>
                                             </label>
                                         ))}

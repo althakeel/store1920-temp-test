@@ -21,6 +21,8 @@ import {
     resolveCategoryName,
 } from '@/lib/categoryLookup'
 import { getProductThumbnailUrl } from '@/lib/productMedia'
+import { readSellerCache } from '@/lib/storeDashboardCache'
+import { canChangeProductPricing } from '@/lib/productSaveGuards'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 500]
 
@@ -217,6 +219,7 @@ export default function StoreManageProducts() {
     const searchParams = useSearchParams();
 
     const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || 'AED'
+    const canEditPricing = canChangeProductPricing(readSellerCache()?.dashboardAccess || {})
     const formatAmount = (value) => {
         const numeric = Number(value)
         return Number.isFinite(numeric) ? numeric.toLocaleString() : '0'
@@ -1335,6 +1338,11 @@ export default function StoreManageProducts() {
             return
         }
 
+        if (!canEditPricing && (String(bulkEditForm.price || '').trim() !== '' || String(bulkEditForm.AED || '').trim() !== '')) {
+            toast.error('You do not have permission to change prices. Ask the store owner to enable Change product prices in Team Access.')
+            return
+        }
+
         if (addCategoryId && removeCategoryId && addCategoryId === removeCategoryId) {
             toast.error('Add and remove category cannot be the same')
             return
@@ -2305,11 +2313,11 @@ export default function StoreManageProducts() {
                                 </label>
                                 <label className="space-y-2">
                                     <span className="block text-sm font-medium text-slate-700">Price</span>
-                                    <input type="number" min="0" step="0.01" value={bulkEditForm.price} onChange={(e) => setBulkEditForm((prev) => ({ ...prev, price: e.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2.5" placeholder="Leave blank to keep current" />
+                                    <input type="number" min="0" step="0.01" value={bulkEditForm.price} onChange={(e) => setBulkEditForm((prev) => ({ ...prev, price: e.target.value }))} disabled={!canEditPricing} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 disabled:cursor-not-allowed disabled:bg-slate-100" placeholder={canEditPricing ? 'Leave blank to keep current' : 'No price permission'} />
                                 </label>
                                 <label className="space-y-2">
                                     <span className="block text-sm font-medium text-slate-700">AED / MRP</span>
-                                    <input type="number" min="0" step="0.01" value={bulkEditForm.AED} onChange={(e) => setBulkEditForm((prev) => ({ ...prev, AED: e.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2.5" placeholder="Leave blank to keep current" />
+                                    <input type="number" min="0" step="0.01" value={bulkEditForm.AED} onChange={(e) => setBulkEditForm((prev) => ({ ...prev, AED: e.target.value }))} disabled={!canEditPricing} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 disabled:cursor-not-allowed disabled:bg-slate-100" placeholder={canEditPricing ? 'Leave blank to keep current' : 'No price permission'} />
                                 </label>
                             </div>
 

@@ -37,15 +37,20 @@ export default function OffersPage() {
   });
   const skipScrollRef = useRef(true);
 
-  const loadOffers = useCallback(async (targetPage) => {
-    setLoading(true);
+  const loadOffers = useCallback(async (targetPage, { silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(targetPage),
         limit: String(OFFERS_PAGE_SIZE),
+        t: String(Date.now()),
       });
       const response = await fetch(`/api/public/offers?${params.toString()}`, {
         cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
       });
       const data = response.ok ? await response.json() : null;
       setProducts(Array.isArray(data?.products) ? data.products : []);
@@ -67,12 +72,26 @@ export default function OffersPage() {
         totalPages: 1,
       });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadOffers(page);
+  }, [loadOffers, page]);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadOffers(page, { silent: true });
+      }
+    };
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
   }, [loadOffers, page]);
 
   useEffect(() => {

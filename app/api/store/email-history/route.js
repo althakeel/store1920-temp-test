@@ -43,8 +43,8 @@ export async function GET(request) {
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page')) || 1;
-    const limit = parseInt(searchParams.get('limit')) || 20;
+    const page = Math.max(1, parseInt(searchParams.get('page'), 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit'), 10) || 20));
     const status = searchParams.get('status');
     const type = searchParams.get('type');
 
@@ -156,7 +156,8 @@ export async function GET(request) {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.max(1, Math.ceil(total / limit)),
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
       stats: statsByStatus,
       recentFailures,

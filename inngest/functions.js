@@ -106,7 +106,7 @@ export const sendDueEmailMarketingCampaigns = inngest.createFunction(
         retries: 1,
         concurrency: { limit: 1 },
     },
-    { cron: '* * * * *' },
+    [{ cron: '* * * * *' }, { event: 'app/email-marketing.send-due' }],
     async ({ step }) => step.run('send-due-email-marketing-campaigns', async () => {
         const { runDueEmailMarketingCampaigns } = await import('@/lib/runEmailMarketingCampaigns');
         return runDueEmailMarketingCampaigns();
