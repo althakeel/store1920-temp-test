@@ -7,24 +7,36 @@ import {
   STORE1920_CUSTOMER_SUPPORT_PHONE,
   STORE1920_CUSTOMER_SUPPORT_TEL,
   STORE1920_SUPPORT_EMAIL,
+  formatCustomerSupportPhoneDisplay,
 } from '@/lib/storeContact';
 import PolicyContactBlock from '@/components/PolicyContactBlock';
+import {
+  STORE1920_LEGAL_NAME,
+  STORE1920_LEGAL_NAME_AR,
+  STORE1920_BUSINESS_HOURS_EN,
+  STORE1920_BUSINESS_HOURS_AR,
+  getBusinessAddressSingleLine,
+} from '@/lib/businessIdentity';
+
+const RETURNS_ADDRESS = getBusinessAddressSingleLine();
+const PHONE_DISPLAY = formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE);
 
 const EMAIL_SPLIT_PATTERN = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
 const EMAIL_MATCH_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const PHONE_SPLIT_PATTERN = /(\b8007861920\b)/g;
+const PHONE_SPLIT_PATTERN = /(\b8007861920\b|\b800 786 1920\b)/g;
 
 function PolicyText({ children, className = 'text-gray-700 mt-2 first:mt-0' }) {
+  const Tag = className.includes('inline') ? 'span' : 'p';
   if (typeof children !== 'string') {
-    return <p className={className}>{children}</p>;
+    return <Tag className={className}>{children}</Tag>;
   }
 
   const withPhoneParts = children.split(PHONE_SPLIT_PATTERN);
 
   return (
-    <p className={className}>
+    <Tag className={className}>
       {withPhoneParts.map((segment, segmentIndex) => {
-        if (segment === STORE1920_CUSTOMER_SUPPORT_PHONE) {
+        if (segment === STORE1920_CUSTOMER_SUPPORT_PHONE || segment === PHONE_DISPLAY) {
           return (
             <a
               key={`phone-${segmentIndex}`}
@@ -47,148 +59,110 @@ function PolicyText({ children, className = 'text-gray-700 mt-2 first:mt-0' }) {
           )
         ));
       })}
-    </p>
+    </Tag>
   );
 }
 
 function buildPageCopy() {
-  const supportLineEn = `Need help? Email ${STORE1920_SUPPORT_EMAIL} or call our toll-free number ${STORE1920_CUSTOMER_SUPPORT_PHONE}.`;
-  const supportLineAr = `للمساعدة، راسلنا على ${STORE1920_SUPPORT_EMAIL} أو اتصل على الرقم المجاني ${STORE1920_CUSTOMER_SUPPORT_PHONE}.`;
-
   return {
   en: {
-    title: 'Return, Refund, Exchange & Cancellation Policy',
+    title: 'Return, Refund, Replacement & Cancellation Policy',
     intro:
-      'This is Store1920’s single master policy for returns, refunds, exchanges, and order cancellations. Please read it before requesting a return, refund, or cancellation.',
+      `Store1920.com is owned and operated by ${STORE1920_LEGAL_NAME} (“Store1920”, “we”, “us”). Store1920 purchases products from manufacturers and suppliers and sells them directly to customers. We are your seller of record and first point of contact for returns, refunds, replacements and warranty support.`,
+    lastUpdated: 'Last updated: 8 September 2026',
     sections: [
       {
-        title: '1. Return Window & Eligible Cases',
+        title: '1. Return request window',
         paragraphs: [
-          'Items can be returned after notifying us within 3 days from the date of delivery in either of these cases:',
-          'All returns must be in original packaging and in the same condition in which they were received.',
-          'You can request a return directly on our website — sign in, go to My Orders, open your delivered order, and submit a Return Request.',
-          'Returns are not free. Customers are responsible for return shipping costs unless we confirm the return is due to our error (wrong, damaged, or incomplete item caused by us).',
+          'You may request a return within 7 calendar days after delivery for an eligible item. A request is made on time when it is submitted through My Orders, the Return Request page, or customer support within that period.',
+          'This 7-day commercial return window does not reduce any rights or remedies that apply under UAE law for defective, damaged, incomplete, unsafe, incorrectly supplied, not-as-described or otherwise non-compliant goods, or under an applicable product warranty. Those rights include remedies under Federal Decree-Law No. 14 of 2023 on Trading by Modern Technological Means and Federal Law No. 15 of 2020 on Consumer Protection and its executive regulation.',
         ],
+      },
+      {
+        title: '2. Reasons we accept returns',
         bullets: [
-          'Products that are damaged',
-          'Orders that arrive incomplete (not total order)',
-          'Fastest option: use the online Return Request form from your order page',
+          'Store1920 error: the item is wrong, missing, damaged in transit, defective on arrival, incomplete, or materially different from its description.',
+          'Change of mind: the eligible item is unused, unopened where a seal applies, unactivated, in resalable condition, and returned with original packaging, labels, accessories, manuals, gifts and proof of purchase.',
+          'Delivery delay: where UAE law or the order terms provide a remedy because the delay makes the product no longer useful for its intended purpose.',
         ],
       },
       {
-        title: '2. Return Conditions',
-        paragraphs: [
-          'To be eligible for a return, your item must be unused, in the same condition you received it, and in original packaging.',
-          'Mobile phones, smartphones, tablets, laptops, and similar personal electronic devices must be completely unused and unactivated. Once such a device has been set up, configured, powered on for normal use, or shows any signs of use (including removed seals, screen activation, or logged-in accounts), it cannot be returned.',
-        ],
-      },
-      {
-        title: '3. Non-Returnable Items',
-        paragraphs: [
-          'Several types of goods are exempt from being returned:',
-          'Mobile phones, smartphones, tablets, laptops, and similar personal electronic devices cannot be returned if they have been used, activated, set up, or show any signs of use — including removed factory seals, screen activation, logged-in accounts, or any configuration.',
-        ],
+        title: '3. Items not eligible for change-of-mind return',
         bullets: [
-          'Used, activated, or configured mobile phones, smartphones, tablets, laptops, and similar devices',
-          'Non-brand electronics, cosmetics, and similar items (contact us to confirm eligibility)',
-          'Intimate or sanitary goods',
-          'Hazardous materials, flammable liquids, or gases',
-          'Gift cards',
-          'Downloadable software products',
-          'Some health and personal care items',
+          'Opened, activated, configured or used phones, tablets, laptops, wearables and similar personal electronics, unless a defect or other mandatory right applies.',
+          'Hygiene, personal-care, beauty or intimate products after opening or where the hygiene seal is broken.',
+          'Perishable goods and consumables with a short shelf life.',
+          'Digital products, software, activation codes or media after access, activation or unsealing.',
+          'Personalised, made-to-order or custom-configured products.',
+          'Hazardous, flammable or restricted goods where safe return is not possible.',
+          'Clearance items only where the product page clearly stated “final sale / not returnable for change of mind” before purchase.',
+        ],
+        paragraphsAfter: [
+          'These exclusions do not apply where the item is defective, damaged, incomplete, wrong, not as described, unlawful or otherwise protected by mandatory UAE consumer rights. Order value alone does not remove return rights.',
         ],
       },
       {
-        title: '4. Orders Above AED 2,000',
+        title: '4. Condition and evidence',
         paragraphs: [
-          'Orders with a total value above AED 2,000 are not eligible for return. No return option is available for such orders, as long as subject to company policy.',
+          'Please keep the original packaging and provide your order number. For a damaged, wrong, incomplete or defective item, photos or a short video may help us assess the issue quickly. Evidence requests must be reasonable and will not be used to block a valid statutory claim.',
         ],
       },
       {
-        title: '5. Return Requirements',
+        title: '5. Return shipping and collection',
+        paragraphs: [
+          'If Store1920 confirms that the item is wrong, damaged, defective, incomplete or not as described, Store1920 will arrange collection or provide return instructions at no return-shipping cost to you. For an approved change-of-mind return, the customer pays the disclosed return-collection charge. The charge will be confirmed before collection and may be deducted from the refund with your agreement.',
+          `Do not send products to a manufacturer, supplier or unlisted location. Returns must follow the instructions issued by Store1920. Return address: ${RETURNS_ADDRESS}.`,
+        ],
+      },
+      {
+        title: '6. Inspection and decision',
+        paragraphs: [
+          'We will inspect the returned item and notify you of approval, rejection or any reasonable deduction. Change-of-mind items may be rejected if used, activated, incomplete or not in resalable condition. Defective and statutory claims will be handled according to applicable UAE law and warranty terms.',
+        ],
+      },
+      {
+        title: '7. Remedies',
+        paragraphs: [
+          'For a valid Store1920-error, defect or non-conformity claim, we will provide the remedy required by applicable law, which may include repair, replacement or refund. If a replacement is approved but unavailable, we will issue a refund. For an approved change-of-mind return, we will issue a refund; customers may place a new order for a different item.',
+        ],
+      },
+      {
+        title: '8. Refund method and timing',
         bullets: [
-          'A receipt or proof of purchase is required to complete your return.',
-          'Please do not send your purchase back to the manufacturer.',
+          'Cards: refund initiated to the original card/payment method within 5–7 business days after approval.',
+          'Tabby/Tamara: refund submitted through the original provider within 5–7 business days after approval; instalment adjustments follow the provider’s processing rules.',
+          'Cash on Delivery: refund by verified UAE bank transfer within 5–7 business days after approval and receipt of complete bank details.',
+          'Original delivery charges are refunded when the return is caused by Store1920’s error or where required by law. Change-of-mind delivery charges are not refundable.',
+        ],
+        paragraphsAfter: [
+          'Your bank or payment provider may require additional time to display the refund after Store1920 initiates it. We will provide a refund reference on request.',
         ],
       },
       {
-        title: '6. Photo or Video Proof & Verification',
+        title: '9. Cancellations',
         paragraphs: [
-          'For any return or replacement request, a photo or video of the product must be submitted together with your request.',
-          'Returns and replacements will only be processed after the original condition of the item has been verified by our management.',
+          'You may request cancellation any time before dispatch through My Orders or customer support. If the order has already been dispatched, cancellation may not be possible and this return policy will apply after delivery. Approved prepaid cancellations are refunded to the original payment method. Store1920 may cancel an order for stock, pricing, payment verification, safety or fraud-prevention reasons and will refund any captured payment.',
         ],
       },
       {
-        title: '7. Partial Refund Cases (if applicable)',
-        paragraphs: ['Only partial refunds may be granted in certain situations, including:'],
+        title: '10. Warranty support',
+        paragraphs: [
+          'Warranty coverage varies by product and is shown on the product page or warranty document where applicable. Contact Store1920 first with the order number, serial number and issue details. We will coordinate the appropriate assessment, repair, replacement or other remedy with the manufacturer or supplier. Warranty exclusions may include misuse, accidental damage, unauthorised repairs and normal wear, subject to applicable law.',
+        ],
+      },
+      {
+        title: '11. How to contact us',
         bullets: [
-          'Book with obvious signs of use',
-          'Opened CD, DVD, VHS tape, software, video game, cassette tape, or vinyl record',
-          'Any item not in original condition, damaged, or missing parts for reasons not due to our error',
+          'Online: My Orders or Return Request page',
+          `Email: ${STORE1920_SUPPORT_EMAIL}`,
+          `Phone: ${PHONE_DISPLAY}`,
+          `Business hours: ${STORE1920_BUSINESS_HOURS_EN}`,
+          `Legal entity: ${STORE1920_LEGAL_NAME}`,
+          `Registered office: ${RETURNS_ADDRESS}`,
+          `Fulfilment/returns address: ${RETURNS_ADDRESS}`,
         ],
-      },
-      {
-        title: '8. Refunds (if applicable)',
-        paragraphs: [
-          'Once your return is received and inspected, we will notify you by email about approval or rejection of your refund.',
-          'If approved, your refund will be processed and credited to your original payment method within a certain number of days.',
-          'For COD orders, approved refunds may be issued by bank transfer once bank details are provided and verified.',
-          'For returns, we can arrange return collection. Courier charges must be paid by the customer, or the customer can return directly to our partner store in Deira.',
-        ],
-      },
-      {
-        title: '9. Late or Missing Refunds',
-        paragraphs: ['If you still have not received your refund, contact our support team:', supportLineEn],
-        bullets: [
-          'Check your bank account again.',
-          'Contact your credit card company; posting can take time.',
-          'Contact your bank; processing times can vary.',
-        ],
-      },
-      {
-        title: '10. Sale Items',
-        paragraphs: ['Only regular-priced items may be refunded. Sale items are non-refundable.'],
-      },
-      {
-        title: '11. Exchanges',
-        paragraphs: [
-          'We currently do not offer exchanges.',
-          'If you need a different item, request an eligible return/refund (where applicable) and place a new order.',
-        ],
-      },
-      {
-        title: '12. Gifts',
-        paragraphs: ['We currently do not offer refunds if your item was a gift.'],
-      },
-      {
-        title: '13. Shipping for Returns',
-        paragraphs: [
-          `To return your product, submit a Return Request from My Orders or contact customer service at ${STORE1920_SUPPORT_EMAIL}.`,
-          'You are responsible for paying return shipping costs. Shipping costs are non-refundable. If a refund is issued, return shipping cost will be deducted from your refund.',
-          'Delivery times for returned/replaced products may vary depending on your location.',
-        ],
-      },
-      {
-        title: '14. Order Cancellation — Before Shipment',
-        paragraphs: [
-          'You may request cancellation within about 1–2 hours of placing the order, or any time before the order is shipped.',
-          'Go to My Orders and choose Cancel, or contact support with your order ID.',
-          'If a prepaid payment was captured and cancellation is approved, a full refund is issued to the original payment method.',
-        ],
-      },
-      {
-        title: '15. Order Cancellation — After Shipment',
-        paragraphs: [
-          'Once an order has been shipped, cancellation is not possible.',
-          'You may refuse delivery where the courier allows it, or submit a return request after delivery if the item meets the eligibility rules in this policy.',
-        ],
-      },
-      {
-        title: '16. Warranty',
-        paragraphs: [
-          'Warranty coverage (if any) is provided by the manufacturer or seller and varies by product. Store1920 does not promise a fixed warranty period on every item.',
-          'Check the product page for product-specific warranty details when shown. For warranty claims, contact support with your order ID and issue details.',
-          'Warranty generally excludes accidental damage, misuse, unauthorized repairs, and normal wear and tear, subject to the brand’s terms.',
+        paragraphsAfter: [
+          'Nothing in this policy excludes or limits rights that cannot lawfully be excluded or limited under applicable UAE law.',
         ],
       },
     ],
@@ -196,136 +170,101 @@ function buildPageCopy() {
   ar: {
     title: 'سياسة الإرجاع والاسترداد والاستبدال والإلغاء',
     intro:
-      'هذه هي السياسة الموحدة لـ Store1920 بخصوص الإرجاع والاسترداد والاستبدال وإلغاء الطلبات. يرجى قراءتها قبل تقديم أي طلب.',
+      `Store1920.com مملوك ويُدار من قبل ${STORE1920_LEGAL_NAME_AR} (${STORE1920_LEGAL_NAME}) («Store1920» أو «نحن»). تشتري Store1920 المنتجات من المصنّعين والمورّدين وتبيعها مباشرة للعملاء. نحن بائع السجل وجهة التواصل الأولى للإرجاع والاسترداد والاستبدال ودعم الضمان.`,
+    lastUpdated: 'آخر تحديث: 8 سبتمبر 2026',
     sections: [
       {
-        title: '1. مدة الإرجاع والحالات المؤهلة',
+        title: '1. مهلة طلب الإرجاع',
         paragraphs: [
-          'يمكن إرجاع المنتجات بعد إخطارنا خلال 3 أيام من تاريخ التسليم في إحدى الحالتين التاليتين:',
-          'يجب أن تكون جميع المرتجعات في عبوتها الأصلية وبنفس الحالة التي استلمتها بها.',
-          'يمكنك طلب الإرجاع مباشرة من موقعنا — سجّل الدخول، ثم اذهب إلى طلباتي، وافتح الطلب المُسلّم، وقدّم طلب إرجاع.',
-          'الإرجاع ليس مجانيًا. يتحمل العميل تكاليف شحن الإرجاع ما لم نؤكد أن السبب خطأ من جانبنا (منتج خاطئ أو تالف أو ناقص بسببنا).',
+          'يمكنك طلب إرجاع منتج مؤهل خلال 7 أيام تقويمية بعد التسليم. يُعد الطلب مقدَّمًا في الوقت إذا أُرسل عبر طلباتي أو صفحة طلب الإرجاع أو دعم العملاء خلال تلك المهلة.',
+          'مهلة الإرجاع التجارية البالغة 7 أيام لا تنتقص من أي حق أو معالجة تسري بموجب قوانين دولة الإمارات للمنتجات المعيبة أو التالفة أو الناقصة أو غير الآمنة أو المورَّدة خطأً أو غير المطابقة للوصف أو غير المطابقة، أو بموجب ضمان المنتج الساري. تشمل تلك الحقوق سبل المعالجة بموجب المرسوم بقانون اتحادي رقم 14 لسنة 2023 بشأن التجارة من خلال الوسائل التكنولوجية الحديثة، والقانون الاتحادي رقم 15 لسنة 2020 في شأن حماية المستهلك ولائحته التنفيذية.',
         ],
+      },
+      {
+        title: '2. أسباب قبول الإرجاع',
         bullets: [
-          'المنتجات التالفة',
-          'الطلبات التي تصل ناقصة (وليس الطلب بالكامل)',
-          'الخيار الأسرع: استخدم نموذج طلب الإرجاع من صفحة الطلب',
+          'خطأ Store1920: المنتج خاطئ أو ناقص أو تالف أثناء النقل أو معيب عند الوصول أو غير مكتمل أو يختلف جوهريًا عن وصفه.',
+          'تغيير الرأي: المنتج المؤهل غير مستخدم، وغير مفتوح حيث يوجد ختم، وغير مفعّل، وقابل لإعادة البيع، ويُعاد مع العبوة الأصلية والملصقات والملحقات والكتيبات والهدايا وإثبات الشراء.',
+          'تأخير التسليم: حيث يوفّر قانون الإمارات أو شروط الطلب معالجة لأن التأخير جعل المنتج غير مفيد للغرض المقصود منه.',
         ],
       },
       {
-        title: '2. شروط الإرجاع',
-        paragraphs: [
-          'لتكون مؤهلاً للإرجاع، يجب أن يكون المنتج غير مستخدم، وبنفس الحالة التي استلمته بها، وفي عبوته الأصلية.',
-          'يجب أن تكون الهواتف المحمولة والهواتف الذكية والأجهزة اللوحية وأجهزة الكمبيوتر المحمولة والأجهزة الإلكترونية الشخصية المماثلة غير مستخدمة وغير مفعّلة بالكامل. بمجرد تفعيل أو إعداد أو استخدام أي من هذه الأجهزة، أو ظهور أي علامات استخدام (بما في ذلك كسر الأختام أو تفعيل الشاشة أو تسجيل الدخول إلى حساب)، لا يمكن إرجاعها.',
-        ],
-      },
-      {
-        title: '3. المنتجات غير القابلة للإرجاع',
-        paragraphs: [
-          'هناك عدة أنواع من السلع مستثناة من الإرجاع:',
-          'لا يمكن إرجاع الهواتف المحمولة والهواتف الذكية والأجهزة اللوحية وأجهزة الكمبيوتر المحمولة والأجهزة الإلكترونية الشخصية المماثلة إذا تم استخدامها أو تفعيلها أو إعدادها أو ظهرت عليها أي علامات استخدام — بما في ذلك كسر الأختام الأصلية أو تفعيل الشاشة أو تسجيل الدخول إلى حساب أو أي إعداد للجهاز.',
-        ],
+        title: '3. منتجات غير مؤهلة لإرجاع تغيير الرأي',
         bullets: [
-          'الهواتف المحمولة والهواتف الذكية والأجهزة اللوحية وأجهزة الكمبيوتر المحمولة والأجهزة المماثلة المستخدمة أو المفعّلة أو المُعدّة',
-          'الإلكترونيات غير العلامة التجارية ومستحضرات التجميل وما شابه (تواصل معنا للتأكد من الأهلية)',
-          'السلع الحميمة أو الصحية',
-          'المواد الخطرة أو السوائل أو الغازات القابلة للاشتعال',
-          'بطاقات الهدايا',
-          'منتجات البرمجيات القابلة للتنزيل',
-          'بعض منتجات الصحة والعناية الشخصية',
+          'الهواتف والأجهزة اللوحية والحواسيب المحمولة والأجهزة القابلة للارتداء والإلكترونيات الشخصية المماثلة إذا فُتحت أو فُعّلت أو أُعدّت أو استُخدمت، ما لم ينطبق عيب أو حق إلزامي آخر.',
+          'منتجات النظافة والعناية الشخصية والتجميل أو المنتجات الحميمة بعد الفتح أو عند كسر ختم النظافة.',
+          'السلع القابلة للتلف والمستهلكات ذات صلاحية قصيرة.',
+          'المنتجات الرقمية أو البرمجيات أو رموز التفعيل أو الوسائط بعد الوصول إليها أو تفعيلها أو فضّ ختمها.',
+          'المنتجات المخصصة أو المصنوعة حسب الطلب أو المعدّة تخصيصًا.',
+          'السلع الخطرة أو القابلة للاشتعال أو المقيّدة عندما يتعذّر إرجاعها بأمان.',
+          'منتجات التصفية فقط إذا ذكرت صفحة المنتج بوضوح قبل الشراء «بيع نهائي / غير قابل للإرجاع لتغيير الرأي».',
+        ],
+        paragraphsAfter: [
+          'لا تسري هذه الاستثناءات إذا كان المنتج معيبًا أو تالفًا أو ناقصًا أو خاطئًا أو غير مطابق للوصف أو غير مشروع أو محميًا بحقوق المستهلك الإلزامية في دولة الإمارات. قيمة الطلب وحدها لا تسقط حق الإرجاع.',
         ],
       },
       {
-        title: '4. الطلبات التي تتجاوز 2000 درهم',
+        title: '4. الحالة والإثبات',
         paragraphs: [
-          'الطلبات التي تتجاوز قيمتها الإجمالية 2000 درهم إماراتي غير مؤهلة للإرجاع. لا يتوفر خيار الإرجاع لهذه الطلبات، وذلك وفقًا لسياسة الشركة.',
+          'يُرجى الاحتفاظ بالعبوة الأصلية وتقديم رقم الطلب. للمنتج التالف أو الخاطئ أو الناقص أو المعيب، تساعد الصور أو فيديو قصير على تقييم المشكلة بسرعة. طلبات الإثبات يجب أن تكون معقولة ولن تُستخدم لمنع مطالبة نظامية صحيحة.',
         ],
       },
       {
-        title: '5. متطلبات الإرجاع',
+        title: '5. شحن الإرجاع والاستلام',
+        paragraphs: [
+          'إذا أكدت Store1920 أن المنتج خاطئ أو تالف أو معيب أو ناقص أو غير مطابق للوصف، ترتّب Store1920 الاستلام أو تقدّم تعليمات الإرجاع دون تكلفة شحن إرجاع عليك. لإرجاع تغيير الرأي المعتمد، يدفع العميل رسوم استلام الإرجاع المُفصح عنها. تُؤكَّد الرسوم قبل الاستلام وقد تُخصم من المبلغ المسترد بموافقتك.',
+          `لا ترسل المنتجات إلى الشركة المصنعة أو المورّد أو إلى عنوان غير مدرج. يجب أن يتبع الإرجاع التعليمات الصادرة من Store1920. عنوان الإرجاع: ${RETURNS_ADDRESS}.`,
+        ],
+      },
+      {
+        title: '6. الفحص والقرار',
+        paragraphs: [
+          'نفحص المنتج المرتجع ونبلغك بالموافقة أو الرفض أو أي خصم معقول. قد يُرفض إرجاع تغيير الرأي إذا استُخدم المنتج أو فُعّل أو كان ناقصًا أو غير قابل لإعادة البيع. تُعالج المطالبات المتعلقة بالعيوب والحقوق النظامية وفق قوانين دولة الإمارات السارية وشروط الضمان.',
+        ],
+      },
+      {
+        title: '7. سبل المعالجة',
+        paragraphs: [
+          'لمطالبة صحيحة بسبب خطأ Store1920 أو عيب أو عدم مطابقة، نقدّم المعالجة التي يوجبها القانون الساري، وقد تشمل الإصلاح أو الاستبدال أو الاسترداد. إذا وُوفق على الاستبدال ولم يتوفر المخزون، نعيد المبلغ. لإرجاع تغيير الرأي المعتمد نعيد المبلغ؛ ويمكن للعميل إنشاء طلب جديد لمنتج آخر.',
+        ],
+      },
+      {
+        title: '8. طريقة الاسترداد ومواعيده',
         bullets: [
-          'مطلوب إيصال أو إثبات شراء لإتمام الإرجاع.',
-          'يرجى عدم إرسال مشترياتك مباشرة إلى الشركة المصنعة.',
+          'البطاقات: يبدأ الاسترداد إلى البطاقة أو وسيلة الدفع الأصلية خلال 5 إلى 7 أيام عمل بعد الموافقة.',
+          'تابي/تمارا: يُقدَّم الاسترداد عبر المزود الأصلي خلال 5 إلى 7 أيام عمل بعد الموافقة؛ وتعديلات الأقساط تتبع قواعد معالجة المزود.',
+          'الدفع عند الاستلام: استرداد بتحويل بنكي إماراتي موثّق خلال 5 إلى 7 أيام عمل بعد الموافقة واستلام بيانات الحساب كاملة.',
+          'تُعاد رسوم التوصيل الأصلية إذا كان الإرجاع بسبب خطأ Store1920 أو حيث يوجب القانون ذلك. رسوم توصيل تغيير الرأي غير قابلة للاسترداد.',
+        ],
+        paragraphsAfter: [
+          'قد يحتاج البنك أو مزود الدفع وقتًا إضافيًا لإظهار المبلغ بعد أن تبدأ Store1920 الاسترداد. نقدّم مرجع الاسترداد عند الطلب.',
         ],
       },
       {
-        title: '6. إرفاق صورة أو فيديو والتحقق',
+        title: '9. الإلغاء',
         paragraphs: [
-          'لأي طلب إرجاع أو استبدال، يجب إرفاق صورة أو فيديو للمنتج مع طلبك.',
-          'لن تتم معالجة عمليات الإرجاع والاستبدال إلا بعد التحقق من الحالة الأصلية للمنتج من قبل إدارتنا.',
+          'يمكنك طلب الإلغاء في أي وقت قبل الشحن عبر طلباتي أو دعم العملاء. إذا شُحن الطلب، قد لا يكون الإلغاء ممكنًا وتسري سياسة الإرجاع هذه بعد التسليم. تُعاد دفعات الإلغاء المسبق المعتمدة إلى وسيلة الدفع الأصلية. يجوز لـ Store1920 إلغاء طلب لأسباب تتعلق بالمخزون أو التسعير أو التحقق من الدفع أو السلامة أو منع الاحتيال، وتعيد أي مبلغ تم تحصيله.',
         ],
       },
       {
-        title: '7. حالات الاسترداد الجزئي (إن وجدت)',
-        paragraphs: ['قد يُمنح استرداد جزئي فقط في حالات معينة، بما في ذلك:'],
+        title: '10. دعم الضمان',
+        paragraphs: [
+          'تغطية الضمان تختلف حسب المنتج وتظهر في صفحة المنتج أو وثيقة الضمان حيثما وُجدت. تواصل مع Store1920 أولًا مع رقم الطلب والرقم التسلسلي وتفاصيل المشكلة. ننسّق التقييم أو الإصلاح أو الاستبدال أو أي معالجة مناسبة مع الشركة المصنعة أو المورّد. قد يستثني الضمان سوء الاستخدام والتلف العرضي والإصلاح غير المصرّح به والبلى الطبيعي، مع مراعاة القانون الساري.',
+        ],
+      },
+      {
+        title: '11. كيفية التواصل معنا',
         bullets: [
-          'كتاب بعلامات استخدام واضحة',
-          'قرص مضغوط أو DVD أو شريط VHS أو برنامج أو لعبة فيديو أو شريط كاسيت أو أسطوانة فينيل مفتوح',
-          'أي منتج ليس في حالته الأصلية أو تالف أو تنقصه أجزاء لأسباب لا تعود إلى خطأ من جانبنا',
+          'عبر الموقع: طلباتي أو صفحة طلب الإرجاع',
+          `البريد الإلكتروني: ${STORE1920_SUPPORT_EMAIL}`,
+          `الهاتف: ${PHONE_DISPLAY}`,
+          `ساعات العمل: ${STORE1920_BUSINESS_HOURS_AR}`,
+          `الكيان القانوني: ${STORE1920_LEGAL_NAME_AR} (${STORE1920_LEGAL_NAME})`,
+          `المكتب المسجّل: ${RETURNS_ADDRESS}`,
+          `عنوان التجهيز والإرجاع: ${RETURNS_ADDRESS}`,
         ],
-      },
-      {
-        title: '8. الاسترداد (إن وجد)',
-        paragraphs: [
-          'بمجرد استلام مرتجعك وفحصه، سنخطرك عبر البريد الإلكتروني بالموافقة على الاسترداد أو رفضه.',
-          'إذا تمت الموافقة، سيتم معالجة الاسترداد وإضافته إلى طريقة الدفع الأصلية خلال عدد معين من الأيام.',
-          'لطلبات الدفع عند الاستلام، قد يتم تحويل المبالغ المستردة المعتمدة إلى الحساب البنكي بعد التحقق من بيانات الحساب.',
-          'للإرجاع، يمكننا ترتيب استلام المرتجع. يتحمل العميل رسوم شركة الشحن، أو يمكن للعميل الإرجاع مباشرة إلى متجر شريكنا في ديرة.',
-        ],
-      },
-      {
-        title: '9. تأخر الاسترداد أو فقده',
-        paragraphs: ['إذا لم تستلم الاسترداد بعد، تواصل مع فريق الدعم:', supportLineAr],
-        bullets: [
-          'تحقق من حسابك البنكي مرة أخرى.',
-          'تواصل مع شركة بطاقتك الائتمانية؛ قد يستغرق الإيداع وقتًا.',
-          'تواصل مع بنكك؛ قد تختلف أوقات المعالجة.',
-        ],
-      },
-      {
-        title: '10. منتجات التخفيضات',
-        paragraphs: ['يمكن استرداد المنتجات بسعرها العادي فقط. منتجات التخفيضات غير قابلة للاسترداد.'],
-      },
-      {
-        title: '11. الاستبدال',
-        paragraphs: [
-          'لا نقدم حاليًا خدمة الاستبدال.',
-          'إذا احتجت منتجًا مختلفًا، قدّم طلب إرجاع/استرداد مؤهلًا (إن أمكن) ثم قدّم طلبًا جديدًا.',
-        ],
-      },
-      {
-        title: '12. الهدايا',
-        paragraphs: ['لا نقدم حاليًا استردادًا إذا كان المنتج هدية.'],
-      },
-      {
-        title: '13. شحن المرتجعات',
-        paragraphs: [
-          `لإرجاع منتجك، قدّم طلب إرجاع من صفحة طلباتي أو تواصل مع خدمة العملاء عبر ${STORE1920_SUPPORT_EMAIL}.`,
-          'أنت مسؤول عن دفع تكاليف شحن الإرجاع. تكاليف الشحن غير قابلة للاسترداد. إذا تم إصدار استرداد، سيتم خصم تكلفة شحن الإرجاع من مبلغ الاسترداد.',
-          'قد تختلف مواعيد تسليم المنتجات المرتجعة أو المستبدلة حسب موقعك.',
-        ],
-      },
-      {
-        title: '14. إلغاء الطلب — قبل الشحن',
-        paragraphs: [
-          'يمكنك طلب الإلغاء خلال حوالي 1–2 ساعة من تقديم الطلب، أو في أي وقت قبل شحن الطلب.',
-          'اذهب إلى طلباتي واختر إلغاء، أو تواصل مع الدعم برقم الطلب.',
-          'إذا تم تحصيل دفعة مسبقة وتمت الموافقة على الإلغاء، يُعاد المبلغ كاملًا إلى طريقة الدفع الأصلية.',
-        ],
-      },
-      {
-        title: '15. إلغاء الطلب — بعد الشحن',
-        paragraphs: [
-          'بعد شحن الطلب، لا يمكن إلغاؤه.',
-          'يمكنك رفض الاستلام إن سمحت شركة الشحن بذلك، أو تقديم طلب إرجاع بعد التسليم إذا استوفى المنتج شروط هذه السياسة.',
-        ],
-      },
-      {
-        title: '16. الضمان',
-        paragraphs: [
-          'تغطية الضمان (إن وُجدت) تقدّمها الشركة المصنعة أو البائع وتختلف حسب المنتج. لا تعد Store1920 بمدة ضمان ثابتة لكل منتج.',
-          'راجع صفحة المنتج لتفاصيل الضمان الخاصة بالمنتج عند عرضها. لطلبات الضمان، تواصل مع الدعم برقم الطلب وتفاصيل المشكلة.',
-          'يستثني الضمان عادةً التلف العرضي وسوء الاستخدام والإصلاح غير المصرّح به والبلى الطبيعي، وفق شروط العلامة.',
+        paragraphsAfter: [
+          'لا يستبعد أي بند في هذه السياسة ولا يقيّد أي حق لا يجوز استبعاده أو تقييده قانونًا بموجب قوانين دولة الإمارات السارية.',
         ],
       },
     ],
@@ -341,6 +280,7 @@ export default function ReturnPolicyPage() {
   return (
     <PolicyPageLayout dir={isArabic ? 'rtl' : undefined}>
       <h1 className="text-3xl font-bold text-gray-900 mb-2">{copy.title}</h1>
+      <p className="text-xs text-gray-500 mb-2">{copy.lastUpdated}</p>
       <p className="text-gray-600 mb-4">{copy.intro}</p>
       <div className="mb-8 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-gray-800">
         {isArabic ? (
@@ -369,12 +309,17 @@ export default function ReturnPolicyPage() {
               <PolicyText key={paragraph}>{paragraph}</PolicyText>
             ))}
             {section.bullets?.length ? (
-              <ul className="list-disc ml-6 text-gray-700 mt-2 space-y-1">
+              <ul className={`list-disc text-gray-700 mt-2 space-y-1 ${isArabic ? 'mr-6' : 'ml-6'}`}>
                 {section.bullets.map((bullet) => (
-                  <li key={bullet}>{bullet}</li>
+                  <li key={bullet}>
+                    <PolicyText className="inline text-gray-700">{bullet}</PolicyText>
+                  </li>
                 ))}
               </ul>
             ) : null}
+            {section.paragraphsAfter?.map((paragraph) => (
+              <PolicyText key={paragraph}>{paragraph}</PolicyText>
+            ))}
           </section>
         ))}
       </div>

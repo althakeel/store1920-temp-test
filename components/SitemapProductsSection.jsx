@@ -83,7 +83,7 @@ export default function SitemapProductsSection({
         <p className="text-sm text-stone-500">
           Loaded {links.length.toLocaleString()} / {total.toLocaleString()}
           <span className="mx-2 text-stone-300">·</span>
-          <Link href="/products" className="font-medium text-stone-800 underline-offset-2 hover:text-[#E52721] hover:underline">
+          <Link href="/shop" className="font-medium text-stone-800 underline-offset-2 hover:text-[#E52721] hover:underline">
             Shop all
           </Link>
           <span className="mx-2 text-stone-300">·</span>

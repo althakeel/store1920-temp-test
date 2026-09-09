@@ -30,8 +30,8 @@ export const assets = {
 
 export const ourSpecsData = [
     { title: "Fast UAE Delivery", description: "Estimated delivery timelines shown at checkout — times vary by location and courier.", icon: SendIcon, accent: '#05DF72' },
-    { title: "Easy Returns", description: "Eligible returns within 3 days of delivery for damaged or incomplete orders. See our Return Policy.", icon: ClockFadingIcon, accent: '#FF8904' },
-    { title: "24/7 Customer Support", description: "We're here for you. Get expert help with our customer support.", icon: HeadsetIcon, accent: '#A684FF' }
+    { title: "Eligible returns", description: "7-day returns on eligible unused items. Free return shipping for wrong, damaged, defective or not-as-described items. Terms apply.", icon: ClockFadingIcon, accent: '#FF8904' },
+    { title: "Customer Support", description: "Sunday – Thursday, 9:00 AM – 6:00 PM (UAE time). Email, phone, or the contact form — no account required for a complaint or return request.", icon: HeadsetIcon, accent: '#A684FF' }
 ]
 
 

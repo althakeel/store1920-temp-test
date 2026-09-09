@@ -86,7 +86,7 @@ const HELP_CONTENT = {
   returns: [
     {
       question: 'What is your return policy?',
-      answer: 'Eligible items can be returned after you notify us within 3 days of delivery. See our Return Policy for full conditions.',
+      answer: 'You may request a return within 7 calendar days after delivery for an eligible item. Store1920 pays return shipping for wrong, damaged, defective or not-as-described items. Change-of-mind returns are unused items only and you pay the disclosed collection charge. See our Return Policy for full conditions.',
     },
     {
       question: 'How do I initiate a return?',
@@ -94,7 +94,7 @@ const HELP_CONTENT = {
     },
     {
       question: 'When will I get my refund?',
-      answer: 'Refunds are usually processed within 5–7 business days after we receive and inspect the return.',
+      answer: 'Approved refunds are initiated within 5–7 business days after approval. Your bank or payment provider may take extra time to show the credit.',
     },
   ],
   account: [
@@ -234,12 +234,12 @@ export default function HelpPage() {
 
         <section className="mt-14 rounded-2xl border border-stone-200 bg-white p-6 sm:p-8">
           <h2 className="text-xl font-semibold text-stone-900">Contact Store1920 support</h2>
-          <p className="mt-2 text-sm text-stone-600">We are here for UAE customers Monday–Friday, 9am–6pm.</p>
+          <p className="mt-2 text-sm text-stone-600">Support hours: Sunday – Thursday, 9:00 AM – 6:00 PM (UAE time). Not 24/7. Guests can send a complaint or return request from Contact Us or Support without an account.</p>
 
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             <div className="rounded-xl border border-stone-100 bg-[#f7f5f2] p-5">
               <h3 className="font-semibold text-stone-900">Email</h3>
-              <p className="mt-1 text-sm text-stone-600">Usually within 24 hours</p>
+              <p className="mt-1 text-sm text-stone-600">Usually the next business day</p>
               <a
                 href={`mailto:${STORE1920_SUPPORT_EMAIL}`}
                 className="mt-3 inline-block text-sm font-semibold text-orange-700 hover:underline"

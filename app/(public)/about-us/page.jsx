@@ -19,7 +19,7 @@ const PAGE_COPY = {
     brand: 'Store1920',
     headline: 'Smart living.\nSmarter prices.',
     support:
-      'UAE-based shopping for electronics, gadgets, and home essentials — chosen carefully and priced for everyday life.',
+      'Store1920 is a UAE online retailer offering electronics, home, and lifestyle essentials at competitive prices with fast delivery on eligible items.',
     ctaShop: 'Shop now',
     ctaBusiness: 'Business information',
     whoEyebrow: 'Who we are',
@@ -58,8 +58,8 @@ const PAGE_COPY = {
         text: 'We do not list everything. We stock what we believe in — and what customers reorder.',
       },
       {
-        title: 'Customer first',
-        text: 'Easy returns and support in Arabic and English. Your satisfaction is the priority.',
+        title: 'Eligible returns',
+        text: '7-day returns on eligible unused items. Free return shipping for wrong, damaged, defective or not-as-described items. Change-of-mind return shipping is paid by you at the disclosed cost. Support is available in Arabic and English.',
       },
     ],
     closeTitle: 'Shop smart. Live better.',
@@ -71,7 +71,7 @@ const PAGE_COPY = {
     brand: 'Store1920',
     headline: 'حياة أذكى.\nبأسعار أوضح.',
     support:
-      'متجر إلكتروني في الإمارات للإلكترونيات والأجهزة ومستلزمات المنزل — منتجات مختارة بعناية وبأسعار تناسب الحياة اليومية.',
+      'Store1920 متجر تجزئة إلكتروني في الإمارات يقدّم الإلكترونيات ومستلزمات المنزل ونمط الحياة بأسعار تنافسية مع توصيل سريع للمنتجات المؤهلة.',
     ctaShop: 'تسوق الآن',
     ctaBusiness: 'معلومات الأعمال',
     whoEyebrow: 'من نحن',
@@ -110,8 +110,8 @@ const PAGE_COPY = {
         text: 'لا نعرض كل شيء. نختار ما نثق به — وما يعود إليه عملاؤنا.',
       },
       {
-        title: 'العميل أولاً',
-        text: 'إرجاع سهل ودعم بالعربية والإنجليزية. رضاك هو الأولوية.',
+        title: 'إرجاع وفق السياسة',
+        text: 'إرجاع خلال 7 أيام للمنتجات غير المستخدمة المؤهلة. شحن إرجاع مجاني للمنتج الخاطئ أو التالف أو المعيب أو غير المطابق للوصف. شحن إرجاع تغيير الرأي يدفعه العميل بالتكلفة المُفصح عنها. الدعم متاح بالعربية والإنجليزية.',
       },
     ],
     closeTitle: 'تسوق بذكاء. عش أفضل.',

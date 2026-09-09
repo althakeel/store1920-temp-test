@@ -1,6 +1,6 @@
 ---
 name: return-policy
-description: Maintains the Store1920 public master Return, Refund, Exchange & Cancellation policy at /return-policy using the bilingual PAGE_COPY + PolicyPageLayout pattern. Use when editing return policy content, refunds, exchanges, cancellations, return windows, or when the user mentions /return-policy, return policy page, or return/refund policy copy.
+description: Maintains the Store1920 public master Return, Refund, Replacement & Cancellation policy at /return-policy using the bilingual PAGE_COPY + PolicyPageLayout pattern. Use when editing return policy content, refunds, replacements, cancellations, return windows, or when the user mentions /return-policy, return policy page, or return/refund policy copy.
 ---
 
 # Master Return Policy (`/return-policy`)
@@ -41,10 +41,15 @@ Do **not** reintroduce separate refund/cancellation public pages or list those U
 ## Content rules
 
 - Keep legal/policy wording accurate; update **English and Arabic together**
-- Master title includes Return, Refund, Exchange **and** Cancellation
-- Returns are **not free** (customer pays return shipping unless Store1920 error)
-- Return window and eligibility: follow existing numbered sections; do not invent “7-day free returns”
-- Contact: `support@Store1920.com` + toll-free support number helpers
+- Master title is **Return, Refund, Replacement & Cancellation**
+- Commercial return request window: **7 calendar days** after delivery via My Orders, Return Request, or support
+- Change of mind: unused / unactivated / resalable; customer pays the disclosed return-collection charge
+- Store1920-error / statutory cases: Store1920 pays return shipping; not limited by the 7-day commercial window
+- Do **not** invent “7-day free returns” for change of mind
+- Refunds initiated **5–7 business days after approval** (card / Tabby-Tamara / verified UAE bank transfer for COD)
+- Return address is the published fulfilment warehouse in `lib/businessIdentity.js` (`getBusinessAddressSingleLine()`)
+- Commercial return rules must expressly **not reduce** mandatory UAE rights (Federal Decree-Law No. 14 of 2023; Federal Law No. 15 of 2020 and its executive regulation)
+- Contact: `support@store1920.com` + toll-free support number helpers
 
 ## Do not
 

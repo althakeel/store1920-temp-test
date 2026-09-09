@@ -1,78 +1,97 @@
 'use client';
 
 import PolicyPageLayout from '@/components/PolicyPageLayout';
+import PolicyContactBlock from '@/components/PolicyContactBlock';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
+import {
+  STORE1920_LEGAL_NAME,
+  STORE1920_LEGAL_NAME_AR,
+  STORE1920_BUSINESS_HOURS_EN,
+  STORE1920_BUSINESS_HOURS_AR,
+} from '@/lib/businessIdentity';
+
+const TRADING_AS = `${STORE1920_LEGAL_NAME}, trading as Store1920`;
 
 const PAGE_COPY = {
   en: {
     title: 'Shipping & Delivery Policy',
     intro:
-      'This Shipping & Delivery Policy explains how orders placed on Store1920.com, owned and operated by ALTHAKEEL GENERAL TRADING L.L.C (Store1920), are processed, shipped, and delivered within the United Arab Emirates.',
+      `This is the single shipping and delivery policy for orders placed on Store1920.com by ${TRADING_AS}. It covers processing cut-offs, delivery estimates, fees, delivery attempts, and remote-area rules inside the United Arab Emirates.`,
+    lastUpdated: 'Last updated: 8 September 2026',
     sections: [
       {
-        title: '1. Order Processing Time',
+        title: '1. Where we deliver',
         paragraphs: [
-          'Most orders are processed within 1-2 business days after confirmation. During peak seasons, promotions, or high-volume periods, processing times may be slightly longer. Orders placed on Sundays or public holidays will be processed on the next business day.',
+          'We deliver across the United Arab Emirates only. International shipping is not available.',
         ],
       },
       {
-        title: '2. Shipping Methods & Delivery Timeline',
+        title: '2. Processing cut-off and business days',
         paragraphs: [
-          'Store1920 currently delivers products across all Emirates in the UAE. Delivery timelines depend on your location, product availability, and courier partner.',
-          'Delivery timelines shown at checkout are estimates and not guaranteed.',
+          `Our fulfilment hours are ${STORE1920_BUSINESS_HOURS_EN}. Business days are Sunday to Thursday, excluding UAE public holidays.`,
+          'The daily order cut-off is 6:00 PM UAE time on a business day. Orders confirmed before the cut-off enter processing that business day. Orders confirmed after 6:00 PM, or on Friday, Saturday, or a public holiday, enter processing on the next business day.',
+        ],
+      },
+      {
+        title: '3. Processing time',
+        paragraphs: [
+          'Most in-stock orders are processed within 1–2 business days after they enter processing. Peak periods, promotions, or stock checks can add time. We will contact you if processing will be delayed.',
+        ],
+      },
+      {
+        title: '4. Delivery estimates after dispatch',
+        paragraphs: [
+          'These transit times start after the order is dispatched, not from the moment you place it. The estimate shown at checkout for the shipping method you select is the estimate that applies to that order.',
         ],
         bullets: [
-          'Standard Delivery: 2-5 business days',
-          'Express Delivery: 1-3 business days (available for select locations/products)',
+          'Standard delivery: typically 2–5 business days after dispatch',
+          'Express / next-day (Fast Delivery): eligible in-stock items ordered before 2:00 PM on a working day, where offered for your address. After 2:00 PM the order is processed on the following working day. Full rules are on the Fast Delivery page',
+          'Remote or outlying areas: typically 1–3 extra business days after the standard or express estimate',
         ],
       },
       {
-        title: '3. Shipping Charges',
+        title: '5. Shipping fees',
         paragraphs: [
-          'Shipping charges vary based on product weight, category, and delivery location. All applicable shipping fees are clearly displayed at checkout before payment is completed.',
+          'All shipping fees that apply to your order are shown at checkout before you pay. Fees can include a standard or express charge, a Cash on Delivery fee, weight-based charges, and location charges.',
+          'Free shipping applies only when checkout shows it — for example when an offer, product, or order total qualifies. If a fee is not shown at checkout, it is not added later except for a failed-delivery reattempt described below.',
         ],
       },
       {
-        title: '4. Order Tracking',
+        title: '6. Remote and outlying areas',
         paragraphs: [
-          'Once your order is shipped, tracking details will be shared via SMS or email. You can also track your order anytime from the My Orders section on Store1920.com.',
+          'Addresses outside main city coverage may take longer and may have a higher shipping fee or limited options (including COD or express). Any extra time or fee is shown at checkout when we can identify the area from your address. If a courier later classifies the address as remote after dispatch, we will contact you before charging any extra fee.',
         ],
       },
       {
-        title: '5. Delivery Attempts',
+        title: '7. Delivery attempts',
         paragraphs: [
-          'Courier partners will attempt delivery up to two times. If delivery fails due to customer unavailability or incorrect address details, the order may be returned to our warehouse. Re-delivery may incur additional charges.',
+          'The courier will attempt delivery up to two times. Please keep your phone available and make sure someone can receive the parcel.',
+          'If both attempts fail because no one is available or the address or contact details are wrong, the parcel may be returned to our warehouse. A further delivery may require an extra fee, which we will confirm with you first. You may also arrange collection with support.',
         ],
       },
       {
-        title: '6. Damaged, Missing, or Incorrect Items',
+        title: '8. Tracking',
         paragraphs: [
-          'If you receive a damaged, defective, missing, or incorrect item, please contact us within 48 hours of delivery with your Order ID and clear photos or videos.',
-          'Email: support@Store1920.com',
+          'When the order is dispatched, we share tracking by SMS or email. You can also track the order from My Orders on Store1920.com.',
         ],
       },
       {
-        title: '7. Address & Contact Accuracy',
+        title: '9. Address and contact details',
         paragraphs: [
-          'Customers are responsible for providing accurate shipping address and contact details during checkout. Store1920 is not responsible for delivery failures caused by incorrect information.',
+          'You are responsible for an accurate delivery address and phone number at checkout. We are not responsible for failed delivery caused by incorrect details you provided.',
         ],
       },
       {
-        title: '8. Delivery Restrictions',
+        title: '10. Damaged, missing, or incorrect items',
         paragraphs: [
-          'Certain products may have delivery restrictions due to size, weight, or courier limitations. If delivery is not possible, our team will contact you to arrange an alternative solution or refund.',
+          'If an item arrives damaged, defective, missing, or incorrect, follow the Return, Refund, Replacement & Cancellation Policy. Notify us through My Orders, the Return Request page, or customer support with your order ID and photos or video. Those cases are not limited by the 7-day commercial change-of-mind window.',
         ],
       },
       {
-        title: '9. Delays Beyond Our Control',
+        title: '11. Restrictions and delays',
         paragraphs: [
-          'Delivery delays may occur due to weather conditions, courier issues, regional restrictions, or unforeseen circumstances. Store1920 shall not be held responsible for delays caused by external factors beyond our control.',
-        ],
-      },
-      {
-        title: '10. International Shipping',
-        paragraphs: [
-          'Currently, Store1920 delivers products only within the UAE. International shipping is not available at this time.',
+          'Some products cannot be sent by certain couriers because of size, weight, or content. If we cannot deliver, we will contact you to arrange another option or a refund.',
+          'Weather, courier disruption, regional restrictions, or other events outside our control can delay delivery. Checkout dates remain estimates, not guarantees.',
         ],
       },
     ],
@@ -80,72 +99,82 @@ const PAGE_COPY = {
   ar: {
     title: 'سياسة الشحن والتوصيل',
     intro:
-      'توضح سياسة الشحن والتوصيل هذه كيفية معالجة الطلبات المقدمة على Store1920.com وشحنها وتسليمها من قبل الثقيل للتجارة العامة ش.ذ.م.م (Store1920) داخل دولة الإمارات العربية المتحدة.',
+      `هذه هي سياسة الشحن والتوصيل الموحدة لطلبات Store1920.com من ${STORE1920_LEGAL_NAME_AR} (${STORE1920_LEGAL_NAME}). تشمل حد القطع للمعالجة، ومدد التوصيل، والرسوم، ومحاولات التسليم، وقواعد المناطق النائية داخل دولة الإمارات العربية المتحدة.`,
+    lastUpdated: 'آخر تحديث: 8 سبتمبر 2026',
     sections: [
       {
-        title: '1. وقت معالجة الطلب',
+        title: '1. نطاق التوصيل',
         paragraphs: [
-          'تتم معالجة معظم الطلبات خلال 1-2 يوم عمل بعد التأكيد. خلال المواسم المزدحمة أو العروض أو فترات ارتفاع الطلب قد تستغرق المعالجة وقتًا أطول قليلًا. الطلبات المقدمة يوم الأحد أو في العطلات الرسمية تتم معالجتها في يوم العمل التالي.',
+          'نوصل داخل دولة الإمارات العربية المتحدة فقط. الشحن الدولي غير متاح.',
         ],
       },
       {
-        title: '2. طرق الشحن ومدة التوصيل',
+        title: '2. حد القطع للمعالجة وأيام العمل',
         paragraphs: [
-          'يقوم Store1920 حاليًا بتوصيل المنتجات إلى جميع إمارات دولة الإمارات العربية المتحدة. تعتمد مدة التوصيل على موقعك وتوفر المنتج وشريك الشحن.',
-          'مواعيد التوصيل الظاهرة عند الدفع تقديرية وليست مضمونة.',
+          `ساعات العمل لدينا: ${STORE1920_BUSINESS_HOURS_AR}. أيام العمل من الأحد إلى الخميس باستثناء العطل الرسمية في الدولة.`,
+          'حد القطع اليومي هو الساعة 6:00 م بتوقيت الإمارات في يوم عمل. الطلبات المؤكدة قبل هذا الوقت تدخل المعالجة في يوم العمل نفسه. الطلبات بعد 6:00 م أو يوم الجمعة أو السبت أو في عطلة رسمية تدخل المعالجة في يوم العمل التالي.',
+        ],
+      },
+      {
+        title: '3. وقت المعالجة',
+        paragraphs: [
+          'تُعالج معظم الطلبات المتوفرة خلال 1 إلى 2 يوم عمل بعد دخولها المعالجة. قد يزيد الوقت في المواسم أو العروض أو عند التحقق من المخزون. سنتواصل معك إذا تأخرت المعالجة.',
+        ],
+      },
+      {
+        title: '4. مدد التوصيل بعد الشحن',
+        paragraphs: [
+          'تبدأ مدد النقل بعد شحن الطلب، وليس من لحظة تقديمه. التقدير الظاهر عند الدفع لطريقة الشحن التي تختارها هو التقدير المعتمد لذلك الطلب.',
         ],
         bullets: [
-          'التوصيل العادي: من 2 إلى 5 أيام عمل',
-          'التوصيل السريع: من 1 إلى 3 أيام عمل (متاح لمناطق أو منتجات محددة)',
+          'التوصيل العادي: عادة من 2 إلى 5 أيام عمل بعد الشحن',
+          'التوصيل السريع / في اليوم التالي: للمنتجات المتوفرة المؤهلة إذا اكتمل الطلب قبل الساعة 2:00 م في يوم عمل، وحيث يتوفر لعنوانك. بعد 2:00 م يُعالج الطلب في يوم العمل التالي. التفاصيل الكاملة في صفحة التوصيل السريع',
+          'المناطق النائية أو الخارجية: عادة من 1 إلى 3 أيام عمل إضافية بعد تقدير التوصيل العادي أو السريع',
         ],
       },
       {
-        title: '3. رسوم الشحن',
+        title: '5. رسوم الشحن',
         paragraphs: [
-          'تختلف رسوم الشحن حسب وزن المنتج وفئته وموقع التوصيل. يتم عرض جميع رسوم الشحن المطبقة بوضوح عند الدفع قبل إتمام السداد.',
+          'تظهر جميع رسوم الشحن المطبقة على طلبك عند الدفع قبل السداد. قد تشمل رسومًا عادية أو سريعة، ورسوم الدفع عند الاستلام، ورسومًا حسب الوزن أو الموقع.',
+          'الشحن المجاني ينطبق فقط عندما يظهر ذلك عند الدفع — مثل عرض أو منتج أو حد أدنى لمجموع الطلب. لا تُضاف رسوم لاحقًا إذا لم تظهر عند الدفع، باستثناء إعادة محاولة التسليم بعد الفشل كما هو موضح أدناه.',
         ],
       },
       {
-        title: '4. تتبع الطلب',
+        title: '6. المناطق النائية والخارجية',
         paragraphs: [
-          'بمجرد شحن طلبك، ستتم مشاركة تفاصيل التتبع عبر الرسائل النصية أو البريد الإلكتروني. ويمكنك أيضًا تتبع طلبك في أي وقت من قسم طلباتي على Store1920.com.',
+          'العناوين خارج تغطية المدن الرئيسية قد تستغرق وقتًا أطول وقد تكون رسومها أعلى أو خياراتها محدودة (بما في ذلك الدفع عند الاستلام أو التوصيل السريع). يظهر أي وقت أو رسم إضافي عند الدفع عندما نتمكن من تحديد المنطقة من عنوانك. إذا صنّفت شركة الشحن العنوان لاحقًا كمنطقة نائية بعد الشحن، سنتواصل معك قبل فرض أي رسم إضافي.',
         ],
       },
       {
-        title: '5. محاولات التسليم',
+        title: '7. محاولات التسليم',
         paragraphs: [
-          'سيقوم شركاء الشحن بمحاولة التسليم حتى مرتين. إذا فشل التسليم بسبب عدم توفر العميل أو وجود عنوان غير صحيح فقد تتم إعادة الطلب إلى مستودعنا. وقد يترتب على إعادة التسليم رسوم إضافية.',
+          'تحاول شركة الشحن التسليم حتى مرتين. يُرجى إبقاء هاتفك متاحًا والتأكد من وجود من يستلم الطرد.',
+          'إذا فشلت المحاولتان لعدم التوفر أو لخطأ في العنوان أو بيانات التواصل، قد يُعاد الطرد إلى مستودعنا. قد تتطلب إعادة التسليم رسمًا إضافيًا نؤكده معك أولًا. ويمكنك أيضًا ترتيب الاستلام عبر الدعم.',
         ],
       },
       {
-        title: '6. المنتجات التالفة أو الناقصة أو غير الصحيحة',
+        title: '8. التتبع',
         paragraphs: [
-          'إذا استلمت منتجًا تالفًا أو معيبًا أو ناقصًا أو غير صحيح، يرجى التواصل معنا خلال 48 ساعة من التسليم مع رقم الطلب وصور أو فيديوهات واضحة.',
-          'البريد الإلكتروني: support@Store1920.com',
+          'عند شحن الطلب نشارك التتبع عبر الرسائل أو البريد الإلكتروني. ويمكنك التتبع من قسم طلباتي على Store1920.com.',
         ],
       },
       {
-        title: '7. دقة العنوان وبيانات التواصل',
+        title: '9. العنوان وبيانات التواصل',
         paragraphs: [
-          'يتحمل العملاء مسؤولية إدخال عنوان الشحن وبيانات التواصل الصحيحة أثناء الدفع. ولا يتحمل Store1920 مسؤولية فشل التسليم الناتج عن معلومات غير صحيحة.',
+          'أنت مسؤول عن إدخال عنوان التوصيل ورقم الهاتف بشكل صحيح عند الدفع. لا نتحمل مسؤولية فشل التسليم الناتج عن بيانات غير صحيحة قدّمتها.',
         ],
       },
       {
-        title: '8. قيود التوصيل',
+        title: '10. المنتجات التالفة أو الناقصة أو غير الصحيحة',
         paragraphs: [
-          'قد تخضع بعض المنتجات لقيود في التوصيل بسبب الحجم أو الوزن أو حدود شركة الشحن. وإذا تعذر التوصيل فسيتواصل فريقنا معك لترتيب حل بديل أو استرداد المبلغ.',
+          'إذا وصل المنتج تالفًا أو معيبًا أو ناقصًا أو خاطئًا، اتبع سياسة الإرجاع والاسترداد والاستبدال والإلغاء. أخطرنا عبر طلباتي أو صفحة طلب الإرجاع أو دعم العملاء مع رقم الطلب وصور أو فيديو. هذه الحالات ليست مقيدة بمهلة تغيير الرأي التجارية البالغة 7 أيام.',
         ],
       },
       {
-        title: '9. التأخير الخارج عن إرادتنا',
+        title: '11. القيود والتأخير',
         paragraphs: [
-          'قد تحدث تأخيرات في التوصيل بسبب الأحوال الجوية أو مشكلات شركات الشحن أو القيود الإقليمية أو ظروف غير متوقعة. ولا يتحمل Store1920 مسؤولية التأخيرات الناتجة عن عوامل خارجية خارجة عن سيطرته.',
-        ],
-      },
-      {
-        title: '10. الشحن الدولي',
-        paragraphs: [
-          'حاليًا يقوم Store1920 بتوصيل المنتجات داخل دولة الإمارات العربية المتحدة فقط. الشحن الدولي غير متاح في الوقت الحالي.',
+          'قد يتعذر شحن بعض المنتجات عبر شركات معينة بسبب الحجم أو الوزن أو المحتوى. إذا تعذر التوصيل سنتواصل لترتيب خيار آخر أو استرداد.',
+          'قد يتأخر التسليم بسبب الطقس أو تعطل شركة الشحن أو قيود إقليمية أو ظروف خارجة عن إرادتنا. تواريخ الدفع تبقى تقديرية وليست مضمونة.',
         ],
       },
     ],
@@ -159,7 +188,8 @@ export default function ShippingPolicyPage() {
   return (
     <PolicyPageLayout dir={isArabic ? 'rtl' : undefined}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">{copy.title}</h1>
-        <p className="text-gray-600 mb-8">{copy.intro}</p>
+        <p className="text-gray-600 mb-2">{copy.intro}</p>
+        <p className="text-xs text-gray-500 mb-8">{copy.lastUpdated}</p>
 
         <div className="space-y-6 border border-gray-200 rounded-xl p-6">
           {copy.sections.map((section) => (
@@ -179,6 +209,9 @@ export default function ShippingPolicyPage() {
               ) : null}
             </section>
           ))}
+        </div>
+        <div className="mt-6 border border-gray-200 rounded-xl p-6">
+          <PolicyContactBlock isArabic={isArabic} />
         </div>
     </PolicyPageLayout>
   );

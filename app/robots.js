@@ -22,6 +22,8 @@ export default function robots() {
           '/order-failed',
           '/recover-cart/',
           '/offer/',
+          '/create-store',
+          '/pricing',
         ],
       },
     ],

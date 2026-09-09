@@ -27,7 +27,7 @@ const PAGE_COPY = {
   en: {
     title: 'Business Information',
     intro:
-      'Store1920.com is operated by a licensed UAE company. This page provides our official trade license, registered address, and contact details for customer transparency and Google Merchant Center compliance.',
+      'Store1920.com is owned and operated by ALTHAKEEL GENERAL TRADING L.L.C, a UAE-licensed company. This page provides our legal business identity, registered office, fulfilment/returns address and customer-support details.',
     identityTitle: 'Business identity',
     identityText:
       `The online store Store1920 is owned and operated by ${STORE1920_LEGAL_NAME}, a Limited Liability Company licensed by the Department of Economic Development in the United Arab Emirates.`,
@@ -69,7 +69,7 @@ const PAGE_COPY = {
   ar: {
     title: 'معلومات الأعمال',
     intro:
-      'يتم تشغيل موقع Store1920.com من قبل شركة مرخصة في دولة الإمارات العربية المتحدة. تعرض هذه الصفحة تفاصيل الرخصة التجارية والعنوان وبيانات التواصل بشفافية للعملاء ولمتطلبات Google Merchant Center.',
+      'Store1920.com مملوك ويُدار من قبل الثقيل للتجارة العامة ش.ذ.م.م، وهي شركة مرخصة في دولة الإمارات. تعرض هذه الصفحة الهوية القانونية للعمل، والمكتب المسجّل، وعنوان التجهيز والإرجاع، وبيانات دعم العملاء.',
     identityTitle: 'هوية النشاط التجاري',
     identityText:
       `المتجر الإلكتروني Store1920 مملوك ويُدار من قبل ${STORE1920_LEGAL_NAME_AR} (${STORE1920_LEGAL_NAME})، وهي شركة ذات مسؤولية محدودة مرخصة من دائرة التنمية الاقتصادية في دولة الإمارات العربية المتحدة.`,

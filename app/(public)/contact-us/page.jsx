@@ -27,7 +27,7 @@ function hexToRgb(hex) {
 
 export default function ContactUs() {
   const searchParams = useSearchParams();
-  const [form, setForm] = useState({ name: '', email: '', message: '' });
+  const [form, setForm] = useState({ name: '', email: '', topic: 'Question', orderNumber: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -93,6 +93,8 @@ export default function ContactUs() {
         body: JSON.stringify({
           name: form.name,
           email: form.email,
+          topic: form.topic,
+          orderNumber: form.orderNumber,
           message: form.message,
         }),
       });
@@ -122,7 +124,7 @@ export default function ContactUs() {
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight drop-shadow">Get in Touch</h1>
         <p className="mt-2 text-white/80 text-sm sm:text-base max-w-md">
-          Have a question or need help? We&apos;re here for you — send us a message and we&apos;ll respond quickly.
+          Questions, complaints, and return requests — no account required. We reply during {STORE1920_BUSINESS_HOURS_EN}.
         </p>
       </div>
 
@@ -206,7 +208,17 @@ export default function ContactUs() {
                   Business Information
                 </Link>
               </p>
-              <p>We typically respond within 24 hours during business hours.</p>
+              <p>We typically reply the next business day. We are not a 24/7 desk.</p>
+              <p>
+                Guest return or complaint:{' '}
+                <Link href="/support" className="font-semibold text-[#E52721] hover:underline">
+                  Support form
+                </Link>
+                {' '}or this page. Signed-in customers can also use{' '}
+                <Link href="/return-request" className="font-semibold text-[#E52721] hover:underline">
+                  Return Request
+                </Link>.
+              </p>
             </div>
           </div>
 
@@ -226,10 +238,10 @@ export default function ContactUs() {
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-gray-900">Message Sent!</h3>
-                      <p className="text-sm text-gray-500 mt-1">Thanks for reaching out. We&apos;ll get back to you within 24 hours.</p>
+                      <p className="text-sm text-gray-500 mt-1">Thanks. We&apos;ll reply during business hours, usually the next business day.</p>
                     </div>
                     <button
-                      onClick={() => { setSubmitted(false); setForm({ name: '', email: '', message: '' }); }}
+                      onClick={() => { setSubmitted(false); setForm({ name: '', email: '', topic: 'Question', orderNumber: '', message: '' }); }}
                       className="mt-2 text-sm font-semibold px-5 py-2 rounded-xl text-white transition-opacity hover:opacity-90"
                       style={{ backgroundColor: navBg }}
                     >
@@ -239,7 +251,7 @@ export default function ContactUs() {
                 ) : (
                   <>
                     <h2 className="text-xl font-bold text-gray-900 mb-1">Send us a message</h2>
-                    <p className="text-sm text-gray-400 mb-6">Fill in the form below and we&apos;ll get back to you shortly.</p>
+                    <p className="text-sm text-gray-400 mb-6">Guests can submit a complaint or return request here. Include your order number if you have one.</p>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                       {submitError ? (
@@ -247,6 +259,37 @@ export default function ContactUs() {
                           {submitError}
                         </p>
                       ) : null}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Topic</label>
+                          <select
+                            name="topic"
+                            value={form.topic}
+                            onChange={handleChange}
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:border-transparent transition"
+                            style={{ '--tw-ring-color': `rgba(${r},${g},${b},0.4)` }}
+                          >
+                            <option value="Question">Question</option>
+                            <option value="Complaint">Complaint</option>
+                            <option value="Return Request">Return request</option>
+                            <option value="Order Issue">Order issue</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Order number (optional)</label>
+                          <input
+                            type="text"
+                            name="orderNumber"
+                            value={form.orderNumber}
+                            onChange={handleChange}
+                            placeholder="If this is a return or complaint"
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:border-transparent transition"
+                            style={{ '--tw-ring-color': `rgba(${r},${g},${b},0.4)` }}
+                          />
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
                           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Full Name</label>

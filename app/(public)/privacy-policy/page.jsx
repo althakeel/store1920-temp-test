@@ -2,15 +2,9 @@
 
 import PolicyPageLayout from '@/components/PolicyPageLayout';
 import { useStorefrontI18n } from "@/lib/useStorefrontI18n";
-import {
-  STORE1920_CUSTOMER_SUPPORT_PHONE,
-  STORE1920_CUSTOMER_SUPPORT_TEL,
-  STORE1920_SUPPORT_EMAIL,
-} from '@/lib/storeContact';
-import {
-  STORE1920_LEGAL_NAME,
-  getBusinessAddressSingleLine,
-} from '@/lib/businessIdentity';
+import PolicyContactBlock from '@/components/PolicyContactBlock';
+import { STORE1920_SUPPORT_EMAIL } from '@/lib/storeContact';
+import { STORE1920_LEGAL_NAME } from '@/lib/businessIdentity';
 
 export default function PrivacyPolicyPage() {
   const { isArabic } = useStorefrontI18n();
@@ -19,8 +13,9 @@ export default function PrivacyPolicyPage() {
     return (
       <PolicyPageLayout dir="rtl">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">سياسة الخصوصية</h1>
+          <p className="text-xs text-gray-500 mb-4">آخر تحديث: 8 سبتمبر 2026</p>
           <p className="text-gray-600 mb-8">
-            توضح سياسة الخصوصية هذه كيف يقوم Store1920.com بجمع واستخدام وحفظ وحماية معلوماتك الشخصية عند استخدام الموقع والخدمات.
+            توضح سياسة الخصوصية هذه كيف يقوم Store1920.com، المملوك ويُدار من قبل <strong>{STORE1920_LEGAL_NAME}</strong>، بجمع واستخدام وحفظ وحماية معلوماتك الشخصية عند استخدام الموقع والخدمات.
           </p>
 
           <div className="space-y-6 border border-gray-200 rounded-xl p-6">
@@ -90,20 +85,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <section className="border-t pt-4">
-              <h2 className="font-semibold text-gray-900 mb-2">معلومات التواصل</h2>
-              <p className="text-gray-700 mb-1"><strong>اسم النشاط:</strong> Store1920</p>
-              <p className="text-gray-700 mb-1"><strong>الكيان القانوني:</strong> {STORE1920_LEGAL_NAME}</p>
-              <p className="text-gray-700 mb-1"><strong>العنوان:</strong> {getBusinessAddressSingleLine()}</p>
-              <p className="text-gray-700 mb-1"><strong>الموقع:</strong> https://www.Store1920.com</p>
-              <p className="text-gray-700 mb-1"><strong>البريد الإلكتروني:</strong> {STORE1920_SUPPORT_EMAIL}</p>
-              <p className="text-gray-700">
-                <strong>الدعم:</strong>{' '}
-                <a href={STORE1920_CUSTOMER_SUPPORT_TEL} className="text-orange-600 underline">
-                  {STORE1920_CUSTOMER_SUPPORT_PHONE}
-                </a>
-              </p>
-            </section>
+            <PolicyContactBlock isArabic />
           </div>
       </PolicyPageLayout>
     );
@@ -114,9 +96,10 @@ export default function PrivacyPolicyPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Privacy Policy
         </h1>
+        <p className="text-xs text-gray-500 mb-4">Last updated: 8 September 2026</p>
         <p className="text-gray-600 mb-8">
           This Privacy Policy explains how <strong>Store1920.com</strong>, owned
-          and operated by <strong>Store1920</strong>, collects, uses, stores, and
+          and operated by <strong>{STORE1920_LEGAL_NAME}</strong>, collects, uses, stores, and
           protects your personal information when you use our website and
           services.
         </p>
@@ -286,34 +269,7 @@ export default function PrivacyPolicyPage() {
             </p>
           </section>
 
-          {/* Contact */}
-          <section className="border-t pt-4">
-            <h2 className="font-semibold text-gray-900 mb-2">
-              12. Contact Information
-            </h2>
-            <p className="text-gray-700 mb-1">
-              <strong>Business Name:</strong> Store1920
-            </p>
-            <p className="text-gray-700 mb-1">
-              <strong>Legal entity:</strong> {STORE1920_LEGAL_NAME}
-            </p>
-            <p className="text-gray-700 mb-1">
-              <strong>Address:</strong> {getBusinessAddressSingleLine()}
-            </p>
-            <p className="text-gray-700 mb-1">
-              <strong>Website:</strong> https://www.Store1920.com
-            </p>
-            <p className="text-gray-700 mb-1">
-              <strong>Email:</strong> {STORE1920_SUPPORT_EMAIL}
-            </p>
-            <p className="text-gray-700">
-              <strong>Customer Support:</strong>{' '}
-              <a href={STORE1920_CUSTOMER_SUPPORT_TEL} className="text-orange-600 underline">
-                {STORE1920_CUSTOMER_SUPPORT_PHONE}
-              </a>
-            </p>
-          </section>
-
+          <PolicyContactBlock />
         </div>
     </PolicyPageLayout>
   );

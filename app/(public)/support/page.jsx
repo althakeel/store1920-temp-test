@@ -5,7 +5,13 @@ import Link from 'next/link'
 import axios from 'axios'
 import { auth } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
-import { STORE1920_SUPPORT_EMAIL } from '@/lib/storeContact'
+import {
+  STORE1920_SUPPORT_EMAIL,
+  STORE1920_CUSTOMER_SUPPORT_PHONE,
+  STORE1920_CUSTOMER_SUPPORT_TEL,
+  formatCustomerSupportPhoneDisplay,
+} from '@/lib/storeContact'
+import { STORE1920_BUSINESS_HOURS_EN } from '@/lib/businessIdentity'
 
 export default function SupportPage() {
   const [user, setUser] = useState(null)
@@ -54,32 +60,30 @@ export default function SupportPage() {
 
     try {
       // Prepare ticket data matching the API format
-      if (formData.orderNumber && !/^[a-fA-F0-9]{24}$/.test(formData.orderNumber.trim())) {
-        setError('Order number must be a valid ID')
-        setLoading(false)
-        return
-      }
-
+      const looksLikeObjectId = /^[a-fA-F0-9]{24}$/.test(String(formData.orderNumber || '').trim())
       const ticketData = {
         subject: formData.subject,
-        category: formData.issue, // Map issue to category
-        description: formData.message,
+        category: formData.issue,
+        description: formData.orderNumber && !looksLikeObjectId
+          ? `Order: ${formData.orderNumber}\n\n${formData.message}`
+          : formData.message,
         priority: formData.priority || 'normal',
-        orderId: formData.orderNumber || undefined
+        orderId: looksLikeObjectId ? formData.orderNumber : undefined
       }
 
-      // If user is logged in, use authenticated endpoint
       if (user) {
         const token = await auth.currentUser.getIdToken(true)
         await axios.post('/api/tickets', ticketData, {
           headers: { Authorization: `Bearer ${token}` }
         })
       } else {
-        // For guest users, create a support request (you may need to create this endpoint)
-        // For now, we'll require login
-        setError('Please sign in to submit a support ticket')
-        setLoading(false)
-        return
+        await axios.post('/api/contact', {
+          name: formData.name,
+          email: formData.email,
+          topic: formData.issue,
+          orderNumber: formData.orderNumber,
+          message: `${formData.subject}\n\n${formData.message}`,
+        })
       }
 
       setSuccess(true)
@@ -104,7 +108,7 @@ export default function SupportPage() {
   const supportOptions = [
     { icon: '❓', title: 'Quick Answers', desc: 'Find answers to common questions', link: '/faq' },
     { icon: '✓', title: 'Track Order', desc: 'Check your order status', link: '/track-order' },
-    { icon: '↩️', title: 'Return Items', desc: 'Start a return or replacement', link: '/orders' },
+    { icon: '↩️', title: 'Return or complain', desc: 'Signed-in return form, or guest form below', link: '/return-request' },
     { icon: '💬', title: 'FAQ & Help', desc: 'Browse our help center', link: '/help' },
   ]
 
@@ -114,7 +118,7 @@ export default function SupportPage() {
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-12 px-4">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-bold mb-2">How Can We Help?</h1>
-          <p className="text-blue-100 text-lg">We're here to assist you 24/7</p>
+          <p className="text-blue-100 text-lg">Support hours: {STORE1920_BUSINESS_HOURS_EN}</p>
         </div>
       </div>
 
@@ -139,13 +143,21 @@ export default function SupportPage() {
             
             {!user && (
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800">
-                ℹ️ Please <Link href="/" className="font-semibold underline">sign in</Link> to submit a support ticket
+                No account needed. Use this form for a complaint or return request. Include your order number if you have one.
+                {' '}Signed-in customers can also start a return from{' '}
+                <Link href="/orders" className="font-semibold underline">My Orders</Link>.
               </div>
             )}
 
             {success && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                ✓ Thank you! We've received your message and will respond soon. <Link href="/dashboard/tickets" className="font-semibold underline">View your tickets</Link>
+                ✓ Thank you. We received your message and will reply during business hours.
+                {user ? (
+                  <>
+                    {' '}
+                    <Link href="/dashboard/tickets" className="font-semibold underline">View your tickets</Link>
+                  </>
+                ) : null}
               </div>
             )}
 
@@ -192,6 +204,8 @@ export default function SupportPage() {
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
                   >
+                    <option value="Return Request">Return Request</option>
+                    <option value="Complaint">Complaint</option>
                     <option value="Order Issue">Order Issue</option>
                     <option value="Product Question">Product Question</option>
                     <option value="Payment Issue">Payment Issue</option>
@@ -254,10 +268,10 @@ export default function SupportPage() {
 
               <button
                 type="submit"
-                disabled={loading || !user}
+                disabled={loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition"
               >
-                {!user ? 'Please Sign In to Submit' : loading ? 'Submitting...' : 'Submit Support Ticket'}
+                {loading ? 'Submitting...' : user ? 'Submit Support Ticket' : 'Submit complaint or return request'}
               </button>
             </form>
           </div>
@@ -274,7 +288,7 @@ export default function SupportPage() {
                     <div>
                       <p className="font-medium text-slate-800">Email</p>
                       <a href={`mailto:${STORE1920_SUPPORT_EMAIL}`} className="text-blue-600 hover:underline">{STORE1920_SUPPORT_EMAIL}</a>
-                      <p className="text-sm text-slate-600 mt-1">We reply within 24 hours</p>
+                      <p className="text-sm text-slate-600 mt-1">We reply during business hours, usually the next business day</p>
                     </div>
                   </div>
                 </div>
@@ -292,12 +306,17 @@ export default function SupportPage() {
             </div>
 
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-8">
-              <h3 className="text-lg font-bold text-slate-800 mb-3">Response Time</h3>
-              <ul className="space-y-2 text-slate-700 text-sm">
-                <li>✓ <strong>24 hours</strong> - Most queries</li>
-                <li>✓ <strong>48 hours</strong> - Complex issues</li>
-                <li>✓ <strong>1 hour</strong> - Urgent matters</li>
-              </ul>
+              <h3 className="text-lg font-bold text-slate-800 mb-3">Business hours</h3>
+              <p className="text-slate-700 text-sm mb-3">{STORE1920_BUSINESS_HOURS_EN}</p>
+              <p className="text-slate-700 text-sm mb-3">
+                Phone:{' '}
+                <a href={STORE1920_CUSTOMER_SUPPORT_TEL} className="font-semibold text-blue-700 underline">
+                  {formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE)}
+                </a>
+              </p>
+              <p className="text-slate-600 text-sm">
+                We are not a 24/7 desk. Messages sent after hours are answered on the next business day.
+              </p>
             </div>
           </div>
         </div>

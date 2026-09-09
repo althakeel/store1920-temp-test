@@ -17,7 +17,6 @@ const NAV_LABELS = {
   categories: 'Categories',
   products: 'Products',
   blogs: 'Blog',
-  stores: 'Stores',
   account: 'Account',
   help: 'Help',
   policies: 'Policies',
@@ -124,7 +123,6 @@ export default async function SitemapPage() {
               { label: 'Categories', value: stats.categories },
               { label: 'Products', value: stats.products },
               { label: 'Posts', value: stats.blogs },
-              { label: 'Stores', value: stats.stores },
             ].map((item) => (
               <div
                 key={item.label}

@@ -5,7 +5,7 @@ import GuestOrderLinker from "@/components/GuestOrderLinker";
 import SilentDomErrorBoundary from "@/components/SilentDomErrorBoundary";
 import dynamic from "next/dynamic";
 import { useEffect, Suspense, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { isProductDetailPath } from "@/lib/productUrl";
 
 const UtmTracker = dynamic(() => import("@/components/UtmTracker"), { ssr: false });
@@ -69,7 +69,7 @@ function PublicLayoutContent({ children }) {
 
 function PublicLayoutAuthed({ children }) {
     return (
-        <Suspense fallback={<div className="flex flex-col"><GuestOrderLinker /><main className="flex-1 pb-[5.25rem] lg:pb-0">{children}</main></div>}>
+        <Suspense fallback={<div className="flex flex-col"><main className="flex-1 pb-[5.25rem] lg:pb-0" /></div>}>
             <PublicLayoutContent>{children}</PublicLayoutContent>
         </Suspense>
     );

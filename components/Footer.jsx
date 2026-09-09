@@ -159,7 +159,7 @@ const Footer = () => {
             links: [
                 { text: t('footer.allProducts'), path: '/shop' },
                 { text: t('footer.todaysDeals'), path: '/offers' },
-                { text: t('footer.newArrivals'), path: '/new' },
+                { text: t('footer.newArrivals'), path: '/new-arrivals' },
                 { text: t('footer.fastDelivery'), path: '/fast-delivery' },
             ],
         },
@@ -191,7 +191,6 @@ const Footer = () => {
                 { text: t('footer.aboutUs'), path: '/about-us' },
                 { text: t('footer.blog'), path: '/blogs' },
                 { text: t('footer.businessInformation'), path: '/business-information' },
-                { text: t('footer.sellOnStore1920'), path: '/create-store' },
                 { text: t('footer.careers'), path: '/careers' },
             ],
         },

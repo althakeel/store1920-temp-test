@@ -77,7 +77,6 @@ import {
 } from '@/lib/productVariantOptions';
 
 const PLACEHOLDER_IMAGE = 'https://store1920-images.s3.ap-south-1.amazonaws.com/uploads/placeholder.png';
-const NAVBAR_BRAND_COLOR = '#8f3404';
 const GALLERY_CROSSFADE = { duration: 0.55, ease: [0.22, 1, 0.36, 1] };
 
 function CrossfadeProductMedia({
@@ -459,25 +458,6 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
   const { user, getToken } = useAuth();
   const isSignedIn = Boolean(user);
   const userId = user?.uid || null;
-  const [navbarBrandColor, setNavbarBrandColor] = useState(NAVBAR_BRAND_COLOR);
-
-  useEffect(() => {
-    const syncNavbarColor = () => {
-      try {
-        const raw = window.localStorage.getItem('navbarAppearanceCache');
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        const next = String(parsed?.backgroundColor || '').trim();
-        if (next) setNavbarBrandColor(next);
-      } catch {
-        // Ignore cache read failures.
-      }
-    };
-
-    syncNavbarColor();
-    window.addEventListener('navbarAppearanceUpdated', syncNavbarColor);
-    return () => window.removeEventListener('navbarAppearanceUpdated', syncNavbarColor);
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -554,10 +534,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
   }, [product?.storeId]);
 
   const deliveryWindow = useMemo(() => {
-    // Fast Delivery products: 2-5 days. Standard products: 3-6 days.
     const isFastDelivery = Boolean(product?.fastDelivery);
-    const baseMinDays = isFastDelivery ? 2 : 3;
-    const baseMaxDays = isFastDelivery ? 5 : 6;
+    const baseMinDays = isFastDelivery ? 1 : 3;
+    const baseMaxDays = isFastDelivery ? 1 : 7;
 
     const today = new Date(timeNow);
     today.setHours(0, 0, 0, 0);
@@ -600,6 +579,15 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     // (order-threshold free shipping is shown separately in the fee row).
     const qualifiesForFreeDelivery = Boolean(product?.freeShippingEligible);
 
+    if (deliveryWindow.isFastDelivery) {
+      return {
+        primary: isArabic
+          ? `توصيل سريع — يقدّر بحلول ${rangeText}`
+          : `Fast delivery — estimated by ${rangeText}`,
+        secondary: t('product.fastDeliveryQualifier'),
+      };
+    }
+
     if (isArabic) {
       const daysText = minDays === maxDays
         ? `خلال حوالي ${minDays} أيام`
@@ -622,7 +610,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
         : `Estimated delivery by ${rangeText}`,
       secondary: `Order now — get it ${daysText} (estimate)`,
     };
-  }, [deliveryWindow, isArabic, product?.freeShippingEligible]);
+  }, [deliveryWindow, isArabic, product?.freeShippingEligible, t]);
 
   const buyboxCopy = useMemo(() => {
     if (isArabic) {
@@ -1490,8 +1478,6 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     handleBundleTierSelect,
   ]);
 
-  const STORE_SOLD_BY_NAME = 'store1920';
-
   const localizedProductName = (isArabic && String(product?.nameAr || '').trim())
     ? product.nameAr
     : (product?.name || product?.title || '');
@@ -1515,15 +1501,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
   const renderSoldByLine = (className = '', mobile = false) => (
     <p
       dir={isArabic ? 'rtl' : 'ltr'}
-      className={`w-full text-start leading-snug ${mobile ? 'text-xs' : 'text-sm'} ${className}`.trim()}
+      className={`w-full text-start leading-snug text-gray-600 ${mobile ? 'text-xs' : 'text-sm'} ${className}`.trim()}
     >
-      <span className="font-normal text-gray-500">{t('product.soldBy')} </span>
-      <span
-        className={mobile ? 'font-semibold' : 'font-bold'}
-        style={{ color: navbarBrandColor }}
-      >
-        {STORE_SOLD_BY_NAME}
-      </span>
+      {t('product.trustLine')}
     </p>
   );
 

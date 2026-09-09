@@ -2,6 +2,9 @@
 
 import PolicyPageLayout from '@/components/PolicyPageLayout';
 import { useStorefrontI18n } from "@/lib/useStorefrontI18n";
+import { STORE1920_LEGAL_NAME } from '@/lib/businessIdentity';
+
+const TRADING_AS = `${STORE1920_LEGAL_NAME}, trading as Store1920`;
 
 export default function TermsAndConditions() {
   const { isArabic } = useStorefrontI18n();
@@ -11,11 +14,17 @@ export default function TermsAndConditions() {
       <PolicyPageLayout dir="rtl">
         <h1 className="text-3xl font-bold mb-3">الشروط والأحكام</h1>
           <p className="mb-3">
-            يتم تشغيل هذا الموقع بواسطة <strong>Store1920.com</strong>. باستخدامك للموقع أو إتمام أي طلب شراء، فإنك توافق على الشروط
+            يتم تشغيل هذا الموقع بواسطة <strong>{TRADING_AS}</strong>. باستخدامك للموقع أو إتمام أي طلب شراء، فإنك توافق على الشروط
             والأحكام الواردة في هذه الصفحة.
           </p>
+          <p className="mb-3">
+            Store1920 متجر تجزئة مباشر. المنتجات المعروضة على هذا الموقع تُباع من قبل {TRADING_AS}. لسنا سوقًا إلكترونيًا ولا نبيع نيابة عن بائعين من أطراف ثالثة.
+          </p>
+          <p className="mb-3">
+            نحرص على دقة المعلومات المعروضة. إذا اكتشفنا خطأً قبل تأكيد الطلب، يجوز لنا تصحيحه. بعد تأكيد الطلب، يسري السعر والمنتجات المتفق عليها، مع حفظ حقوقك النظامية بموجب قوانين دولة الإمارات العربية المتحدة.
+          </p>
           <p className="mb-8">
-            يرجى قراءة هذه البنود بعناية قبل استخدام خدماتنا. إذا كنت لا توافق على أي جزء منها، يرجى عدم استخدام الموقع أو إتمام الطلب.
+            لا يستبعد أي بند في هذه الشروط ولا يقيّد أي حق لا يجوز استبعاده قانونًا بموجب قوانين دولة الإمارات العربية المتحدة. يرجى قراءة هذه البنود بعناية قبل استخدام خدماتنا. إذا كنت لا توافق على أي جزء منها، يرجى عدم استخدام الموقع أو إتمام الطلب.
           </p>
 
           <div className="space-y-6 border border-gray-200 rounded-xl p-6">
@@ -38,8 +47,7 @@ export default function TermsAndConditions() {
             <section>
               <h2 className="text-xl font-semibold mb-2">3. الأسعار والمنتجات</h2>
               <p>
-                نسعى لتقديم معلومات دقيقة عن الأسعار والتوفر، لكن قد تحدث أخطاء غير مقصودة. نحتفظ بحق تعديل الأسعار أو تحديث تفاصيل
-                المنتجات دون إشعار مسبق.
+                نحرص على دقة الأسعار وتفاصيل المنتجات. إذا ظهر خطأ قبل تأكيد الطلب، يجوز لنا تصحيحه. بعد التأكيد، يسري السعر المتفق عليه، مع حفظ حقوقك النظامية بموجب قوانين دولة الإمارات العربية المتحدة.
               </p>
             </section>
 
@@ -61,7 +69,7 @@ export default function TermsAndConditions() {
             <section>
               <h2 className="text-xl font-semibold mb-2">6. الإرجاع والاسترداد</h2>
               <p>
-                تتم عمليات الإرجاع والاسترداد وفق سياسة الإرجاع والاسترداد المعتمدة لدينا، والتي قد تختلف حسب نوع المنتج وحالته.
+                تتم عمليات الإرجاع والاسترداد والاستبدال والإلغاء وفق سياسة الإرجاع المعتمدة لدينا. لا تنتقص القواعد التجارية في تلك السياسة من الحقوق الإلزامية بموجب قوانين دولة الإمارات العربية المتحدة.
               </p>
             </section>
 
@@ -84,7 +92,7 @@ export default function TermsAndConditions() {
               <h2 className="text-xl font-semibold mb-2">9. حدود المسؤولية</h2>
               <p>
                 لا نتحمل المسؤولية عن أي خسائر غير مباشرة أو تبعية ناتجة عن استخدام الموقع أو تأخر الخدمة، وذلك بالحد الأقصى المسموح به
-                قانونًا.
+                قانونًا. لا يستبعد أي بند في هذه الشروط ولا يقيّد أي حق لا يجوز استبعاده قانونًا بموجب قوانين دولة الإمارات العربية المتحدة.
               </p>
             </section>
 
@@ -101,6 +109,9 @@ export default function TermsAndConditions() {
                 لأي استفسار بخصوص الشروط والأحكام، يرجى التواصل عبر البريد الإلكتروني:
                 <a href="mailto:support@Store1920.com" className="text-orange-600 underline mr-1">support@Store1920.com</a>
               </p>
+              <p className="text-xs text-gray-500 mt-4">
+                <strong>آخر تحديث:</strong> 8 سبتمبر 2026
+              </p>
             </section>
           </div>
       </PolicyPageLayout>
@@ -112,11 +123,11 @@ export default function TermsAndConditions() {
       <div className="text-gray-800">
         <h1 className="text-3xl font-bold mb-3">Terms & Conditions</h1>
         <p className="mb-3">
-          This website is operated by <strong>Store1920.com</strong>. Throughout the site, the terms “we”, “us” and “our” refer to
-          <strong> Store1920 LLC</strong>. By shopping through this website, you agree to our Terms & Conditions.
+          This website is operated by <strong>{TRADING_AS}</strong>. Throughout the site, the terms “we”, “us” and “our” refer to
+          {' '}<strong>{TRADING_AS}</strong>. By shopping through this website, you agree to our Terms & Conditions.
         </p>
         <p className="mb-3">
-          Store1920 LLC offers this website, including all products, tools, and services available from this site to you,
+          {TRADING_AS} offers this website, including all products, tools, and services available from this site to you,
           conditioned upon your acceptance of all terms, conditions, policies, and notices stated here.
         </p>
         <p className="mb-3">
@@ -124,24 +135,21 @@ export default function TermsAndConditions() {
           Terms of Service, including additional terms and policies referenced herein.
         </p>
         <p className="mb-3">
-          We are agents/resellers for different stores and sell products with cooperation from other companies and shops.
+          Store1920 is a direct retailer. Products listed on this website are sold by {TRADING_AS}. We are not a marketplace and we do not sell products on behalf of third-party sellers.
         </p>
         <p className="mb-3">
-          These Terms of Service apply to all users of the site, including browsers, vendors, customers, merchants, and/or
-          contributors of content.
+          These Terms of Service apply to all users of the site, including browsers, customers, and users who submit content.
         </p>
         <p className="mb-3">
           Please read these Terms carefully before using our website. If you do not agree to all terms and conditions,
           you may not access the website or use any services.
         </p>
         <p className="mb-3">
-          Any new features or tools added to the current store shall also be subject to these Terms of Service.
-          You can review the most current version at any time on this page.
+          Nothing in these Terms excludes or limits rights that cannot lawfully be excluded under UAE law.
         </p>
         <p className="mb-8">
-          We reserve the right to update, change, or replace any part of these Terms by posting updates on our website.
-          Continued use of the website after changes are posted constitutes acceptance of those changes.
-          Our store is hosted on WooCommerce Inc., which provides the e-commerce platform that allows us to sell products and services.
+          Any new features or tools added to the current store shall also be subject to these Terms of Service.
+          You can review the most current version at any time on this page.
         </p>
 
         <div className="space-y-6 border border-gray-200 rounded-xl p-6">
@@ -169,21 +177,24 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-2">SECTION 3 – ACCURACY, COMPLETENESS AND TIMELINESS OF INFORMATION</h2>
+            <h2 className="text-xl font-semibold mb-2">SECTION 3 – ACCURACY AND CORRECTION OF ERRORS</h2>
             <p>
-              We are not responsible if information on this site is not accurate, complete, or current. Materials are for general information only and should not be the sole basis for decisions without consulting primary and more current sources.
+              We take reasonable care to keep product information, prices, availability, and other site content accurate and current.
             </p>
             <p className="mt-2">
-              This site may contain historical information, which is not current and is provided for reference only. We may modify site contents at any time without obligation to update information.
+              If we discover an error, we may correct it before a binding contract is formed. Once we confirm your order, the confirmed price, products, and terms apply to that order.
+            </p>
+            <p className="mt-2">
+              Correction of a listing error does not affect a confirmed order except where required by law, or where we notify you of an obvious error and you choose a refund or an alternative. Nothing in this section limits your statutory rights under UAE law.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-2">SECTION 4 – MODIFICATIONS TO THE SERVICE AND PRICES</h2>
             <ul className="list-disc ml-6 space-y-1">
-              <li>Prices are subject to change without notice.</li>
-              <li>We may modify or discontinue the Service (or any part/content) at any time without notice.</li>
-              <li>We are not liable to you or any third party for modifications, price changes, suspension, or discontinuance of the Service.</li>
+              <li>Listed prices may change before an order is confirmed. After we confirm your order, the confirmed price applies to that order.</li>
+              <li>We may modify or discontinue the website or a service at any time. That does not change a confirmed order except as required by law or as set out in Section 3.</li>
+              <li>We are not liable for modifications to unconfirmed listings, except where liability cannot lawfully be excluded under UAE law.</li>
             </ul>
           </section>
 
@@ -194,9 +205,9 @@ export default function TermsAndConditions() {
               <li>Returns or exchanges are subject to our Return Policy.</li>
               <li>We strive to display product colors and images accurately but cannot guarantee exact monitor display accuracy.</li>
               <li>We reserve the right to limit sales by person, region, or jurisdiction on a case-by-case basis.</li>
-              <li>All product descriptions and pricing are subject to change without notice.</li>
-              <li>We may discontinue any product at any time; offers are void where prohibited.</li>
-              <li>We do not warrant that product/service quality meets your expectations or that Service errors will always be corrected.</li>
+              <li>We may update product descriptions and listed prices before an order is confirmed. After confirmation, the confirmed description and price apply, subject to Section 3 and your statutory rights.</li>
+              <li>We may discontinue a product at any time for future orders; offers are void where prohibited.</li>
+              <li>We do not promise that the website will always be error-free. Goods sold to you remain subject to our Terms of Sale, Return Policy, and rights that cannot lawfully be excluded under UAE law.</li>
             </ul>
           </section>
 
@@ -267,10 +278,10 @@ export default function TermsAndConditions() {
               Occasionally there may be typographical errors, inaccuracies, or omissions related to product descriptions, pricing, promotions, shipping charges, transit times, and availability.
             </p>
             <p className="mt-2">
-              We reserve the right to correct errors, update information, or cancel orders at any time without prior notice, including after order submission.
+              We may correct such errors and update information before an order is confirmed. After confirmation, the confirmed order stands, subject to your statutory rights and the obvious-error process in Section 3.
             </p>
             <p className="mt-2">
-              We are not obligated to update, amend, or clarify information except as required by law.
+              We will not cancel a confirmed order solely to correct a listing error except as required by UAE law.
             </p>
           </section>
 
@@ -294,23 +305,23 @@ export default function TermsAndConditions() {
           <section>
             <h2 className="text-xl font-semibold mb-2">SECTION 13 – DISCLAIMER OF WARRANTIES; LIMITATION OF LIABILITY</h2>
             <p>
-              We do not guarantee uninterrupted, timely, secure, or error-free service, nor that results obtained from the service will be accurate or reliable.
+              We do not guarantee uninterrupted, timely, secure, or error-free website service, nor that results obtained from using the website will always be accurate or reliable.
             </p>
             <p className="mt-2">
-              The service and all products/services delivered through it are provided “as is” and “as available” without warranties (express or implied), including merchantability, fitness for a particular purpose, durability, title, and non-infringement.
+              The website is provided on an “as available” basis. Products sold to you are supplied by {TRADING_AS} as the retailer, subject to our Terms of Sale, Return Policy, and rights that cannot lawfully be excluded under UAE law.
             </p>
             <p className="mt-2">
-              In no case shall Store1920 LLC, its directors, officers, employees, affiliates, agents, contractors, interns, suppliers, service providers, or licensors be liable for direct or indirect losses, including lost profits, revenue, data, or other consequential damages arising from use of the service or products.
+              In no case shall {TRADING_AS}, its directors, officers, employees, affiliates, agents, contractors, interns, suppliers, service providers, or licensors be liable for indirect losses, including lost profits, revenue, data, or other consequential damages arising from use of the website, to the maximum extent permitted by law.
             </p>
             <p className="mt-2">
-              Where jurisdictions do not allow such exclusions, liability is limited to the maximum extent permitted by law.
+              Nothing in these Terms excludes or limits rights that cannot lawfully be excluded under UAE law.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-2">SECTION 14 – INDEMNIFICATION</h2>
             <p>
-              You agree to indemnify, defend, and hold harmless Store1920 LLC and its parent, subsidiaries, affiliates, partners, officers,
+              You agree to indemnify, defend, and hold harmless {TRADING_AS} and its parent, subsidiaries, affiliates, partners, officers,
               directors, agents, contractors, licensors, service providers, subcontractors, suppliers, interns, and employees from any claim
               or demand (including reasonable legal fees) arising from your breach of these Terms, violation of law, or violation of third-party rights.
             </p>
@@ -346,7 +357,7 @@ export default function TermsAndConditions() {
 
           <section>
             <h2 className="text-xl font-semibold mb-2">SECTION 18 – GOVERNING LAW</h2>
-            <p>These Terms and any separate agreements are governed by and construed in accordance with the laws of the UAE.</p>
+            <p>These Terms and any separate agreements are governed by and construed in accordance with the laws of the UAE. Nothing in these Terms excludes or limits rights that cannot lawfully be excluded under UAE law.</p>
           </section>
 
           <section>
@@ -363,6 +374,9 @@ export default function TermsAndConditions() {
             <h2 className="text-xl font-semibold mb-2">SECTION 20 – CONTACT INFORMATION</h2>
             <p>
               Questions about the Terms of Service should be sent to <a href="mailto:support@Store1920.com" className="text-orange-600 underline">support@Store1920.com</a>.
+            </p>
+            <p className="text-xs text-gray-500 mt-4">
+              <strong>Last Updated:</strong> 8 September 2026
             </p>
           </section>
         </div>
