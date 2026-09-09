@@ -10,6 +10,8 @@ const CATEGORY_LABELS = new Set([
   'Product Question',
   'Payment Issue',
   'Account Issue',
+  'Return Request',
+  'Complaint',
   'Other'
 ]);
 
@@ -29,8 +31,10 @@ const normalizeCategory = (value) => {
     'payment issue': 'Payment Issue',
     account: 'Account Issue',
     'account issue': 'Account Issue',
-    return: 'Other',
-    refund: 'Other',
+    return: 'Return Request',
+    'return request': 'Return Request',
+    complaint: 'Complaint',
+    refund: 'Return Request',
     shipping: 'Other',
     'shipping delay': 'Other'
   };

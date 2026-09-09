@@ -15,7 +15,7 @@ const TicketSchema = new mongoose.Schema({
   category: { 
     type: String, 
     required: true,
-    enum: ['Order Issue', 'Product Question', 'Payment Issue', 'Account Issue', 'Other']
+    enum: ['Order Issue', 'Product Question', 'Payment Issue', 'Account Issue', 'Return Request', 'Complaint', 'Other']
   },
   description: { type: String, required: true },
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },

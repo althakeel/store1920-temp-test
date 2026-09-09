@@ -30,9 +30,16 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const name = String(body?.name || '').trim();
     const email = String(body?.email || '').trim().toLowerCase();
-    const message = String(body?.message || '').trim();
+    const topic = String(body?.topic || body?.subject || '').trim();
+    const orderNumber = String(body?.orderNumber || '').trim();
+    const rawMessage = String(body?.message || '').trim();
+    const message = [
+      topic ? `Topic: ${topic}` : '',
+      orderNumber ? `Order: ${orderNumber}` : '',
+      rawMessage,
+    ].filter(Boolean).join('\n');
 
-    if (!name || !email || !message) {
+    if (!name || !email || !rawMessage) {
       return NextResponse.json({ error: 'Name, email, and message are required.' }, { status: 400 });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -54,12 +61,14 @@ export async function POST(request) {
     try {
       await sendMail({
         to: STORE1920_SUPPORT_EMAIL,
-        subject: `Contact form: ${name}`,
+        subject: `Contact form${topic ? ` (${topic})` : ''}: ${name}`,
         html: `
           <p><strong>Name:</strong> ${escapeHtml(name)}</p>
           <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+          ${topic ? `<p><strong>Topic:</strong> ${escapeHtml(topic)}</p>` : ''}
+          ${orderNumber ? `<p><strong>Order:</strong> ${escapeHtml(orderNumber)}</p>` : ''}
           <p><strong>Message:</strong></p>
-          <p>${escapeHtml(message).replace(/\n/g, '<br/>')}</p>
+          <p>${escapeHtml(rawMessage).replace(/\n/g, '<br/>')}</p>
         `,
         adminCopy: true,
         storeId,
