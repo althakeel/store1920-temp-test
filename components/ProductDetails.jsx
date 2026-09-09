@@ -435,6 +435,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
   const actionToastTimerRef = useRef(null);
   const [isOrderingNow, setIsOrderingNow] = useState(false);
   const [showRatingBreakdown, setShowRatingBreakdown] = useState(false);
+  const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
   const ratingBreakdownRef = useRef(null);
 
   const scrollToProductReviews = useCallback(() => {
@@ -504,6 +505,15 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     }, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!deliveryInfoOpen) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setDeliveryInfoOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [deliveryInfoOpen]);
 
   useEffect(() => {
     setCartUiReady(true);
@@ -3108,7 +3118,6 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
             {/* Mobile: title, price, brand card, services */}
             <div className="lg:hidden relative z-30 mt-3 w-full min-w-0 max-w-full space-y-2" dir={isArabic ? 'rtl' : 'ltr'}>
               <div className="space-y-1.5">
-                {renderSoldByLine('mb-0.5', true)}
                 <h1 dir={isArabic ? 'rtl' : 'ltr'} className="w-full min-w-0 text-[18px] font-semibold leading-snug text-gray-900 break-words whitespace-normal [overflow-wrap:anywhere]">
                   {productHeading}
                 </h1>
@@ -3202,10 +3211,21 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                     <svg className="mt-0.5 h-[18px] w-[18px] shrink-0 text-[#E52721]" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-[12px] leading-snug text-[#1e293b]">
-                      {t('product.mobile.arrivesInDays', { days: formatCount(deliveryWindow.minDays) })}{' '}
-                      <span className="font-semibold text-[#E52721]">{mobileArrivalDate}</span>
-                    </span>
+                    {deliveryWindow.isFastDelivery ? (
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryInfoOpen(true)}
+                        className="text-start text-[12px] leading-snug text-[#1e293b]"
+                      >
+                        {isArabic ? 'توصيل سريع' : 'Fast delivery'}{' '}
+                        <span className="font-semibold text-[#E52721]">{mobileArrivalDate}</span>
+                      </button>
+                    ) : (
+                      <span className="text-[12px] leading-snug text-[#1e293b]">
+                        {t('product.mobile.arrivesInDays', { days: formatCount(deliveryWindow.minDays) })}{' '}
+                        <span className="font-semibold text-[#E52721]">{mobileArrivalDate}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-start gap-2 px-3 py-2.5">
                     <Truck className="mt-0.5 h-[18px] w-[18px] shrink-0 text-[#E52721]" strokeWidth={1.75} aria-hidden="true" />
@@ -3219,6 +3239,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                   </div>
                 </div>
               </div>
+              {renderSoldByLine('mt-2 text-[11px] text-gray-500', true)}
 
               {renderFbtSection('mobile')}
 
@@ -3269,7 +3290,6 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
           <div className="relative z-0 hidden min-w-0 lg:block">
             <div className="hidden lg:block bg-white space-y-4" dir={isArabic ? 'rtl' : 'ltr'}>
               <div>
-                {renderSoldByLine('mb-1.5')}
                 <h1 dir={isArabic ? 'rtl' : 'ltr'} className="min-w-0 text-2xl font-medium leading-snug text-gray-900">{productHeading}</h1>
                 {mobileProductBrand ? (
                   <p className="mt-1 text-sm leading-snug text-gray-600">
@@ -3563,8 +3583,20 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
               className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3 text-[12px] leading-relaxed"
               dir={isArabic ? 'rtl' : 'ltr'}
             >
-              <p className="font-semibold text-slate-900">{deliverySummary.primary}</p>
-              <p className="mt-1 text-slate-700">{deliverySummary.secondary}</p>
+              {deliveryWindow.isFastDelivery ? (
+                <button
+                  type="button"
+                  onClick={() => setDeliveryInfoOpen(true)}
+                  className="w-full text-start font-semibold text-slate-900 hover:text-[#E52721]"
+                >
+                  {deliverySummary.primary}
+                </button>
+              ) : (
+                <>
+                  <p className="font-semibold text-slate-900">{deliverySummary.primary}</p>
+                  <p className="mt-1 text-slate-700">{deliverySummary.secondary}</p>
+                </>
+              )}
               <p className="mt-2 text-[11px] text-slate-500">
                 <Link href="/return-policy" className="font-medium text-[#E52721] hover:underline">
                   {buyboxCopy.returnsText}
@@ -3576,6 +3608,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                 <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
                 {buyboxCopy.vatText}
               </p>
+              {!deliveryWindow.isFastDelivery ? renderSoldByLine('mt-2 text-[11px] text-slate-500') : null}
             </div>
 
             {/* Quantity */}
@@ -3803,6 +3836,53 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
         </div>
       )}
 
+
+      {deliveryInfoOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+              onClick={() => setDeliveryInfoOpen(false)}
+              role="presentation"
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="fast-delivery-dialog-title"
+                dir={isArabic ? 'rtl' : 'ltr'}
+                className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 text-[13px] leading-relaxed shadow-xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <p id="fast-delivery-dialog-title" className="font-semibold text-slate-900">
+                    {deliverySummary.primary}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryInfoOpen(false)}
+                    className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    aria-label={isArabic ? 'إغلاق' : 'Close'}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="text-slate-700">{deliverySummary.secondary}</p>
+                {renderSoldByLine('mt-3 text-[12px] text-slate-600')}
+                <p className="mt-3 text-[11px] text-slate-500">
+                  <Link href="/return-policy" className="font-medium text-[#E52721] hover:underline">
+                    {buyboxCopy.returnsText}
+                  </Link>
+                  <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
+                  <Link href="/shipping-policy" className="font-medium text-slate-700 hover:underline">
+                    {isArabic ? 'سياسة الشحن' : 'Shipping Policy'}
+                  </Link>
+                  <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
+                  {buyboxCopy.vatText}
+                </p>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {actionToast ? (
         <StorefrontActionToast
