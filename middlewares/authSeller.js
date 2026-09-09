@@ -42,7 +42,7 @@ const authSeller = async (userId, emailFromToken = '') => {
                     status: { $in: ['invited', 'pending', 'approved'] }
                 }).sort({ updatedAt: -1 }).lean();
 
-                if (teamMembership && !teamMembership.userId) {
+                if (teamMembership && String(teamMembership.userId || '') !== String(userId)) {
                     await StoreUser.findByIdAndUpdate(teamMembership._id, {
                         userId: userId,
                         status: 'approved'
