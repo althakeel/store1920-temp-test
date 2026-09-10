@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
 import {
@@ -286,9 +286,10 @@ export default function ShopShowcaseSection({
     setHoveredMenuIndex(null)
   }
 
-  const updateFlyoutPosition = (index) => {
+  const updateFlyoutPosition = useCallback((index) => {
     const row = menuItemRefs.current[index]
     const column = asideRef.current || menuContainerRef.current
+    const list = menuScrollRef.current
     if (!row || !column) {
       setFlyoutPosition({
         top: 0,
@@ -304,38 +305,66 @@ export default function ShopShowcaseSection({
 
     const columnRect = column.getBoundingClientRect()
     const rowRect = row.getBoundingClientRect()
-    const columnHeight = column.offsetHeight || columnRect.height
-    const rowTop = rowRect.top - columnRect.top
-    const rowBottom = rowTop + rowRect.height
+    const listRect = list?.getBoundingClientRect()
+    const visibleTop = listRect?.top ?? columnRect.top
+    const visibleBottom = listRect?.bottom ?? columnRect.bottom
+
+    if (rowRect.bottom < visibleTop + 2 || rowRect.top > visibleBottom - 2) {
+      setHoveredMenuIndex(null)
+      return
+    }
+
     const listEl = flyoutRef.current?.querySelector('[data-showcase-flyout-list]')
     const contentHeight = Math.max(
       estimateShowcaseFlyoutHeight(flyoutLinksRef.current),
       listEl?.scrollHeight || 0,
     )
-    const maxHeight = Math.max(rowRect.height, columnHeight)
+    const maxHeight = Math.max(rowRect.height, visibleBottom - visibleTop)
     const height = Math.min(Math.max(contentHeight, rowRect.height), maxHeight)
-    const isBottomParent = rowBottom >= columnHeight * 0.55
 
-    let top = isBottomParent ? rowBottom - height : rowTop
-    if (top + height > columnHeight) top = columnHeight - height
-    if (top < 0) top = 0
+    let top = rowRect.top
+    if (top + height > visibleBottom) top = Math.max(visibleTop, visibleBottom - height)
+    if (top < visibleTop) top = visibleTop
 
     setFlyoutPosition({
-      top: columnRect.top + top,
+      top,
       left: isArabic ? undefined : columnRect.right - 1,
       right: isArabic ? window.innerWidth - columnRect.left - 1 : undefined,
       maxHeight,
       needsScroll: contentHeight > maxHeight,
-      bridgeTop: columnRect.top + Math.min(top, rowTop),
-      bridgeHeight: Math.max(rowBottom, top + height) - Math.min(top, rowTop),
+      bridgeTop: Math.min(rowRect.top, top),
+      bridgeHeight: Math.max(rowRect.bottom, top + height) - Math.min(rowRect.top, top),
     })
-  }
+  }, [isArabic])
 
   const handleMenuItemHover = (index) => {
     clearFlyoutCloseTimer()
     setHoveredMenuIndex(index)
     window.requestAnimationFrame(() => updateFlyoutPosition(index))
   }
+
+  useEffect(() => {
+    if (hoveredMenuIndex == null) return undefined
+
+    let rafId = 0
+    const sync = () => {
+      cancelAnimationFrame(rafId)
+      rafId = window.requestAnimationFrame(() => updateFlyoutPosition(hoveredMenuIndex))
+    }
+
+    const list = menuScrollRef.current
+    list?.addEventListener('scroll', sync, { passive: true })
+    window.addEventListener('scroll', sync, { passive: true })
+    window.addEventListener('resize', sync)
+    sync()
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      list?.removeEventListener('scroll', sync)
+      window.removeEventListener('scroll', sync)
+      window.removeEventListener('resize', sync)
+    }
+  }, [hoveredMenuIndex, updateFlyoutPosition])
 
   useEffect(() => {
     setLanguage(readPersistedStorefrontLanguage())
@@ -679,7 +708,6 @@ export default function ShopShowcaseSection({
                 <span className="text-lg leading-none">☰</span>
                 <span>{isArabic ? 'جميع الفئات' : 'All Categories'}</span>
               </div>
-              <MenuChevron size={18} className="text-white/70" />
             </div>
 
             <div

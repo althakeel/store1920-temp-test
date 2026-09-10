@@ -15,7 +15,7 @@ export function CartSummaryActions({
     <button
       type="button"
       className="w-full rounded-xl border border-slate-300 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-      onClick={() => router.push('/products')}
+      onClick={() => router.push('/shop')}
     >
       {t('cart.continueShopping')}
     </button>
@@ -157,6 +157,9 @@ export default function CartSummaryBox({
           <span>{t('cart.total')}</span>
           <span>{market.currency} {formatAmount(total)}</span>
         </div>
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+          {t('cart.freeDeliveryNote')}
+        </p>
         {showTabbyPromo ? <div id="tabbyPromoCart" className="mt-3" /> : null}
       </div>
       {checkoutNote && (

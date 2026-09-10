@@ -278,8 +278,8 @@ const StoreLayout = ({ children }) => {
                     Retry Access Check
                 </button>
             ) : (
-                <Link href="/create-store" className="bg-blue-600 text-white flex items-center gap-2 p-2 px-6 max-sm:text-sm rounded-full hover:bg-blue-700 transition">
-                    Request Store Access
+                <Link href="/support" className="bg-blue-600 text-white flex items-center gap-2 p-2 px-6 max-sm:text-sm rounded-full hover:bg-blue-700 transition">
+                    Contact Support
                 </Link>
             )}
             <Link href="/" className="bg-slate-700 text-white flex items-center gap-2 mt-4 p-2 px-6 max-sm:text-sm rounded-full">

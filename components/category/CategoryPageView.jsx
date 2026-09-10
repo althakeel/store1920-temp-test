@@ -7,6 +7,7 @@ import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 import { resolveCategoryHref } from '@/lib/categoryTreeUtils';
 import CategoryProductsPanel from '@/components/category/CategoryProductsPanel';
 import CategoryHeroCard from '@/components/category/CategoryHeroCard';
+import { CreditCard, ShieldCheck, Truck, Wallet } from 'lucide-react';
 
 function localizeCategoryRecord(category, language) {
   if (!category) return '';
@@ -114,6 +115,25 @@ export default function CategoryPageView({
           <p className="text-gray-500 text-lg">{t('category.noProducts')}</p>
         </div>
       )}
+
+      <div className="mt-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { icon: ShieldCheck, label: t('category.trust.warranty') },
+          { icon: Truck, label: t('category.trust.freeDelivery') },
+          { icon: Wallet, label: t('category.trust.cod') },
+          { icon: CreditCard, label: t('category.trust.instalments') },
+        ].map(({ icon: Icon, label }) => (
+          <div
+            key={label}
+            className={`flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 ${isArabic ? 'flex-row-reverse text-right' : ''}`}
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+              <Icon size={16} strokeWidth={1.9} />
+            </span>
+            <span className="font-medium leading-snug">{label}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

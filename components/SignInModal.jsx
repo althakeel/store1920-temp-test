@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Eye, EyeOff } from 'lucide-react';
+import { X, Eye, EyeOff, KeyRound, Mail, MessageCircle, Check, Loader2, ChevronDown } from 'lucide-react';
 import { auth, ensureLocalAuthPersistence } from '../lib/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   updateProfile,
   sendEmailVerification,
 } from 'firebase/auth';
@@ -14,21 +15,184 @@ import Image from 'next/image';
 import Link from 'next/link';
 import GoogleIcon from '../assets/google.png';
 import axios from 'axios';
-import { countryCodes } from '../assets/countryCodes';
+import { countryCodes, UAE_PHONE_CODE } from '../assets/countryCodes';
+import {
+  clampPhoneInput,
+  getPhoneInputError,
+  getPhoneInputHint,
+  getPhonePlaceholder,
+  isValidPhoneNumber,
+} from '@/lib/phoneValidation';
 import { linkGuestOrdersForCurrentUser } from '@/lib/linkGuestOrdersClient';
 import { validatePasswordStrength } from '@/lib/passwordPolicy';
+import OtpInput from '@/components/OtpInput';
 import {
   fetchCaptchaChallenge,
   runPreLogin,
   reportLoginResult,
   requestPasswordReset,
   confirmPasswordReset,
+  requestWhatsAppOtp,
+  verifyWhatsAppOtp,
+  requestEmailOtp,
+  verifyEmailOtp,
   setMfaVerified,
 } from '@/lib/authClient';
 
+function looksLikePhoneNumber(value = '') {
+  const text = String(value || '').trim();
+  if (!text || text.includes('@')) return false;
+  return /^\+?[\d\s()-]{7,}$/.test(text);
+}
+
+function isValidEmailAddress(value = '') {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function formatPhoneDisplay(digits = '') {
+  const raw = String(digits || '').replace(/\D/g, '');
+  if (raw.startsWith('0')) {
+    if (raw.length <= 3) return raw;
+    if (raw.length <= 6) return `${raw.slice(0, 3)} ${raw.slice(3)}`;
+    return `${raw.slice(0, 3)} ${raw.slice(3, 6)} ${raw.slice(6)}`;
+  }
+  if (raw.length <= 2) return raw;
+  if (raw.length <= 5) return `${raw.slice(0, 2)} ${raw.slice(2)}`;
+  return `${raw.slice(0, 2)} ${raw.slice(2, 5)} ${raw.slice(5)}`;
+}
+
+function CountryCodePicker({ value, onChange, disabled = false }) {
+  const [open, setOpen] = useState(false);
+  const selected = countryCodes.find((country) => country.code === value) || countryCodes[0];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = () => setOpen(false);
+    const timer = window.setTimeout(() => {
+      window.addEventListener('click', close);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('click', close);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((current) => !current);
+        }}
+        className="flex h-[42px] min-w-[7.25rem] items-center justify-between gap-1 rounded-lg border border-gray-300 bg-white px-2.5 text-sm font-medium text-gray-800 disabled:bg-gray-50"
+      >
+        <span>{selected.code}</span>
+        <ChevronDown size={14} className={`shrink-0 text-gray-500 transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open ? (
+        <div className="absolute left-0 z-50 mt-1 max-h-56 w-64 overflow-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          {countryCodes.map((country) => (
+            <button
+              key={country.code}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onChange(country.code);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                country.code === selected.code ? 'bg-gray-50 font-semibold text-gray-900' : 'text-gray-700'
+              }`}
+            >
+              <span className="truncate pr-2">{country.label}</span>
+              <span className="shrink-0 text-gray-500">{country.code}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function isMathCaptchaSolved(question, answer) {
+  const match = String(question || '').match(/(\d+)\s*\+\s*(\d+)/);
+  if (!match) return false;
+  const expected = Number(match[1]) + Number(match[2]);
+  const given = Number(String(answer || '').trim());
+  return Number.isFinite(given) && given === expected;
+}
+
+function CaptchaField({ question, value, onChange, onRefresh, onReady }) {
+  const solved = isMathCaptchaSolved(question, value);
+  const attempted = String(value || '').trim() !== '';
+  const [phase, setPhase] = useState('idle');
+
+  useEffect(() => {
+    if (!solved) {
+      setPhase('idle');
+      onReady?.(false);
+      return undefined;
+    }
+
+    setPhase('loading');
+    onReady?.(false);
+    const timer = setTimeout(() => {
+      setPhase('success');
+      onReady?.(true);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [solved, question, onReady]);
+
+  if (phase === 'loading') {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+        <Loader2 size={18} className="shrink-0 animate-spin text-slate-600" />
+        <p className="text-sm font-medium text-slate-700">Verifying CAPTCHA…</p>
+      </div>
+    );
+  }
+
+  if (phase === 'success') {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-emerald-500 bg-emerald-50 px-3 py-2.5">
+        <Check size={18} className="shrink-0 text-emerald-600" strokeWidth={2.5} />
+        <p className="text-sm font-medium text-emerald-800">CAPTCHA verified successfully</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition bg-white ${
+      attempted ? 'border-red-300' : 'border-gray-300'
+    }`}>
+      <div className="flex w-full items-center gap-2">
+        <label className="shrink-0 text-xs font-medium text-gray-600 whitespace-nowrap">{question}</label>
+        <input
+          type="text"
+          inputMode="numeric"
+          className={`min-w-0 flex-1 bg-transparent text-sm outline-none ${
+            attempted ? 'text-red-600' : 'text-gray-900'
+          }`}
+          value={value}
+          onChange={(event) => onChange(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
+          placeholder="Answer"
+          required
+        />
+        {onRefresh ? (
+          <button type="button" className="shrink-0 text-xs text-blue-600" onClick={onRefresh}>
+            Refresh
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', variant = 'modal' }) => {
   const [isRegister, setIsRegister] = useState(false);
-  const [view, setView] = useState('auth'); // auth | forgot | reset | mfa
+  const [view, setView] = useState('auth'); // auth | reset | mfa | otp
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,8 +213,23 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [captcha, setCaptcha] = useState({ challengeId: '', question: '' });
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaConfirmed, setCaptchaConfirmed] = useState(false);
+  const [authMethod, setAuthMethod] = useState('email'); // email | whatsapp | email_otp
+  const [otpChannel, setOtpChannel] = useState('whatsapp'); // email | whatsapp
+  const [whatsappStep, setWhatsappStep] = useState('phone'); // phone | otp
+  const [whatsappOtp, setWhatsappOtp] = useState('');
+  const [whatsappCooldown, setWhatsappCooldown] = useState(0);
+  const [emailOtpStep, setEmailOtpStep] = useState('email'); // email | otp
+  const [emailOtp, setEmailOtp] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [formNonce, setFormNonce] = useState(0);
+  const [emailOtpCooldown, setEmailOtpCooldown] = useState(0);
   const [resetToken, setResetToken] = useState('');
   const [resetOtp, setResetOtp] = useState('');
+  const [resetChannel, setResetChannel] = useState('email'); // email | whatsapp
+  const [resetStep, setResetStep] = useState('identify'); // identify | code
+  const [resetCooldown, setResetCooldown] = useState(0);
+  const [resetSentTo, setResetSentTo] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [pendingMfaToken, setPendingMfaToken] = useState('');
   const [modalSettings, setModalSettings] = useState({
@@ -72,15 +251,64 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }).catch(() => {});
   }, []);
 
+  const resetAuthForm = useCallback(() => {
+    setIsRegister(defaultMode === 'register');
+    setView('auth');
+    setName('');
+    setEmail('');
+    setOtpEmail('');
+    setFormNonce((value) => value + 1);
+    setPassword('');
+    setConfirmPassword('');
+    setPhoneNumber('');
+    setError('');
+    setInfo('');
+    setFieldErrors({
+      name: '',
+      phone: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    });
+    setLoading(false);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setCaptchaAnswer('');
+    setCaptchaConfirmed(false);
+    setAuthMethod('email');
+    setOtpChannel('whatsapp');
+    setWhatsappStep('phone');
+    setWhatsappOtp('');
+    setWhatsappCooldown(0);
+    setEmailOtpStep('email');
+    setEmailOtp('');
+    setEmailOtpCooldown(0);
+    setResetOtp('');
+    setResetToken('');
+    setResetChannel('email');
+    setResetStep('identify');
+    setResetCooldown(0);
+    setResetSentTo('');
+    setMfaCode('');
+    setPendingMfaToken('');
+  }, [defaultMode]);
+
+  const captchaReady = !captcha.question || captchaConfirmed;
+
   React.useEffect(() => {
+    if (variant !== 'modal') return undefined;
     if (open) {
-      setIsRegister(defaultMode === 'register');
+      resetAuthForm();
     }
-  }, [open, defaultMode]);
+    return undefined;
+  }, [open, variant, resetAuthForm]);
 
   // Clear errors when switching between login and register
   React.useEffect(() => {
     setError('');
+    setInfo('');
+    setWhatsappOtp('');
+    setWhatsappStep('phone');
     setFieldErrors({
       name: '',
       phone: '',
@@ -88,15 +316,17 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
       password: '',
       confirmPassword: ''
     });
-  }, [isRegister]);
+  }, [isRegister, authMethod]);
 
   const loadCaptcha = useCallback(async () => {
     try {
       const data = await fetchCaptchaChallenge();
       setCaptcha({ challengeId: data.challengeId, question: data.question });
       setCaptchaAnswer('');
+      setCaptchaConfirmed(false);
     } catch {
       setCaptcha({ challengeId: '', question: '' });
+      setCaptchaConfirmed(false);
     }
   }, []);
 
@@ -104,7 +334,67 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     if (open || variant === 'page') {
       void loadCaptcha();
     }
-  }, [open, variant, isRegister, view, loadCaptcha]);
+  }, [open, variant, isRegister, view, authMethod, loadCaptcha]);
+
+  useEffect(() => {
+    if (whatsappCooldown <= 0) return undefined;
+    const timer = setTimeout(() => setWhatsappCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [whatsappCooldown]);
+
+  useEffect(() => {
+    if (emailOtpCooldown <= 0) return undefined;
+    const timer = setTimeout(() => setEmailOtpCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [emailOtpCooldown]);
+
+  useEffect(() => {
+    if (resetCooldown <= 0) return undefined;
+    const timer = setTimeout(() => setResetCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resetCooldown]);
+
+  const openOtpLogin = (channel = 'whatsapp') => {
+    setView('otp');
+    setIsRegister(false);
+    setOtpChannel(channel);
+    setAuthMethod(channel === 'email' ? 'email_otp' : 'whatsapp');
+    if (channel !== 'email') setCountryCode(UAE_PHONE_CODE);
+    setError('');
+    setInfo('');
+    setWhatsappStep('phone');
+    setWhatsappOtp('');
+    setEmailOtpStep('email');
+    setEmailOtp('');
+    setOtpEmail(isValidEmailAddress(email) ? email : '');
+    setFormNonce((value) => value + 1);
+    void loadCaptcha();
+  };
+
+  const closeOtpLogin = () => {
+    setView('auth');
+    setAuthMethod('email');
+    setError('');
+    setInfo('');
+    void loadCaptcha();
+  };
+
+  const switchOtpChannel = (channel) => {
+    setOtpChannel(channel);
+    setAuthMethod(channel === 'email' ? 'email_otp' : 'whatsapp');
+    setError('');
+    setInfo('');
+    if (channel === 'email') {
+      setWhatsappStep('phone');
+      setWhatsappOtp('');
+      setOtpEmail((current) => (isValidEmailAddress(current) ? current : ''));
+      setFormNonce((value) => value + 1);
+    } else {
+      setCountryCode(UAE_PHONE_CODE);
+      setEmailOtpStep('email');
+      setEmailOtp('');
+    }
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -114,7 +404,12 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     if (token) {
       setResetToken(token);
       setView('reset');
-      if (resetEmail) setEmail(resetEmail);
+      setResetChannel('email');
+      setResetStep('code');
+      if (resetEmail) {
+        setEmail(resetEmail);
+        setResetSentTo(resetEmail);
+      }
     }
   }, []);
 
@@ -132,15 +427,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     return name.trim().length >= 2 && /^[a-zA-Z\s]+$/.test(name.trim());
   };
 
-  const validatePhoneNumber = (phone, countryCode) => {
-    const cleaned = phone.replace(/\D/g, '');
-    // For India (+91), require exactly 10 digits
-    if (countryCode === '+91') {
-      return cleaned.length === 10;
-    }
-    // For other countries, allow 7-15 digits
-    return cleaned.length >= 7 && cleaned.length <= 15;
-  };
+  const validatePhoneNumber = (phone, code) => isValidPhoneNumber(phone, code);
 
   const trackLoginLocation = (token) => {
     const pageUrl = typeof window !== 'undefined' ? window.location.pathname : '/';
@@ -149,14 +436,14 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }).catch(() => {});
   };
 
-  const runPostAuthTasks = async (user, { isNewUser = false, emailOverride = '', nameOverride = '', method } = {}) => {
+  const runPostAuthTasks = async (user, { isNewUser = false, emailOverride = '', nameOverride = '', phoneOverride = '', method } = {}) => {
     try {
       const token = await user.getIdToken();
       trackLoginLocation(token);
 
       void linkGuestOrdersForCurrentUser(user, token, {
         email: emailOverride || user.email || '',
-        phone: user.phoneNumber || '',
+        phone: phoneOverride || user.phoneNumber || '',
       });
 
       const authMethod = method
@@ -201,7 +488,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }
   };
 
-  const finishAuthSuccess = async (user, { isNewUser = false, emailOverride = '', nameOverride = '', method } = {}) => {
+  const finishAuthSuccess = async (user, { isNewUser = false, emailOverride = '', nameOverride = '', phoneOverride = '', method } = {}) => {
     const token = await user.getIdToken();
     const loginMeta = await reportLoginResult({
       email: emailOverride || user.email,
@@ -234,7 +521,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }
 
     onClose();
-    void runPostAuthTasks(user, { isNewUser, emailOverride, nameOverride, method });
+    void runPostAuthTasks(user, { isNewUser, emailOverride, nameOverride, phoneOverride, method });
   };
 
   const handleGoogleSignIn = async () => {
@@ -283,30 +570,92 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }
   };
 
-  const handleForgotSubmit = async (e) => {
-    e.preventDefault();
+  const openResetView = (channel = 'email') => {
+    setView('reset');
+    setResetChannel(channel);
+    setResetStep(resetToken ? 'code' : 'identify');
+    setResetOtp('');
     setError('');
     setInfo('');
-    if (!validateEmail(email)) {
+    if (channel === 'whatsapp') {
+      setCountryCode(UAE_PHONE_CODE);
+      setResetToken('');
+    }
+  };
+
+  const switchResetChannel = (channel) => {
+    if (channel === resetChannel) return;
+    setResetChannel(channel);
+    setResetStep('identify');
+    setResetOtp('');
+    setResetToken('');
+    setResetSentTo('');
+    setResetCooldown(0);
+    setError('');
+    setInfo('');
+    if (channel === 'whatsapp') setCountryCode(UAE_PHONE_CODE);
+  };
+
+  const handleResetIdentityChange = (nextEmail) => {
+    const value = looksLikePhoneNumber(nextEmail) ? '' : nextEmail;
+    setEmail(value);
+    if (resetToken) setResetToken('');
+    if (resetSentTo && value.trim().toLowerCase() !== String(resetSentTo).trim().toLowerCase()) {
+      setResetStep('identify');
+      setResetOtp('');
+      setInfo('');
+    }
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e?.preventDefault?.();
+    setError('');
+    setInfo('');
+
+    if (resetChannel === 'whatsapp') {
+      const phoneError = getPhoneInputError(phoneNumber, UAE_PHONE_CODE);
+      if (phoneError) {
+        setError(phoneError);
+        return;
+      }
+    } else if (!validateEmail(email)) {
       setError('Please enter a valid email address.');
       return;
     }
-    if (!captchaAnswer.trim()) {
+
+    const isResend = resetStep === 'code' && resetSentTo && (
+      resetChannel === 'whatsapp'
+        ? phoneNumber === resetSentTo
+        : email.trim().toLowerCase() === String(resetSentTo).trim().toLowerCase()
+    );
+    if (!isResend && !isMathCaptchaSolved(captcha.question, captchaAnswer)) {
       setError('Please solve the CAPTCHA.');
       return;
     }
     setLoading(true);
     try {
-      const data = await requestPasswordReset({
-        email,
-        captchaChallengeId: captcha.challengeId,
-        captchaAnswer,
-      });
-      setInfo(data.message || 'If an account exists, a reset email was sent.');
-      setView('reset');
-      void loadCaptcha();
+      const data = resetChannel === 'whatsapp'
+        ? await requestPasswordReset({
+            channel: 'whatsapp',
+            phone: phoneNumber,
+            phoneCode: UAE_PHONE_CODE,
+            captchaChallengeId: captcha.challengeId,
+            captchaAnswer,
+          })
+        : await requestPasswordReset({
+            channel: 'email',
+            email,
+            captchaChallengeId: captcha.challengeId,
+            captchaAnswer,
+          });
+      setInfo(data.message || (resetChannel === 'whatsapp'
+        ? 'If an account exists, a WhatsApp code has been sent.'
+        : 'If an account exists, a reset code was sent.'));
+      setResetStep('code');
+      setResetSentTo(resetChannel === 'whatsapp' ? phoneNumber : email);
+      setResetCooldown(45);
     } catch (err) {
-      setError(err.message || 'Could not request reset');
+      setError(err.message || 'Could not send reset code');
       void loadCaptcha();
     } finally {
       setLoading(false);
@@ -325,14 +674,40 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
       setError('Passwords do not match.');
       return;
     }
+    if (resetChannel === 'whatsapp') {
+      const phoneError = getPhoneInputError(phoneNumber, UAE_PHONE_CODE);
+      if (phoneError) {
+        setError(phoneError);
+        return;
+      }
+      if (resetOtp.replace(/\D/g, '').length < 4) {
+        setError('Enter the 4-digit WhatsApp code.');
+        return;
+      }
+    } else if (!validateEmail(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    } else if (!resetToken && resetOtp.replace(/\D/g, '').length < 6) {
+      setError('Enter the 6-digit email code.');
+      return;
+    }
     setLoading(true);
     try {
-      await confirmPasswordReset({
-        email,
-        newPassword: password,
-        resetToken: resetToken || undefined,
-        otp: resetOtp || undefined,
-      });
+      await confirmPasswordReset(resetChannel === 'whatsapp'
+        ? {
+            channel: 'whatsapp',
+            phone: phoneNumber,
+            phoneCode: UAE_PHONE_CODE,
+            otp: resetOtp,
+            newPassword: password,
+          }
+        : {
+            channel: 'email',
+            email,
+            newPassword: password,
+            resetToken: resetToken || undefined,
+            otp: resetOtp || undefined,
+          });
       setInfo('Password updated. Please sign in.');
       setView('auth');
       setIsRegister(false);
@@ -340,6 +715,8 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
       setConfirmPassword('');
       setResetOtp('');
       setResetToken('');
+      setResetStep('identify');
+      setResetSentTo('');
     } catch (err) {
       setError(err.message || 'Could not reset password');
     } finally {
@@ -376,6 +753,156 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
     }
   };
 
+  const handleWhatsAppSend = async (e) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+
+    if (isRegister) {
+      if (!name.trim()) {
+        setError('Please enter your full name.');
+        return;
+      }
+      if (!validateName(name)) {
+        setError('Name should contain only letters and be at least 2 characters.');
+        return;
+      }
+    }
+    if (!phoneNumber.trim()) {
+      setError('Please enter your phone number.');
+      return;
+    }
+    if (!validatePhoneNumber(phoneNumber, countryCode)) {
+      setError(getPhoneInputError(phoneNumber, countryCode) || 'Enter a valid UAE mobile number (05xxxxxxxx).');
+      return;
+    }
+    const isResend = whatsappStep === 'otp';
+    if (!isResend && !isMathCaptchaSolved(captcha.question, captchaAnswer)) {
+      setError('Please solve the CAPTCHA.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await requestWhatsAppOtp({
+        phone: phoneNumber,
+        phoneCode: countryCode,
+        name,
+        captchaChallengeId: captcha.challengeId,
+        captchaAnswer,
+      });
+      setWhatsappStep('otp');
+      setWhatsappOtp('');
+      setWhatsappCooldown(data.retryAfterSeconds || 45);
+      setInfo(data.message || 'WhatsApp code sent. Check your messages.');
+      void loadCaptcha();
+    } catch (err) {
+      setError(err.message || 'Could not send WhatsApp code.');
+      if (err.status === 429 && err.data?.retryAfterSeconds) {
+        setWhatsappCooldown(err.data.retryAfterSeconds);
+      }
+      void loadCaptcha();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailOtpSend = async (e) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    if (!isValidEmailAddress(otpEmail)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    const isResend = emailOtpStep === 'otp';
+    if (!isResend && !isMathCaptchaSolved(captcha.question, captchaAnswer)) {
+      setError('Please solve the CAPTCHA.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await requestEmailOtp({
+        email: otpEmail,
+        name,
+        captchaChallengeId: captcha.challengeId,
+        captchaAnswer,
+      });
+      setEmailOtpStep('otp');
+      setEmailOtp('');
+      setEmailOtpCooldown(data.retryAfterSeconds || 45);
+      setInfo(data.message || 'Email code sent. Check your inbox.');
+      void loadCaptcha();
+    } catch (err) {
+      setError(err.message || 'Could not send email code.');
+      if (err.status === 429 && err.data?.retryAfterSeconds) {
+        setEmailOtpCooldown(err.data.retryAfterSeconds);
+      }
+      void loadCaptcha();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailOtpVerify = async (e) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    if (emailOtp.replace(/\D/g, '').length !== 6) {
+      setError('Enter the 6-digit email code.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await ensureLocalAuthPersistence();
+      const data = await verifyEmailOtp({ email: otpEmail, code: emailOtp, name });
+      const credential = await signInWithCustomToken(auth, data.customToken);
+      await finishAuthSuccess(credential.user, {
+        isNewUser: Boolean(data.isNewUser),
+        emailOverride: data.email || email,
+        nameOverride: data.name || name || 'Customer',
+        method: 'email_otp',
+      });
+    } catch (err) {
+      setError(err.message || 'Could not verify email code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWhatsAppVerify = async (e) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    if (whatsappOtp.replace(/\D/g, '').length !== 4) {
+      setError('Enter the 4-digit WhatsApp code.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await ensureLocalAuthPersistence();
+      const data = await verifyWhatsAppOtp({
+        phone: phoneNumber,
+        phoneCode: countryCode,
+        code: whatsappOtp,
+        name,
+      });
+      const credential = await signInWithCustomToken(auth, data.customToken);
+      await finishAuthSuccess(credential.user, {
+        isNewUser: Boolean(data.isNewUser),
+        emailOverride: data.email || '',
+        nameOverride: data.name || name || 'Customer',
+        phoneOverride: data.phone || `${countryCode}${phoneNumber}`,
+        method: 'whatsapp',
+      });
+    } catch (err) {
+      setError(err.message || 'Could not verify WhatsApp code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -395,9 +922,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
         return;
       }
       if (!validatePhoneNumber(phoneNumber, countryCode)) {
-        setError(countryCode === '+91'
-          ? 'Indian phone number must be exactly 10 digits.'
-          : 'Please enter a valid phone number (7-15 digits).');
+        setError(getPhoneInputError(phoneNumber, countryCode) || getPhoneInputHint(countryCode));
         return;
       }
       if (!validateEmail(email)) {
@@ -424,7 +949,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
       }
     }
 
-    if (!captchaAnswer.trim()) {
+    if (!isMathCaptchaSolved(captcha.question, captchaAnswer)) {
       setError('Please solve the CAPTCHA.');
       return;
     }
@@ -454,6 +979,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
           isNewUser: true,
           emailOverride: email,
           nameOverride: name,
+          phoneOverride: `${countryCode}${phoneNumber}`,
           method: 'email',
         });
       } else {
@@ -483,13 +1009,17 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
   };
 
   return (
-    <div className={isPage
-      ? 'min-h-screen flex items-center justify-center bg-gray-50 p-4'
-      : 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4'
-    }>
+    <div
+      className={isPage
+        ? 'min-h-screen flex items-center justify-center bg-gray-50 p-4'
+        : 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4'
+      }
+      onClick={isPage ? undefined : onClose}
+    >
       <div
         className="bg-white w-full max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex relative"
         style={{ maxWidth: modalSettings.sideImage ? '800px' : '448px' }}
+        onClick={(event) => event.stopPropagation()}
       >
         {!isPage ? (
         <button
@@ -590,111 +1120,440 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
           </div>
           ) : null}
 
-          {view === 'forgot' ? (
-            <form className="flex flex-col gap-2.5 sm:gap-3" onSubmit={handleForgotSubmit}>
-              <p className="text-sm text-gray-600">Enter your account email. We send a reset link and a one-time code — check inbox and spam.</p>
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              {captcha.question ? (
-                <div className="flex gap-2 items-center">
-                  <label className="text-xs text-gray-600 whitespace-nowrap">{captcha.question}</label>
+          {view === 'reset' ? (
+            <form
+              className="flex flex-col gap-3"
+              onSubmit={resetStep === 'code' ? handleResetConfirm : handleForgotSubmit}
+            >
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center gap-2 text-slate-800">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ${resetChannel === 'whatsapp' ? 'text-[#128C7E]' : ''}`}>
+                    {resetChannel === 'whatsapp' ? <MessageCircle size={16} /> : <KeyRound size={16} />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">
+                      {resetChannel === 'whatsapp' ? 'Reset with WhatsApp' : 'Reset with email'}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {resetChannel === 'whatsapp'
+                        ? 'We will send a 4-digit code to this UAE number.'
+                        : 'We will send a 6-digit code to this email.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => switchResetChannel(resetChannel === 'whatsapp' ? 'email' : 'whatsapp')}
+                  className="mt-3 text-xs font-medium text-slate-600 hover:underline"
+                >
+                  {resetChannel === 'whatsapp' ? 'Use email instead' : 'Use WhatsApp instead'}
+                </button>
+              </div>
+
+              {resetChannel === 'email' ? (
+                <div>
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1"
-                    value={captchaAnswer}
-                    onChange={(e) => setCaptchaAnswer(e.target.value)}
-                    placeholder="Answer"
+                    type="email"
+                    name="reset-email"
+                    autoComplete="email"
+                    placeholder="Enter your email"
+                    readOnly={resetStep === 'code'}
+                    disabled={resetStep === 'code'}
+                    className={`w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400 ${
+                      resetStep === 'code' ? 'bg-slate-50 text-slate-600' : 'bg-white'
+                    }`}
+                    value={email}
+                    onChange={(e) => handleResetIdentityChange(e.target.value)}
                     required
+                  />
+                  {resetStep === 'code' ? (
+                    <button
+                      type="button"
+                      className="mt-1 text-xs font-medium text-slate-600 hover:underline"
+                      onClick={() => {
+                        setResetStep('identify');
+                        setResetOtp('');
+                        setInfo('');
+                        setResetSentTo('');
+                      }}
+                    >
+                      Change email
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-3">
+                    <span className="flex h-[42px] shrink-0 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800">
+                      {UAE_PHONE_CODE}
+                    </span>
+                    <input
+                      type="tel"
+                      name="reset-phone"
+                      autoComplete="tel-national"
+                      placeholder={getPhonePlaceholder(UAE_PHONE_CODE)}
+                      readOnly={resetStep === 'code'}
+                      disabled={resetStep === 'code'}
+                      className={`min-w-0 flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm tracking-wide outline-none focus:border-slate-400 ${
+                        resetStep === 'code' ? 'bg-slate-50 text-slate-600' : 'bg-white'
+                      }`}
+                      value={formatPhoneDisplay(phoneNumber)}
+                      onChange={(e) => {
+                        const next = clampPhoneInput(e.target.value, UAE_PHONE_CODE);
+                        setPhoneNumber(next);
+                        if (resetToken) setResetToken('');
+                        if (resetSentTo && next !== resetSentTo) {
+                          setResetStep('identify');
+                          setResetOtp('');
+                          setInfo('');
+                        }
+                      }}
+                      required
+                    />
+                  </div>
+                  {resetStep === 'code' ? (
+                    <button
+                      type="button"
+                      className="mt-1 text-xs font-medium text-slate-600 hover:underline"
+                      onClick={() => {
+                        setResetStep('identify');
+                        setResetOtp('');
+                        setInfo('');
+                        setResetSentTo('');
+                      }}
+                    >
+                      Change number
+                    </button>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">{getPhoneInputHint(UAE_PHONE_CODE)}</p>
+                  )}
+                </div>
+              )}
+
+              {resetStep === 'code' && !resetToken ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-slate-600">
+                      {resetChannel === 'whatsapp' ? 'WhatsApp code' : 'Email code'}
+                    </p>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-slate-700 hover:underline disabled:text-gray-400"
+                      disabled={loading || resetCooldown > 0}
+                      onClick={handleForgotSubmit}
+                    >
+                      {resetCooldown > 0 ? `Resend in ${resetCooldown}s` : 'Resend code'}
+                    </button>
+                  </div>
+                  <OtpInput
+                    value={resetOtp}
+                    onChange={setResetOtp}
+                    length={resetChannel === 'whatsapp' ? 4 : 6}
+                    autoFocus
+                    disabled={loading}
                   />
                 </div>
               ) : null}
-              {error ? <div className="text-red-500 text-xs bg-red-50 p-2 rounded-lg">{error}</div> : null}
-              {info ? <div className="text-green-700 text-xs bg-green-50 p-2 rounded-lg">{info}</div> : null}
-              <button type="submit" disabled={loading} className="bg-gray-800 text-white font-semibold py-2.5 rounded-lg text-sm disabled:opacity-50">
-                {loading ? 'Sending…' : 'Send reset link'}
-              </button>
-              <button type="button" className="text-sm text-gray-600" onClick={() => { setView('auth'); setError(''); setInfo(''); }}>
-                Back to sign in
-              </button>
-            </form>
-          ) : null}
 
-          {view === 'reset' ? (
-            <form className="flex flex-col gap-2.5 sm:gap-3" onSubmit={handleResetConfirm}>
-              <p className="text-sm text-gray-600">Set a new strong password. Use the code from the email if you opened this screen without the link.</p>
-              <input
-                type="email"
-                className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              {!resetToken ? (
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Email OTP code"
-                  className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full"
-                  value={resetOtp}
-                  onChange={(e) => setResetOtp(e.target.value)}
+              {resetStep === 'code' ? (
+                <>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="New password"
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-10 text-sm outline-none focus:border-slate-400"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="Confirm new password"
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-10 text-sm outline-none focus:border-slate-400"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((value) => !value)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-500">Min 8 chars, upper, lower, number, special character.</p>
+                </>
+              ) : null}
+
+              {resetStep === 'identify' && captcha.question ? (
+                <CaptchaField
+                  question={captcha.question}
+                  value={captchaAnswer}
+                  onChange={setCaptchaAnswer}
+                  onRefresh={() => void loadCaptcha()}
+                  onReady={setCaptchaConfirmed}
                 />
               ) : null}
-              <input
-                type="password"
-                placeholder="New password"
-                className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <input
-                type="password"
-                placeholder="Confirm new password"
-                className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-              <p className="text-[11px] text-gray-500">Min 8 chars, upper, lower, number, special character.</p>
+
               {error ? <div className="text-red-500 text-xs bg-red-50 p-2 rounded-lg">{error}</div> : null}
               {info ? <div className="text-green-700 text-xs bg-green-50 p-2 rounded-lg">{info}</div> : null}
-              <button type="submit" disabled={loading} className="bg-gray-800 text-white font-semibold py-2.5 rounded-lg text-sm disabled:opacity-50">
-                {loading ? 'Updating…' : 'Update password'}
+
+              {resetStep === 'identify' ? (
+                <button
+                  type="submit"
+                  disabled={loading || !captchaReady}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {loading ? <><Loader2 size={16} className="animate-spin" /> Sending…</> : (resetChannel === 'whatsapp' ? 'Send WhatsApp code' : 'Send email code')}
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {loading ? <><Loader2 size={16} className="animate-spin" /> Updating…</> : 'Update password'}
+                </button>
+              )}
+              <button
+                type="button"
+                className="text-sm text-gray-600"
+                onClick={() => {
+                  setView('auth');
+                  setError('');
+                  setInfo('');
+                  setResetStep('identify');
+                  setResetOtp('');
+                  setResetToken('');
+                }}
+              >
+                Back to sign in
               </button>
-              <button type="button" className="text-sm text-gray-600" onClick={() => setView('auth')}>Back to sign in</button>
             </form>
           ) : null}
 
           {view === 'mfa' ? (
             <form className="flex flex-col gap-2.5 sm:gap-3" onSubmit={handleMfaVerify}>
               <p className="text-sm text-gray-600">Multi-factor authentication — enter the code from your email.</p>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="6-digit code"
-                className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full tracking-widest"
+              <OtpInput
                 value={mfaCode}
-                onChange={(e) => setMfaCode(e.target.value)}
-                required
+                onChange={setMfaCode}
+                length={6}
+                autoFocus
+                disabled={loading}
               />
               {error ? <div className="text-red-500 text-xs bg-red-50 p-2 rounded-lg">{error}</div> : null}
               {info ? <div className="text-green-700 text-xs bg-green-50 p-2 rounded-lg">{info}</div> : null}
-              <button type="submit" disabled={loading} className="bg-gray-800 text-white font-semibold py-2.5 rounded-lg text-sm disabled:opacity-50">
-                {loading ? 'Verifying…' : 'Verify'}
+              <button type="submit" disabled={loading} className="flex items-center justify-center gap-2 bg-gray-800 text-white font-semibold py-2.5 rounded-lg text-sm disabled:opacity-50">
+                {loading ? <><Loader2 size={16} className="animate-spin" /> Verifying…</> : 'Verify'}
               </button>
             </form>
           ) : null}
 
+          {view === 'otp' ? (
+          <form
+            key={otpChannel}
+            className="flex flex-col gap-2.5 sm:gap-3"
+            autoComplete="off"
+            onSubmit={otpChannel === 'email'
+              ? (emailOtpStep === 'otp' ? handleEmailOtpVerify : handleEmailOtpSend)
+              : (whatsappStep === 'otp' ? handleWhatsAppVerify : handleWhatsAppSend)}
+          >
+            <p className="text-sm text-gray-600">Choose how you want to receive your login code.</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => switchOtpChannel('email')}
+                className={`flex h-11 items-center justify-center gap-2 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${
+                  otpChannel === 'email'
+                    ? 'border-slate-800 bg-slate-800 text-white shadow-sm'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <Mail size={16} className="shrink-0" />
+                Email OTP
+              </button>
+              <button
+                type="button"
+                onClick={() => switchOtpChannel('whatsapp')}
+                className={`flex h-11 items-center justify-center gap-2 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${
+                  otpChannel === 'whatsapp'
+                    ? 'border-[#25D366] bg-[#25D366] text-white shadow-sm'
+                    : 'border-[#25D366]/25 bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/15'
+                }`}
+              >
+                <MessageCircle size={16} className="shrink-0" />
+                WhatsApp OTP
+              </button>
+            </div>
+
+            {otpChannel === 'email' ? (
+              <>
+                <input
+                  key={`otp-email-${formNonce}`}
+                  type="email"
+                  name={`otp-email-${formNonce}`}
+                  autoComplete="off"
+                  inputMode="email"
+                  placeholder="Enter your email"
+                  className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full"
+                  value={otpEmail}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (looksLikePhoneNumber(next)) {
+                      setOtpEmail('');
+                      return;
+                    }
+                    setOtpEmail(next);
+                    if (emailOtpStep === 'otp') {
+                      setEmailOtpStep('email');
+                      setEmailOtp('');
+                      setInfo('');
+                    }
+                  }}
+                  required
+                />
+                {emailOtpStep === 'otp' ? (
+                  <div>
+                    <OtpInput
+                      value={emailOtp}
+                      onChange={setEmailOtp}
+                      length={6}
+                      autoFocus
+                      disabled={loading}
+                    />
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        className="text-xs text-gray-600 hover:underline"
+                        onClick={() => { setEmailOtpStep('email'); setEmailOtp(''); setError(''); setInfo(''); }}
+                      >
+                        Change email
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-gray-700 hover:underline disabled:text-gray-400"
+                        disabled={loading || emailOtpCooldown > 0}
+                        onClick={handleEmailOtpSend}
+                      >
+                        {emailOtpCooldown > 0 ? `Resend in ${emailOtpCooldown}s` : 'Resend code'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <div>
+                  <div className="flex gap-3">
+                    <span className="flex h-[42px] shrink-0 items-center rounded-lg border border-gray-300 bg-gray-50 px-3 text-sm font-medium text-gray-800">
+                      {UAE_PHONE_CODE}
+                    </span>
+                    <input
+                      type="tel"
+                      name="otp-phone"
+                      autoComplete="tel-national"
+                      placeholder={getPhonePlaceholder(UAE_PHONE_CODE)}
+                      className="min-w-0 flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm tracking-wide"
+                      value={formatPhoneDisplay(phoneNumber)}
+                      onChange={(e) => setPhoneNumber(clampPhoneInput(e.target.value, UAE_PHONE_CODE))}
+                      required
+                      disabled={whatsappStep === 'otp'}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">{getPhoneInputHint(UAE_PHONE_CODE)}</p>
+                  {phoneNumber && getPhoneInputError(phoneNumber, UAE_PHONE_CODE) ? (
+                    <p className="mt-1 text-xs text-red-600">{getPhoneInputError(phoneNumber, UAE_PHONE_CODE)}</p>
+                  ) : null}
+                </div>
+                {whatsappStep === 'otp' ? (
+                  <div>
+                    <OtpInput
+                      value={whatsappOtp}
+                      onChange={setWhatsappOtp}
+                      length={4}
+                      autoFocus
+                      disabled={loading}
+                    />
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        className="text-xs text-gray-600 hover:underline"
+                        onClick={() => { setWhatsappStep('phone'); setWhatsappOtp(''); setError(''); setInfo(''); }}
+                      >
+                        Change number
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-gray-700 hover:underline disabled:text-gray-400"
+                        disabled={loading || whatsappCooldown > 0}
+                        onClick={handleWhatsAppSend}
+                      >
+                        {whatsappCooldown > 0 ? `Resend in ${whatsappCooldown}s` : 'Resend code'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
+
+            {captcha.question && (
+              (otpChannel === 'email' && emailOtpStep === 'email')
+              || (otpChannel === 'whatsapp' && whatsappStep === 'phone')
+            ) ? (
+              <CaptchaField
+                question={captcha.question}
+                value={captchaAnswer}
+                onChange={setCaptchaAnswer}
+                onRefresh={() => void loadCaptcha()}
+                onReady={setCaptchaConfirmed}
+              />
+            ) : null}
+
+            {error ? <div className="text-red-500 text-xs bg-red-50 p-2 rounded-lg">{error}</div> : null}
+            {info ? <div className="text-green-700 text-xs bg-green-50 p-2 rounded-lg">{info}</div> : null}
+
+            <button
+              type="submit"
+              disabled={loading || (
+                ((otpChannel === 'email' && emailOtpStep === 'email')
+                  || (otpChannel === 'whatsapp' && whatsappStep === 'phone'))
+                && !captchaReady
+              )}
+              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2.5 rounded-lg text-sm disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  {otpChannel === 'email'
+                    ? (emailOtpStep === 'otp' ? 'Verifying…' : 'Sending…')
+                    : (whatsappStep === 'otp' ? 'Verifying…' : 'Sending…')}
+                </>
+              ) : otpChannel === 'email'
+                ? (emailOtpStep === 'otp' ? 'Verify & continue' : 'Send email code')
+                : (whatsappStep === 'otp' ? 'Verify & continue' : 'Send WhatsApp code')}
+            </button>
+            <button type="button" className="text-sm text-gray-600" onClick={closeOtpLogin}>
+              Back to email login
+            </button>
+          </form>
+          ) : null}
+
           {/* Form */}
           {view === 'auth' ? (
-          <form className="flex flex-col gap-2.5 sm:gap-3" onSubmit={handleSubmit}>
+          <form key={`auth-form-${formNonce}`} className="flex flex-col gap-2.5 sm:gap-3" autoComplete="off" onSubmit={handleSubmit}>
             {isRegister && (
               <div>
                 <input
@@ -733,58 +1592,45 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
             )}
             {isRegister && (
               <div>
-                <div className="flex gap-2">
-                  <select
+                <div className="flex gap-3">
+                  <CountryCodePicker
                     value={countryCode}
-                    onChange={(e) => {
-                      setCountryCode(e.target.value);
-                      // Clear phone number when country code changes
+                    disabled={false}
+                    onChange={(code) => {
+                      setCountryCode(code);
                       setPhoneNumber('');
                       setFieldErrors(prev => ({ ...prev, phone: '' }));
                     }}
-                    className="border border-gray-300 rounded-lg px-2 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent text-xs sm:text-sm w-24"
-                    required
-                  >
-                    {countryCodes.map((country) => (
-                      <option key={country.code} value={country.code}>
-                        {country.code}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <input
                     type="tel"
-                    placeholder="Enter phone number"
-                    className={`flex-1 border rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent text-xs sm:text-sm placeholder:text-gray-400 placeholder:opacity-100 ${
+                    placeholder={getPhonePlaceholder(countryCode)}
+                    className={`min-w-0 flex-1 rounded-lg border px-4 py-2 sm:py-2.5 tracking-wide focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent text-xs sm:text-sm placeholder:text-gray-400 placeholder:opacity-100 ${
                       fieldErrors.phone ? 'border-red-500' : 'border-gray-300'
                     }`}
-                    value={phoneNumber}
+                    value={formatPhoneDisplay(phoneNumber)}
                     onChange={e => {
-                      // Limit based on country code
-                      const maxLength = countryCode === '+91' ? 10 : 15;
-                      const value = e.target.value.replace(/\D/g, '').slice(0, maxLength);
+                      const value = clampPhoneInput(e.target.value, countryCode);
                       setPhoneNumber(value);
-                      
-                      // Real-time validation
                       if (!value) {
                         setFieldErrors(prev => ({ ...prev, phone: 'Phone number is required' }));
-                      } else if (countryCode === '+91' && value.length !== 10) {
-                        setFieldErrors(prev => ({ ...prev, phone: 'Indian phone number must be 10 digits' }));
-                      } else if (countryCode !== '+91' && value.length < 7) {
-                        setFieldErrors(prev => ({ ...prev, phone: 'Phone number must be at least 7 digits' }));
-                      } else if (countryCode !== '+91' && value.length > 15) {
-                        setFieldErrors(prev => ({ ...prev, phone: 'Phone number too long' }));
                       } else {
-                        setFieldErrors(prev => ({ ...prev, phone: '' }));
+                        setFieldErrors(prev => ({
+                          ...prev,
+                          phone: getPhoneInputError(value, countryCode) || '',
+                        }));
                       }
                     }}
                     onBlur={() => {
                       if (!phoneNumber) {
                         setFieldErrors(prev => ({ ...prev, phone: 'Phone number is required' }));
-                      } else if (countryCode === '+91' && phoneNumber.length !== 10) {
-                        setFieldErrors(prev => ({ ...prev, phone: 'Indian phone number must be 10 digits' }));
+                      } else {
+                        setFieldErrors(prev => ({
+                          ...prev,
+                          phone: getPhoneInputError(phoneNumber, countryCode) || '',
+                        }));
                       }
                     }}
-                    maxLength={countryCode === '+91' ? 10 : 15}
                     required
                   />
                 </div>
@@ -792,24 +1638,31 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
                   <div className="text-red-600 text-xs mt-1">{fieldErrors.phone}</div>
                 ) : (
                   <div className="text-gray-500 text-xs mt-1">
-                    {countryCode === '+91' ? '10 digits required' : '7-15 digits required'}
+                    {getPhoneInputHint(countryCode)}
                   </div>
                 )}
               </div>
             )}
+            <>
             <div>
               <input
+                key={`login-email-${formNonce}`}
                 type="email"
+                name={`login-email-${formNonce}`}
+                autoComplete="off"
                 placeholder="Enter your email"
                 className={`border rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent text-xs sm:text-sm w-full placeholder:text-gray-400 placeholder:opacity-100 ${
                   fieldErrors.email ? 'border-red-500' : 'border-gray-300'
                 }`}
                 value={email}
                 onChange={e => {
-                  setEmail(e.target.value);
-                  
-                  // Real-time validation for email in both login and register
                   const emailValue = e.target.value;
+                  if (looksLikePhoneNumber(emailValue)) {
+                    setEmail('');
+                    setFieldErrors(prev => ({ ...prev, email: '' }));
+                    return;
+                  }
+                  setEmail(emailValue);
                   if (!emailValue) {
                     setFieldErrors(prev => ({ ...prev, email: 'Email is required' }));
                   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
@@ -934,23 +1787,16 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
                 )}
               </div>
             )}
+            </>
             
             {captcha.question ? (
-              <div className="flex gap-2 items-center">
-                <label className="text-xs text-gray-600 whitespace-nowrap shrink-0">{captcha.question}</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1"
-                  value={captchaAnswer}
-                  onChange={(e) => setCaptchaAnswer(e.target.value)}
-                  placeholder="CAPTCHA answer"
-                  required
-                />
-                <button type="button" className="text-xs text-blue-600 shrink-0" onClick={() => void loadCaptcha()}>
-                  Refresh
-                </button>
-              </div>
+              <CaptchaField
+                question={captcha.question}
+                value={captchaAnswer}
+                onChange={setCaptchaAnswer}
+                onRefresh={() => void loadCaptcha()}
+                onReady={setCaptchaConfirmed}
+              />
             ) : null}
 
             {error && (
@@ -968,7 +1814,7 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
               <button
                 type="button"
                 className="text-left text-xs text-blue-600 hover:underline"
-                onClick={() => { setView('forgot'); setError(''); setInfo(''); }}
+                onClick={() => openResetView('email')}
               >
                 Forgot password?
               </button>
@@ -976,10 +1822,10 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
 
             <button
               type="submit"
-              className="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 sm:py-2.5 rounded-lg transition text-xs sm:text-sm disabled:opacity-50"
-              disabled={loading}
+              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 sm:py-2.5 rounded-lg transition text-xs sm:text-sm disabled:opacity-50"
+              disabled={loading || !captchaReady}
             >
-              {loading ? 'Loading...' : 'CONTINUE'}
+              {loading ? <><Loader2 size={16} className="animate-spin" /> Loading…</> : 'CONTINUE'}
             </button>
           </form>
           ) : null}
@@ -1017,6 +1863,16 @@ const SignInModal = ({ open, onClose, defaultMode = 'login', bonusMessage = '', 
               <span>Facebook</span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => openOtpLogin('whatsapp')}
+            disabled={loading}
+            className="mb-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:shadow disabled:opacity-50 sm:mb-5"
+          >
+            <KeyRound size={16} className="shrink-0 text-slate-600" />
+            <span>Login with OTP</span>
+          </button>
 
           {/* Terms & Privacy */}
           <p className="text-xs text-gray-500 text-center">

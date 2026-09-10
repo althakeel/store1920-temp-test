@@ -33,6 +33,8 @@ export default function CategorySliderPage() {
   const [formData, setFormData] = useState({
     title: '',
     subtitle: '',
+    titleAr: '',
+    subtitleAr: '',
     sideImage: '',
     sideImagePosition: 'left',
     cardsPerRow: 6,
@@ -41,6 +43,7 @@ export default function CategorySliderPage() {
     backgroundColor: DEFAULT_CATEGORY_SLIDER_BACKGROUND,
     productIds: [],
   });
+  const [translatingCopy, setTranslatingCopy] = useState(false);
   const [uploadingSideImage, setUploadingSideImage] = useState(false);
   const [reorderingId, setReorderingId] = useState(null);
   const [myStoreScopeIds, setMyStoreScopeIds] = useState(() => new Set());
@@ -193,8 +196,58 @@ export default function CategorySliderPage() {
     }
   };
 
+  const translateSliderCopyToArabic = async () => {
+    const englishTitle = String(formData.title || '').trim();
+    const englishSubtitle = String(formData.subtitle || '').trim();
+    if (!englishTitle && !englishSubtitle) {
+      toast.error('Enter English title or subtitle first');
+      return;
+    }
+
+    try {
+      setTranslatingCopy(true);
+      const token = await getToken();
+      if (!token) {
+        toast.error('Please sign in again');
+        return;
+      }
+
+      const translateText = async (text) => {
+        if (!text) return '';
+        const { data } = await axios.post(
+          '/api/store/categories/translate-arabic',
+          { text },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        return String(data?.descriptionAr || '').trim();
+      };
+
+      const [titleAr, subtitleAr] = await Promise.all([
+        translateText(englishTitle),
+        translateText(englishSubtitle),
+      ]);
+
+      if (!titleAr && !subtitleAr) {
+        toast.error('Could not translate to Arabic');
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        ...(titleAr ? { titleAr } : {}),
+        ...(subtitleAr ? { subtitleAr } : {}),
+      }));
+      toast.success('Arabic fields updated');
+    } catch (error) {
+      console.error('Translate slider copy failed:', error);
+      toast.error(error?.response?.data?.error || 'Failed to translate to Arabic');
+    } finally {
+      setTranslatingCopy(false);
+    }
+  };
+
   const handleAddSlider = () => {
-    setFormData({ title: '', subtitle: '', sideImage: '', sideImagePosition: 'left', cardsPerRow: 6, autoSlide: false, autoSlideIntervalMs: DEFAULT_CATEGORY_SLIDER_AUTO_SLIDE_INTERVAL_MS, backgroundColor: DEFAULT_CATEGORY_SLIDER_BACKGROUND, productIds: [] });
+    setFormData({ title: '', subtitle: '', titleAr: '', subtitleAr: '', sideImage: '', sideImagePosition: 'left', cardsPerRow: 6, autoSlide: false, autoSlideIntervalMs: DEFAULT_CATEGORY_SLIDER_AUTO_SLIDE_INTERVAL_MS, backgroundColor: DEFAULT_CATEGORY_SLIDER_BACKGROUND, productIds: [] });
     setEditingIdx(null);
     setShowForm(true);
   };
@@ -215,6 +268,8 @@ export default function CategorySliderPage() {
       _id: sliderId,
       title: slider.title || '',
       subtitle: subtitleValue,
+      titleAr: slider.titleAr ? String(slider.titleAr).trim() : '',
+      subtitleAr: slider.subtitleAr ? String(slider.subtitleAr).trim() : '',
       sideImage: slider.sideImage ? String(slider.sideImage).trim() : '',
       sideImagePosition: normalizeCategorySliderSideImagePosition(slider.sideImagePosition),
       cardsPerRow: slider.cardsPerRow === 5 ? 5 : 6,
@@ -362,6 +417,8 @@ export default function CategorySliderPage() {
         const updatePayload = { 
           title: formData.title.trim(), 
           subtitle: subtitleValue,
+          titleAr: formData.titleAr ? String(formData.titleAr).trim() : '',
+          subtitleAr: formData.subtitleAr ? String(formData.subtitleAr).trim() : '',
           sideImage: formData.sideImage ? String(formData.sideImage).trim() : '',
           sideImagePosition: normalizeCategorySliderSideImagePosition(formData.sideImagePosition),
           cardsPerRow: formData.cardsPerRow === 5 ? 5 : 6,
@@ -408,6 +465,8 @@ export default function CategorySliderPage() {
         const createPayload = {
           title: formData.title.trim(),
           subtitle: subtitleValue,
+          titleAr: formData.titleAr ? String(formData.titleAr).trim() : '',
+          subtitleAr: formData.subtitleAr ? String(formData.subtitleAr).trim() : '',
           sideImage: formData.sideImage ? String(formData.sideImage).trim() : '',
           sideImagePosition: normalizeCategorySliderSideImagePosition(formData.sideImagePosition),
           cardsPerRow: formData.cardsPerRow === 5 ? 5 : 6,
@@ -607,6 +666,12 @@ export default function CategorySliderPage() {
                         {slider.subtitle && slider.subtitle.trim() !== '' && (
                           <p className="text-sm text-gray-600 mb-2 italic">"{slider.subtitle}"</p>
                         )}
+                        {slider.titleAr ? (
+                          <p className="text-sm text-gray-700 mb-1" dir="rtl">{slider.titleAr}</p>
+                        ) : null}
+                        {slider.subtitleAr ? (
+                          <p className="text-sm text-gray-500 mb-2 italic" dir="rtl">"{slider.subtitleAr}"</p>
+                        ) : null}
                         {slider.sideImage ? (
                           <div className="mb-2 flex items-center gap-2">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -728,6 +793,46 @@ export default function CategorySliderPage() {
                       placeholder="e.g., Discover our curated selection"
                       className="w-full border-2 border-gray-200 rounded-lg p-3 focus:outline-none focus:border-blue-500 text-sm"
                       autoComplete="off"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-bold text-gray-700">Arabic copy</p>
+                    <button
+                      type="button"
+                      disabled={translatingCopy || (!String(formData.title || '').trim() && !String(formData.subtitle || '').trim())}
+                      onClick={translateSliderCopyToArabic}
+                      className="text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-400"
+                    >
+                      {translatingCopy ? 'Translating…' : 'Translate from English'}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Arabic title
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.titleAr || ''}
+                      onChange={(e) => setFormData({ ...formData, titleAr: e.target.value })}
+                      dir="rtl"
+                      placeholder="عنوان القسم بالعربية"
+                      className="w-full border-2 border-gray-200 rounded-lg p-3 text-right focus:outline-none focus:border-blue-500 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Arabic subtitle
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.subtitleAr || ''}
+                      onChange={(e) => setFormData({ ...formData, subtitleAr: e.target.value })}
+                      dir="rtl"
+                      placeholder="العنوان الفرعي بالعربية"
+                      className="w-full border-2 border-gray-200 rounded-lg p-3 text-right focus:outline-none focus:border-blue-500 text-sm"
                     />
                   </div>
 

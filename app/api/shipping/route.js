@@ -20,7 +20,7 @@ function getPublicShippingFallback() {
     baseWeight: 1,
     baseWeightFee: 0,
     additionalWeightFee: 0,
-    freeShippingMin: 0,
+    freeShippingMin: 100,
     enableProductSpecificFreeShipping: false,
     productSpecificFreeShippingMode: "ORDER_LEVEL",
     localDeliveryFee: null,

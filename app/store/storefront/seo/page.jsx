@@ -10,7 +10,6 @@ const PRESET_PAGES = [
   { label: "Shop", path: "/shop" },
   { label: "Categories", path: "/categories" },
   // Shopping
-  { label: "Fast Delivery", path: "/fast-delivery" },
   { label: "Offers", path: "/offers" },
   { label: "New Arrivals", path: "/new-arrivals" },
   { label: "Top Selling", path: "/top-selling" },

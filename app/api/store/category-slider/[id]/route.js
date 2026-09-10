@@ -35,7 +35,7 @@ export async function PUT(req, { params }) {
       return NextResponse.json({ error: 'Slider ID is required' }, { status: 400 });
     }
 
-    const { title, subtitle, productIds, sideImage, sideImagePosition, cardsPerRow, backgroundColor, autoSlide, autoSlideIntervalMs } = await req.json();
+    const { title, subtitle, titleAr, subtitleAr, productIds, sideImage, sideImagePosition, cardsPerRow, backgroundColor, autoSlide, autoSlideIntervalMs } = await req.json();
     console.log('=== 💾 PUT SLIDER START ===');
     console.log('💾 Received ID:', id);
     console.log('💾 Received title:', title);
@@ -71,6 +71,8 @@ export async function PUT(req, { params }) {
     const updateData = {
       title: title.trim(),
       subtitle: subtitleValue,
+      titleAr: titleAr !== undefined && titleAr !== null ? String(titleAr).trim() : '',
+      subtitleAr: subtitleAr !== undefined && subtitleAr !== null ? String(subtitleAr).trim() : '',
       productIds: productIdsValue,
       sideImage: sideImageValue,
       sideImagePosition: normalizeCategorySliderSideImagePosition(sideImagePosition),

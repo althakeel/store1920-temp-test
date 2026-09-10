@@ -206,7 +206,12 @@ const nextConfig = {
             },
             {
                 source: '/products/:slug+/',
-                destination: '/products/:slug+',
+                destination: '/product/:slug+',
+                permanent: true,
+            },
+            {
+                source: '/products/:slug+',
+                destination: '/product/:slug+',
                 permanent: true,
             },
             {
@@ -231,6 +236,10 @@ const nextConfig = {
             { source: '/cancellation-and-refunds/', destination: '/return-policy', permanent: true },
             { source: '/cancellation-policy', destination: '/return-policy', permanent: true },
             { source: '/cancellation-policy/', destination: '/return-policy', permanent: true },
+            { source: '/fast-delivery', destination: '/', permanent: true },
+            { source: '/fast-delivery/', destination: '/', permanent: true },
+            { source: '/products', destination: '/shop', permanent: true },
+            { source: '/products/', destination: '/shop', permanent: true },
         ];
 
         // Apex host → www (HTML pages only). Leave /api on the requested host

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Home, ShoppingCart, User, Truck, Percent } from 'lucide-react'
+import { Home, ShoppingCart, User, Store, Percent } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSelector } from 'react-redux'
@@ -18,7 +18,7 @@ const DEFAULT_BRAND_COLOR = '#8f3404'
 const INACTIVE_NAV_COLOR = '#94a3b8'
 const NAVBAR_APPEARANCE_CACHE_KEY = 'navbarAppearanceCache'
 const OFFERS_HREF = '/offers'
-const FAST_DELIVERY_HREF = '/fast-delivery'
+const SHOP_HREF = '/shop'
 const DEALS_ACCENT = '#ea580c'
 const DEALS_ACCENT_DARK = '#c2410c'
 
@@ -222,10 +222,10 @@ export default function MobileBottomNav() {
   const leftItems = [
     { href: '/', icon: Home, label: t('common.home'), match: (path) => path === '/' },
     {
-      href: FAST_DELIVERY_HREF,
-      icon: Truck,
-      label: t('navbar.fastDelivery'),
-      match: (path) => path === FAST_DELIVERY_HREF,
+      href: SHOP_HREF,
+      icon: Store,
+      label: t('navbar.shopOptions'),
+      match: (path) => path === SHOP_HREF || path.startsWith('/shop'),
     },
   ]
 

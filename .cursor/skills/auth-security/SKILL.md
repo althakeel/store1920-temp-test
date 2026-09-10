@@ -14,6 +14,8 @@ description: Store1920 customer auth security on Firebase — password policy, C
 
 - Enforce `validatePasswordStrength` from `lib/passwordPolicy.js` on register and reset.
 - Gate email/password login with `/api/auth/pre-login` (CAPTCHA + lockout) and record outcomes via `/api/auth/login-result`.
+- WhatsApp OTP login uses `/api/auth/whatsapp-otp` + Firebase custom tokens (still Firebase identity, not a parallel JWT stack). Link guest orders by the verified phone the same way email linking works.
+- Password reset is available on Email OTP (6 digits) and WhatsApp OTP (4 digits) via `/api/auth/password-reset`. Send the same transactional OTP email as login — do not skip store SMTP.
 - Keep English copy on customer security UI consistent with existing dashboard pages.
 - On logout-all, call Firebase `revokeRefreshTokens` (already in `lib/authSessions.js`).
 

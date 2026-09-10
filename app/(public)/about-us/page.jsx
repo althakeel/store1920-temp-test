@@ -128,163 +128,80 @@ export default function AboutUsPage() {
   return (
     <div
       dir={isArabic ? 'rtl' : 'ltr'}
-      className="about-us-page w-full overflow-x-clip bg-[#f3eee6] text-[#1a1c1e]"
-      style={{ fontFamily: 'var(--font-poppins), var(--font-montserrat), system-ui, sans-serif' }}
+      className="about-us-page w-full bg-[#f7f6f3] text-[#171717]"
     >
-      <style jsx>{`
-        .about-us-page {
-          --ink: #1a1c1e;
-          --sand: #f3eee6;
-          --clay: #d8cfc2;
-          --accent: #e52721;
-          --accent-deep: #b81d18;
-          --mist: rgba(255, 255, 255, 0.08);
-        }
-
-        @keyframes aboutRise {
-          from {
-            opacity: 0;
-            transform: translateY(18px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes aboutDrift {
-          from {
-            transform: translate3d(0, 0, 0);
-          }
-          to {
-            transform: translate3d(12px, -18px, 0);
-          }
-        }
-
-        @keyframes aboutLine {
-          from {
-            transform: scaleX(0);
-          }
-          to {
-            transform: scaleX(1);
-          }
-        }
-
-        .about-rise {
-          animation: aboutRise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-
-        .about-rise-delay-1 {
-          animation-delay: 0.12s;
-        }
-
-        .about-rise-delay-2 {
-          animation-delay: 0.24s;
-        }
-
-        .about-rise-delay-3 {
-          animation-delay: 0.36s;
-        }
-
-        .about-drift {
-          animation: aboutDrift 14s ease-in-out infinite alternate;
-        }
-
-        .about-line {
-          transform-origin: ${isArabic ? 'right' : 'left'} center;
-          animation: aboutLine 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .about-rise,
-          .about-drift,
-          .about-line {
-            animation: none !important;
-          }
-        }
-      `}</style>
-
-      {/* Hero — one composition, brand first, full-bleed */}
-      <section className="relative isolate min-h-[min(92vh,860px)] overflow-hidden bg-[#141618] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(ellipse 80% 60% at 70% 20%, rgba(229,39,33,0.28), transparent 55%), radial-gradient(ellipse 70% 50% at 10% 80%, rgba(216,207,194,0.16), transparent 50%), linear-gradient(165deg, #101214 0%, #1c1f24 48%, #2a211f 100%)',
-          }}
-        />
-        <div
-          aria-hidden
-          className="about-drift pointer-events-none absolute -end-24 -top-24 h-[420px] w-[420px] rounded-full opacity-40 blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(229,39,33,0.45), transparent 70%)' }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.12]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-            maskImage: 'radial-gradient(ellipse at center, black 20%, transparent 75%)',
-          }}
-        />
-
-        <div className="relative z-10 mx-auto flex min-h-[min(92vh,860px)] w-full max-w-[1450px] flex-col justify-end px-4 pb-16 pt-28 sm:px-6 sm:pb-20 lg:pb-24">
-          <div className="about-rise max-w-3xl">
-            <div className="mb-6 flex items-center gap-3">
-              <Image
-                src={STORE1920_LOGO_PATH}
-                alt="Store1920"
-                width={160}
-                height={48}
-                className="h-10 w-auto object-contain brightness-0 invert sm:h-12"
-                priority
-              />
+      <section className="mx-auto w-full max-w-[1200px] px-4 pb-10 pt-8 sm:px-6 sm:pt-12">
+        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)]">
+          <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="flex flex-col justify-center px-6 py-10 sm:px-10 sm:py-14 lg:px-14">
+              <div className="mb-6 flex items-center gap-3">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#111111]">
+                  <Image
+                    src={STORE1920_LOGO_PATH}
+                    alt="Store1920"
+                    width={96}
+                    height={32}
+                    className="h-6 w-auto object-contain brightness-0 invert"
+                    priority
+                  />
+                </span>
+                <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  {copy.brand}
+                </span>
+              </div>
+              <h1 className="whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight text-[#111111] sm:text-5xl lg:text-6xl">
+                <bdi>{copy.headline}</bdi>
+              </h1>
+              <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
+                {copy.support}
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center rounded-xl bg-[#E52721] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#c41f1a]"
+                >
+                  {copy.ctaShop}
+                </Link>
+                <Link
+                  href="/business-information"
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50"
+                >
+                  {copy.ctaBusiness}
+                </Link>
+              </div>
             </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/55">
-              {copy.brand}
-            </p>
-            <h1 className="mt-4 whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-7xl">
-              {copy.headline}
-            </h1>
-            <div className="about-line mt-6 h-[3px] w-24 bg-[#E52721]" />
-          </div>
-
-          <p className="about-rise about-rise-delay-1 mt-6 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">
-            {copy.support}
-          </p>
-
-          <div className="about-rise about-rise-delay-2 mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center rounded-full bg-[#E52721] px-7 py-3.5 text-sm font-bold text-white transition hover:bg-[#C41F1A]"
-            >
-              {copy.ctaShop}
-            </Link>
-            <Link
-              href="/business-information"
-              className="inline-flex items-center justify-center rounded-full border border-white/25 bg-white/5 px-7 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:border-white/45 hover:bg-white/10"
-            >
-              {copy.ctaBusiness}
-            </Link>
+            <div className="relative min-h-[220px] bg-[#111111] px-6 py-10 text-white sm:px-10 lg:min-h-full lg:py-14">
+              <div
+                aria-hidden
+                className="absolute inset-0"
+                style={{
+                  background:
+                    'linear-gradient(160deg, #1a1a1a 0%, #111111 48%, #3b0d0c 100%)',
+                }}
+              />
+              <div className="relative flex h-full flex-col justify-end">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">
+                  UAE
+                </p>
+                <p className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">
+                  {copy.whoTitle}
+                </p>
+                <p className="mt-4 text-sm leading-relaxed text-white/70 sm:text-base">
+                  {copy.whoLead}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Who we are */}
-      <section className="mx-auto w-full max-w-[1450px] px-4 py-16 sm:px-6 sm:py-20 lg:py-24">
-        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 lg:items-start">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#E52721]">
-              {copy.whoEyebrow}
-            </p>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-[#1a1c1e] sm:text-4xl">
-              {copy.whoTitle}
-            </h2>
-          </div>
-          <div className="space-y-5 text-base leading-relaxed text-[#3d4148] sm:text-lg">
-            <p className="text-lg font-medium text-[#1a1c1e] sm:text-xl">{copy.whoLead}</p>
+      <section className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6 sm:py-12">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#E52721]">{copy.whoEyebrow}</p>
+        <div className="mt-4 grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+          <h2 className="text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl">
+            {copy.whoTitle}
+          </h2>
+          <div className="space-y-4 text-base leading-relaxed text-slate-600">
             <p>{copy.whoP1}</p>
             <p>{copy.whoP2}</p>
             <p>
@@ -301,81 +218,53 @@ export default function AboutUsPage() {
         </div>
       </section>
 
-      {/* What we offer */}
-      <section className="border-y border-[#d8cfc2]/80 bg-[#ebe4da]">
-        <div className="mx-auto w-full max-w-[1450px] px-4 py-16 sm:px-6 sm:py-20">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#E52721]">
-            {copy.offerEyebrow}
-          </p>
-          <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-[#1a1c1e] sm:text-4xl">
-            {copy.offerTitle}
-          </h2>
-
-          <div className="mt-12 grid gap-10 md:grid-cols-2 md:gap-14">
-            <div className="border-s-2 border-[#E52721] ps-5">
-              <h3 className="text-xl font-bold text-[#1a1c1e]">{copy.offerElectronicsTitle}</h3>
-              <p className="mt-3 text-base leading-relaxed text-[#3d4148]">
-                {copy.offerElectronicsText}
-              </p>
-            </div>
-            <div className="border-s-2 border-[#1a1c1e]/25 ps-5">
-              <h3 className="text-xl font-bold text-[#1a1c1e]">{copy.offerHomeTitle}</h3>
-              <p className="mt-3 text-base leading-relaxed text-[#3d4148]">
-                {copy.offerHomeText}
-              </p>
-            </div>
-          </div>
-
-          <p className="mt-10 max-w-3xl text-sm leading-relaxed text-[#5a5f68] sm:text-base">
-            {copy.offerFoot}
-          </p>
+      <section className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6 sm:py-12">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#E52721]">{copy.offerEyebrow}</p>
+        <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl">
+          {copy.offerTitle}
+        </h2>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-xl font-bold text-[#111111]">{copy.offerElectronicsTitle}</h3>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-base">{copy.offerElectronicsText}</p>
+          </article>
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-xl font-bold text-[#111111]">{copy.offerHomeTitle}</h3>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-base">{copy.offerHomeText}</p>
+          </article>
         </div>
+        <p className="mt-6 max-w-3xl text-sm leading-relaxed text-slate-500">{copy.offerFoot}</p>
       </section>
 
-      {/* Why shop */}
-      <section className="mx-auto w-full max-w-[1450px] px-4 py-16 sm:px-6 sm:py-20 lg:py-24">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#E52721]">
-          {copy.whyEyebrow}
-        </p>
-        <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-[#1a1c1e] sm:text-4xl">
+      <section className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6 sm:pb-16 sm:py-12">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#E52721]">{copy.whyEyebrow}</p>
+        <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl">
           {copy.whyTitle}
         </h2>
-
-        <ol className="mt-12 grid gap-x-10 gap-y-12 sm:grid-cols-2">
+        <ol className="mt-8 grid gap-4 sm:grid-cols-2">
           {copy.reasons.map((reason, index) => (
-            <li key={reason.title} className="relative">
-              <span className="block font-mono text-sm font-semibold tracking-widest text-[#E52721]/80">
+            <li key={reason.title} className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
+              <span className="text-xs font-semibold tracking-widest text-[#E52721]">
                 {String(index + 1).padStart(2, '0')}
               </span>
-              <h3 className="mt-3 text-xl font-bold text-[#1a1c1e]">{reason.title}</h3>
-              <p className="mt-2 text-base leading-relaxed text-[#3d4148]">{reason.text}</p>
+              <h3 className="mt-2 text-lg font-bold text-[#111111]">{reason.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{reason.text}</p>
             </li>
           ))}
         </ol>
       </section>
 
-      {/* Closing CTA */}
-      <section className="relative overflow-hidden bg-[#141618] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-80"
-          style={{
-            background:
-              'radial-gradient(ellipse 60% 80% at 100% 50%, rgba(229,39,33,0.22), transparent 55%), linear-gradient(120deg, #141618, #1f1716)',
-          }}
-        />
-        <div className="relative mx-auto flex w-full max-w-[1450px] flex-col gap-8 px-4 py-16 sm:px-6 sm:py-20 lg:flex-row lg:items-end lg:justify-between">
+      <section className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-12 sm:px-6 sm:py-16 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
-            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
+            <h2 className="text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl">
               {copy.closeTitle}
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-white/70 sm:text-lg">
-              {copy.closeText}
-            </p>
+            <p className="mt-3 text-base leading-relaxed text-slate-600">{copy.closeText}</p>
           </div>
           <Link
             href="/"
-            className="inline-flex shrink-0 items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-bold text-[#141618] transition hover:bg-[#f3eee6]"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-[#111111] px-7 py-3.5 text-sm font-bold text-white transition hover:bg-[#E52721]"
           >
             {copy.closeCta}
           </Link>

@@ -98,7 +98,7 @@ const ExitIntentPopup = () => {
 
   const handleContinueShopping = () => {
     setShowPopup(false)
-    router.push('/products')
+    router.push('/shop')
   }
 
   const handleCheckout = () => {

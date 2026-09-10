@@ -1,6 +1,20 @@
+import { headers } from 'next/headers';
 import { SITE_URL } from '@/lib/sitemapData';
+import { getRequestHostFromHeaders, isStagingStoreHost } from '@/lib/stagingHost';
 
-export default function robots() {
+export default async function robots() {
+  const requestHeaders = await headers();
+  if (isStagingStoreHost(getRequestHostFromHeaders(requestHeaders))) {
+    return {
+      rules: [
+        {
+          userAgent: '*',
+          disallow: '/',
+        },
+      ],
+    };
+  }
+
   return {
     rules: [
       {
@@ -27,7 +41,6 @@ export default function robots() {
         ],
       },
     ],
-    // Index auto-lists sitemap-pages / categories / products / blog (live DB).
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,
   };

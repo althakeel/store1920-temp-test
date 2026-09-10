@@ -179,8 +179,6 @@ export default function OffersPageClient({ initialData = null }) {
                   <span className="sr-only">{t('exploreInterests.loadMore')}</span>
                 )}
               </div>
-            ) : pagination.total > OFFERS_PAGE_SIZE ? (
-              <p className="mt-8 text-center text-sm text-gray-500">{t('category.allLoaded')}</p>
             ) : null}
           </div>
         ) : (

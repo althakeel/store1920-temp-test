@@ -41,6 +41,8 @@ export async function GET(req) {
     const slidersWithDefaults = sliders.map(slider => ({
       ...slider,
       subtitle: slider.subtitle || '',
+      titleAr: slider.titleAr || '',
+      subtitleAr: slider.subtitleAr || '',
       sideImage: slider.sideImage || '',
       sideImagePosition: normalizeCategorySliderSideImagePosition(slider.sideImagePosition),
       cardsPerRow: slider.cardsPerRow === 5 ? 5 : 6,
@@ -76,7 +78,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
     }
 
-    const { title, subtitle, productIds, sideImage, sideImagePosition, cardsPerRow, backgroundColor, autoSlide, autoSlideIntervalMs } = await req.json();
+    const { title, subtitle, titleAr, subtitleAr, productIds, sideImage, sideImagePosition, cardsPerRow, backgroundColor, autoSlide, autoSlideIntervalMs } = await req.json();
     console.log('=== 💾 POST SLIDER START ===');
     console.log('💾 Raw request body - subtitle:', subtitle);
     console.log('💾 Subtitle is null:', subtitle === null);
@@ -126,6 +128,8 @@ export async function POST(req) {
       storeId: scope.storeId,
       title: title.trim(),
       subtitle: subtitleValue,
+      titleAr: titleAr !== undefined && titleAr !== null ? String(titleAr).trim() : '',
+      subtitleAr: subtitleAr !== undefined && subtitleAr !== null ? String(subtitleAr).trim() : '',
       productIds,
       sideImage: sideImageValue,
       sideImagePosition: normalizeCategorySliderSideImagePosition(sideImagePosition),

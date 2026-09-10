@@ -18,7 +18,6 @@ const getProductPrice = (product) => {
 
 const QUICK_LINKS = [
   { href: '/shop', label: 'Shop' },
-  { href: '/fast-delivery', label: 'Fast Delivery' },
   { href: '/offers', label: 'Offers' },
   { href: '/blogs', label: 'Blog' },
   { href: '/contact-us', label: 'Contact' },
@@ -118,12 +117,6 @@ export default function NotFound() {
               className="inline-flex items-center justify-center rounded-xl border border-[#d6cfc6] bg-white px-6 py-3 text-sm font-semibold text-[#1c1917] transition hover:border-[#8f3404]/40 hover:bg-[#faf7f3]"
             >
               Continue Shopping
-            </Link>
-            <Link
-              href="/fast-delivery"
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold text-[#8f3404] underline-offset-4 hover:underline"
-            >
-              Fast Delivery
             </Link>
           </div>
 

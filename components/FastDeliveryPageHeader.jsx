@@ -38,9 +38,9 @@ export default function FastDeliveryPageHeader({ settings }) {
         <ZapIcon size={32} className="text-yellow-300" />
       </div>
       {headerText.showTitle ? (
-        <h1 className="text-3xl md:text-5xl font-bold text-center mb-4">
+        <p className="text-3xl md:text-5xl font-bold text-center mb-4">
           {headerText.title}
-        </h1>
+        </p>
       ) : null}
       {headerText.showSubtitle ? (
         <p className="text-center text-white/90 text-lg max-w-2xl mx-auto">

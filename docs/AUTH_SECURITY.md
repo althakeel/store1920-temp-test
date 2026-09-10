@@ -11,7 +11,8 @@ Store1920 uses **Firebase Authentication** for identity. Passwords are never sto
 | MFA / OTP | Email OTP via `/api/auth/mfa` + `twoFactorEnabled` on User |
 | Email verification | Firebase `sendEmailVerification` + `/api/auth/email-verify` OTP |
 | Phone verification | `/api/auth/phone-verify` (Twilio SMS if configured, else email fallback) |
-| Secure password reset | `/api/auth/password-reset` — hashed one-time tokens (15m) + OTP |
+| WhatsApp OTP login / register | `/api/auth/whatsapp-otp` via WABA `store1920_otp`; Firebase custom token; guest orders linked by phone |
+| Secure password reset | `/api/auth/password-reset` — email 6-digit OTP or WhatsApp 4-digit OTP; hashed link token (15m) |
 | Login attempt limits | `AuthSecurity.failedAttempts` via `/api/auth/login-result` |
 | Account lock | 5 failures → 15 min lock (`AUTH_LOCK` in `lib/authSecurity.js`) |
 | CAPTCHA | Math challenge `/api/auth/captcha`; optional Google reCAPTCHA env |
@@ -31,6 +32,9 @@ RECAPTCHA_SECRET_KEY=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_FROM_NUMBER=
+WABA_TOKEN_OTP=
+WABA_TEMPLATE_OTP=store1920_otp
+AUTH_WHATSAPP_OTP_LENGTH=4
 ```
 
 ## Customer UI
@@ -47,5 +51,6 @@ TWILIO_FROM_NUMBER=
 - `POST|PUT /api/auth/password-reset`
 - `POST|PUT /api/auth/email-verify`
 - `POST|PUT /api/auth/phone-verify`
+- `POST|PUT /api/auth/whatsapp-otp`
 - `GET|POST|PUT /api/auth/mfa`
 - `GET|POST|DELETE /api/auth/sessions`

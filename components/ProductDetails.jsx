@@ -34,6 +34,7 @@ import ProductCarousel from "./ProductCarousel";
 import ProductDescription from "./ProductDescription";
 import ProductReviewsSection from "./ProductReviewsSection";
 import StorefrontActionToast from "./StorefrontActionToast";
+import FastDeliveryInfoPopup from "./FastDeliveryInfoPopup";
 import { useAuth } from '@/lib/useAuth';
 import { trackMetaEvent } from "@/lib/metaPixelClient";
 import { trackViewContentDual, trackProductAddToCart } from "@/lib/ecommerceTracking";
@@ -1514,6 +1515,8 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       className={`w-full text-start leading-snug text-gray-600 ${mobile ? 'text-xs' : 'text-sm'} ${className}`.trim()}
     >
       {t('product.trustLine')}
+      {' '}
+      {t('product.warrantyLine')}
     </p>
   );
 
@@ -3118,9 +3121,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
             {/* Mobile: title, price, brand card, services */}
             <div className="lg:hidden relative z-30 mt-3 w-full min-w-0 max-w-full space-y-2" dir={isArabic ? 'rtl' : 'ltr'}>
               <div className="space-y-1.5">
-                <h1 dir={isArabic ? 'rtl' : 'ltr'} className="w-full min-w-0 text-[18px] font-semibold leading-snug text-gray-900 break-words whitespace-normal [overflow-wrap:anywhere]">
+                <p dir={isArabic ? 'rtl' : 'ltr'} className="w-full min-w-0 text-[18px] font-semibold leading-snug text-gray-900 break-words whitespace-normal [overflow-wrap:anywhere] lg:hidden">
                   {productHeading}
-                </h1>
+                </p>
                 {mobileProductBrand ? (
                   <p className="text-[13px] leading-snug text-gray-600">
                     <span className="text-gray-500">{t('product.brandLabel')}: </span>
@@ -3837,52 +3840,24 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       )}
 
 
-      {deliveryInfoOpen && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-              onClick={() => setDeliveryInfoOpen(false)}
-              role="presentation"
-            >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="fast-delivery-dialog-title"
-                dir={isArabic ? 'rtl' : 'ltr'}
-                className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 text-[13px] leading-relaxed shadow-xl"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="mb-2 flex items-start justify-between gap-3">
-                  <p id="fast-delivery-dialog-title" className="font-semibold text-slate-900">
-                    {deliverySummary.primary}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setDeliveryInfoOpen(false)}
-                    className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                    aria-label={isArabic ? 'إغلاق' : 'Close'}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <p className="text-slate-700">{deliverySummary.secondary}</p>
-                {renderSoldByLine('mt-3 text-[12px] text-slate-600')}
-                <p className="mt-3 text-[11px] text-slate-500">
-                  <Link href="/return-policy" className="font-medium text-[#E52721] hover:underline">
-                    {buyboxCopy.returnsText}
-                  </Link>
-                  <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
-                  <Link href="/shipping-policy" className="font-medium text-slate-700 hover:underline">
-                    {isArabic ? 'سياسة الشحن' : 'Shipping Policy'}
-                  </Link>
-                  <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
-                  {buyboxCopy.vatText}
-                </p>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      <FastDeliveryInfoPopup
+        open={deliveryInfoOpen}
+        onClose={() => setDeliveryInfoOpen(false)}
+        isArabic={isArabic}
+      >
+        {renderSoldByLine('text-[12px] text-slate-600')}
+        <p className="mt-3 text-[11px] text-slate-500">
+          <Link href="/return-policy" className="font-medium text-[#E52721] hover:underline">
+            {buyboxCopy.returnsText}
+          </Link>
+          <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
+          <Link href="/shipping-policy" className="font-medium text-slate-700 hover:underline">
+            {isArabic ? 'سياسة الشحن' : 'Shipping Policy'}
+          </Link>
+          <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
+          {buyboxCopy.vatText}
+        </p>
+      </FastDeliveryInfoPopup>
 
       {actionToast ? (
         <StorefrontActionToast

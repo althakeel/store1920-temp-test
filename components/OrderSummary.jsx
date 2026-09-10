@@ -114,7 +114,7 @@ const OrderSummary = ({ totalPrice, items }) => {
                         flatRate: Number(data.setting.flatRate ?? 5),
                         perItemFee: Number(data.setting.perItemFee ?? 2),
                         maxItemFee: data.setting.maxItemFee ? Number(data.setting.maxItemFee) : null,
-                        freeShippingMin: Number(data.setting.freeShippingMin ?? 499),
+                        freeShippingMin: Number(data.setting.freeShippingMin ?? 100),
                         weightUnit: data.setting.weightUnit || 'kg',
                         baseWeight: Number(data.setting.baseWeight ?? 1),
                         baseWeightFee: Number(data.setting.baseWeightFee ?? 5),

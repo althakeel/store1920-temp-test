@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CreditCard, ShieldCheck, Star, Truck, Wallet } from 'lucide-react';
+import { Star, Truck } from 'lucide-react';
 
 const DEFAULT_CATEGORY_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' rx='24' fill='%23f8fafc'/%3E%3C/svg%3E";
 const DESCRIPTION_PREVIEW_LENGTH = 220;
@@ -47,13 +47,6 @@ export default function CategoryHeroCard({
     if (!fullDescription || expanded || !canCollapse) return fullDescription;
     return `${fullDescription.slice(0, DESCRIPTION_PREVIEW_LENGTH).trimEnd()}...`;
   }, [canCollapse, expanded, fullDescription]);
-
-  const trustItems = [
-    { icon: ShieldCheck, label: t('category.trust.warranty') },
-    { icon: Truck, label: t('category.trust.freeDelivery') },
-    { icon: Wallet, label: t('category.trust.cod') },
-    { icon: CreditCard, label: t('category.trust.instalments') },
-  ];
 
   return (
     <section className="mb-6" aria-label={name}>
@@ -128,20 +121,6 @@ export default function CategoryHeroCard({
             ) : null}
           </div>
         </div>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {trustItems.map(({ icon: Icon, label }) => (
-          <div
-            key={label}
-            className={`flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 ${isArabic ? 'flex-row-reverse text-right' : ''}`}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-              <Icon size={16} strokeWidth={1.9} />
-            </span>
-            <span className="font-medium leading-snug">{label}</span>
-          </div>
-        ))}
       </div>
     </section>
   );

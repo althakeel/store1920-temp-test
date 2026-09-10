@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { HOME_SECTION_STACK_CLASS } from '@/lib/storefrontCarousel';
+import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 
 import HeroBannerSlider from '@/components/HeroBannerSlider';
 import LatestProducts from '@/components/LatestProducts';
@@ -51,6 +52,7 @@ const RecommendedProducts = dynamic(() => import('@/components/RecommendedProduc
 });
 
 export default function HomePageClient({ initialData }) {
+  const { isArabic } = useStorefrontI18n();
   const {
     shopShowcase = { config: null, sectionProducts: [], products: [], categories: [] },
     homeSections = [],
@@ -92,6 +94,11 @@ export default function HomePageClient({ initialData }) {
   return (
     <div className="pt-5 sm:pt-6">
       <HeroBannerSlider showcaseConfig={shopShowcaseConfig} showcaseReady />
+      <h1 className="sr-only">
+        {isArabic
+          ? 'تسوق الإلكترونيات ومنتجات المنزل ونمط الحياة عبر الإنترنت في الإمارات'
+          : 'Shop Electronics, Home and Lifestyle Products Online in the UAE'}
+      </h1>
       <div className={`${HOME_SECTION_STACK_CLASS} w-full min-w-0 max-lg:pb-0 lg:pb-8`}>
         <ShopShowcaseSection
           initialShowcaseData={shopShowcase}

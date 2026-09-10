@@ -73,7 +73,18 @@ function SectionBlock({ section }) {
 }
 
 export default async function SitemapPage() {
-  const { sections, products, stats } = await getHtmlSitemapData();
+  let sections = [];
+  let products = { initialLinks: [], total: 0, page: 1, limit: 50, hasMore: false };
+  let stats = { categories: 0, products: 0, blogs: 0 };
+
+  try {
+    const data = await getHtmlSitemapData();
+    sections = data.sections || [];
+    products = data.products || products;
+    stats = data.stats || stats;
+  } catch (error) {
+    console.error('[sitemap page]', error);
+  }
 
   const beforeProducts = sections.filter((section) => (
     section.id === 'shop' || section.id === 'budget' || section.id === 'categories'
@@ -162,6 +173,36 @@ export default async function SitemapPage() {
         </aside>
 
         <div className="space-y-14">
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+            <h2 className="text-xl font-semibold text-stone-900">Customer service &amp; policies</h2>
+            <ul className="mt-4 columns-1 gap-x-10 sm:columns-2">
+              {[
+                { href: '/shop', label: 'Shop' },
+                { href: '/categories', label: 'Categories' },
+                { href: '/contact-us', label: 'Contact Us' },
+                { href: '/support', label: 'Support' },
+                { href: '/help', label: 'Help Center' },
+                { href: '/faq', label: 'FAQ' },
+                { href: '/about-us', label: 'About Us' },
+                { href: '/business-information', label: 'Business Information' },
+                { href: '/shipping-policy', label: 'Shipping Policy' },
+                { href: '/return-policy', label: 'Return, Refund, Replacement & Cancellation' },
+                { href: '/privacy-policy', label: 'Privacy Policy' },
+                { href: '/terms-and-conditions', label: 'Terms & Conditions' },
+                { href: '/terms-of-sale', label: 'Terms of Sale' },
+                { href: '/cookie-policy', label: 'Cookie Policy' },
+                { href: '/warranty-policy', label: 'Warranty Policy' },
+                { href: '/payment-and-pricing', label: 'Payment & Pricing' },
+              ].map((link) => (
+                <li key={link.href} className="mb-2.5 break-inside-avoid">
+                  <Link href={link.href} className="text-sm font-medium text-stone-800 hover:text-[#E52721]">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+
           {beforeProducts.map((section) => (
             <SectionBlock key={section.id} section={section} />
           ))}

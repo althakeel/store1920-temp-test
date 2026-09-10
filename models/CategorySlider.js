@@ -18,6 +18,18 @@ const CategorySliderSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    titleAr: {
+      type: String,
+      required: false,
+      trim: true,
+      default: '',
+    },
+    subtitleAr: {
+      type: String,
+      required: false,
+      trim: true,
+      default: '',
+    },
     productIds: {
       type: [String],
       required: true,

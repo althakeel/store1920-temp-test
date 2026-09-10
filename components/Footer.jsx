@@ -160,7 +160,6 @@ const Footer = () => {
                 { text: t('footer.allProducts'), path: '/shop' },
                 { text: t('footer.todaysDeals'), path: '/offers' },
                 { text: t('footer.newArrivals'), path: '/new-arrivals' },
-                { text: t('footer.fastDelivery'), path: '/fast-delivery' },
             ],
         },
         {

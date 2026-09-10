@@ -2686,7 +2686,8 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
             {/* Shipping Method Section */}
             <div className="mb-4 md:mb-6">
               <h2 className="mb-1 text-xl font-bold text-gray-900">{t('checkout.deliveryMethod')}</h2>
-              <p className="mb-4 text-sm text-slate-500">Choose how fast you want your order delivered.</p>
+              <p className="mb-2 text-sm text-slate-500">Choose how fast you want your order delivered.</p>
+              <p className="mb-4 text-xs leading-relaxed text-slate-500">{t('checkout.freeDeliveryNote')}</p>
               <div className="space-y-3">
                 {availableShippingOptions.map((option) => {
                   const optionFee = calculateShipping({

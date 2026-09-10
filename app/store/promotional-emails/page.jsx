@@ -614,7 +614,7 @@ export default function PromotionalEmailsPage() {
     // Fast path: only flip a flag — never copy thousands of IDs into state.
     setSelectAllCustomers(Boolean(checked));
     setExcludedCustomers([]);
-    setSelectedCustomers([]);
+      setSelectedCustomers([]);
   };
   const openPresetInBuilder = async (presetId) => {
     try {
@@ -866,7 +866,7 @@ export default function PromotionalEmailsPage() {
         }
         clearAudienceSelection();
         setSendProgress({ done: emailsToSend.length, total: emailsToSend.length });
-        setSendStatus(
+      setSendStatus(
           data.message
           || `Daily campaign started for ${emailsToSend.length} customer(s). It will keep sending until you disable it.`,
         );
@@ -949,7 +949,7 @@ export default function PromotionalEmailsPage() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-teal-50/40 px-6 py-5">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <div>
+        <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Marketing</p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">Email Marketing</h2>
               <p className="mt-1 max-w-2xl text-sm text-slate-600">
@@ -966,8 +966,8 @@ export default function PromotionalEmailsPage() {
                 </span>
               </div>
             )}
-          </div>
         </div>
+      </div>
 
         <div className="flex gap-1 overflow-x-auto px-4 pt-3 sm:px-6">
           {TABS.map((item) => {
@@ -1034,7 +1034,7 @@ export default function PromotionalEmailsPage() {
                 }`}>
                   {step.done ? '✓' : step.n}
                 </span>
-                <div>
+          <div>
                   <div className="text-sm font-semibold text-slate-900">Step {step.n}</div>
                   <div className="text-xs text-slate-500">{step.title}</div>
                 </div>
@@ -1089,26 +1089,26 @@ export default function PromotionalEmailsPage() {
                 {templateSource === 'classic' && (
                   <div className="space-y-3">
                     <label className="block text-xs font-medium text-slate-600">Classic template</label>
-                    {templatesLoading ? (
+            {templatesLoading ? (
                       <div className="text-sm text-slate-500">Loading templates...</div>
-                    ) : (
-                      <select
+            ) : (
+                <select
                         value={selectedClassicId}
                         onChange={(e) => setSelectedClassicId(e.target.value)}
                         className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
-                      >
-                        <option value="">Choose a template...</option>
+                >
+                  <option value="">Choose a template...</option>
                         {classicTemplates.map((template) => (
                           <option key={template.id} value={template.classicId || template.id.replace('classic:', '')}>
                             {template.subject || template.name}
                           </option>
-                        ))}
-                      </select>
+                  ))}
+                </select>
                     )}
                     <button type="button" onClick={() => setTab('gallery')} className="text-sm font-medium text-teal-700 hover:underline">
                       Browse full gallery →
                     </button>
-                  </div>
+                        </div>
                 )}
 
                 {templateSource === 'gallery' && (
@@ -1177,8 +1177,8 @@ export default function PromotionalEmailsPage() {
                               style={{ background: `linear-gradient(135deg, ${selectedGalleryPreset.thumbnailColor || '#0f766e'}, #0f172a)` }}
                             >
                               {selectedGalleryPreset.name}
-                            </div>
-                          )}
+                  </div>
+                )}
                         </div>
                       </div>
                     ) : (
@@ -1196,7 +1196,7 @@ export default function PromotionalEmailsPage() {
                       >
                         Customize this preset
                       </button>
-                    </div>
+          </div>
                   </div>
                 )}
 
@@ -1251,7 +1251,7 @@ export default function PromotionalEmailsPage() {
 
             <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
-                <div>
+          <div>
                   <h3 className="text-base font-semibold text-slate-900">2. Choose audience</h3>
                   <p className="mt-0.5 text-xs text-slate-500">Filter ordered customers who have an email</p>
                 </div>
@@ -1297,21 +1297,21 @@ export default function PromotionalEmailsPage() {
                 className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
               />
 
-              {customersLoading ? (
+            {customersLoading ? (
                 <div className="py-8 text-center text-sm text-slate-500">Loading customers...</div>
-              ) : (
-                <>
+            ) : (
+              <>
                   <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={selectAllCustomers}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
+                  <input
+                    type="checkbox"
+                    checked={selectAllCustomers}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
                       className="h-4 w-4 accent-teal-600"
-                    />
+                  />
                     <span className="text-sm font-medium text-slate-700">
                       Select all in this filter ({filteredCustomers.length})
-                    </span>
-                  </label>
+                  </span>
+                </label>
                   <div className="max-h-72 space-y-1.5 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/40 p-2">
                     {filteredCustomers.length === 0 ? (
                       <div className="py-8 text-center text-sm text-slate-500">
@@ -1333,8 +1333,8 @@ export default function PromotionalEmailsPage() {
                                   : 'border-transparent bg-white/70 hover:border-slate-200'
                             }`}
                           >
-                            <input
-                              type="checkbox"
+                        <input
+                          type="checkbox"
                               checked={checked && !optedOut}
                               disabled={optedOut}
                               onChange={(e) => {
@@ -1358,14 +1358,14 @@ export default function PromotionalEmailsPage() {
                             <div className="shrink-0 text-right text-[11px] text-slate-400">
                               <div>{customer.totalOrders} order{customer.totalOrders === 1 ? '' : 's'}</div>
                               {customer.country ? <div>{customer.country}</div> : null}
-                            </div>
-                          </label>
+                        </div>
+                      </label>
                         );
                       })
-                    )}
-                  </div>
-                </>
-              )}
+                  )}
+                </div>
+              </>
+            )}
             </section>
           </div>
 
@@ -1387,7 +1387,7 @@ export default function PromotionalEmailsPage() {
               <p className="mt-1 text-[11px] text-slate-500">
                 Defaults from the template — edit only for this send if you want.
               </p>
-            </div>
+        </div>
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap items-center gap-2">
@@ -1428,7 +1428,7 @@ export default function PromotionalEmailsPage() {
                   <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
                     {scheduleTimes.map((value, index) => (
                       <div key={`schedule-time-${index}`} className="flex items-center gap-1">
-                        <input
+              <input
                           type="datetime-local"
                           min={datetimeLocalMin()}
                           value={value}
@@ -1448,7 +1448,7 @@ export default function PromotionalEmailsPage() {
                             Remove
                           </button>
                         ) : null}
-                      </div>
+          </div>
                     ))}
                     <button
                       type="button"
@@ -1474,7 +1474,7 @@ export default function PromotionalEmailsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     {autoTimes.map((time, index) => (
                       <div key={`auto-time-${index}`} className="flex items-center gap-1">
-                        <input
+              <input
                           type="time"
                           value={time}
                           onChange={(e) => {
@@ -1650,7 +1650,7 @@ export default function PromotionalEmailsPage() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <input
+              <input
               value={gallerySearch}
               onChange={(e) => setGallerySearch(e.target.value)}
               placeholder="Search templates..."
@@ -1709,7 +1709,7 @@ export default function PromotionalEmailsPage() {
                   />
                 ))
               )}
-            </div>
+        </div>
           )}
 
           {galleryLibraryTab === 'saved' && (
@@ -1851,8 +1851,8 @@ export default function PromotionalEmailsPage() {
                           >
                             Recreate in builder
                           </button>
-                        )}
-                      </div>
+            )}
+          </div>
                     </div>
                   </div>
                 ))
@@ -1870,7 +1870,7 @@ export default function PromotionalEmailsPage() {
               <p className="text-sm text-gray-600">Drag blocks, edit full details, preview, then save or send</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
+          <button
                 type="button"
                 onClick={saveBuilderTemplate}
                 disabled={savingTemplate}
@@ -1887,9 +1887,9 @@ export default function PromotionalEmailsPage() {
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
               >
                 Use on send tab
-              </button>
+          </button>
             </div>
-          </div>
+        </div>
 
           <EmailCampaignBuilder
             blocks={builderBlocks}
@@ -1907,8 +1907,8 @@ export default function PromotionalEmailsPage() {
             categories={productCategories}
             getToken={getToken}
           />
-        </div>
-      )}
+          </div>
+        )}
 
       {tab === 'pages' && (
         <EmailCampaignLandingPages getToken={getToken} />
@@ -1922,7 +1922,7 @@ export default function PromotionalEmailsPage() {
             <StatCard icon={Users} title="Contacted" value={leadsStats.contacted} color="orange" />
             <StatCard icon={CheckCircle} title="Converted" value={leadsStats.converted} color="green" />
             <StatCard icon={Clock} title="Archived" value={leadsStats.archived} color="gray" />
-          </div>
+      </div>
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -2096,17 +2096,17 @@ export default function PromotionalEmailsPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <button type="button" onClick={() => setStatusFilter('sent')} className="text-left">
-              <StatCard icon={CheckCircle} title="Sent" value={stats.sent} color="green" />
+        <StatCard icon={CheckCircle} title="Sent" value={stats.sent} color="green" />
             </button>
             <StatCard icon={Eye} title="Opened" value={stats.opened || 0} color="blue" />
             <StatCard icon={MousePointerClick} title="Clicked" value={stats.clicked || 0} color="teal" />
             <button type="button" onClick={() => setStatusFilter('failed')} className="text-left">
-              <StatCard icon={AlertCircle} title="Failed" value={stats.failed} color="red" />
+        <StatCard icon={AlertCircle} title="Failed" value={stats.failed} color="red" />
             </button>
             <button type="button" onClick={() => setStatusFilter('pending')} className="text-left">
-              <StatCard icon={Clock} title="Pending" value={stats.pending} color="orange" />
+        <StatCard icon={Clock} title="Pending" value={stats.pending} color="orange" />
             </button>
-          </div>
+      </div>
           <p className="text-xs text-slate-500">
             Opens and clicks update when customers open the email or tap a link. Total open events: {stats.opens || 0}. Total click events: {stats.clicks || 0}.
             {' '}Click Sent / Failed / Pending cards to filter the table.
@@ -2215,48 +2215,48 @@ export default function PromotionalEmailsPage() {
                   ))}
                 </select>
               </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
                 className="rounded-lg border border-gray-300 px-4 py-2"
-              >
+            >
                 <option value="all">All status</option>
-                <option value="sent">Sent</option>
-                <option value="failed">Failed</option>
-                <option value="pending">Pending</option>
-              </select>
-              <button
+              <option value="sent">Sent</option>
+              <option value="failed">Failed</option>
+              <option value="pending">Pending</option>
+            </select>
+            <button
                 type="button"
-                onClick={() => loadHistory(page)}
+              onClick={() => loadHistory(page)}
                 className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
-              >
-                Refresh
-              </button>
-            </div>
+            >
+              Refresh
+            </button>
           </div>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
               <thead className="border-b border-gray-300 bg-gray-100">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Recipient</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Subject</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Recipient</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Subject</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Opened</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Clicked</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Time</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((email, idx) => (
-                  <tr key={email._id || idx} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Time</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((email, idx) => (
+                <tr key={email._id || idx} className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-gray-500" />
                         <span className="font-medium text-gray-900">{email.recipientEmail}</span>
-                      </div>
-                    </td>
+                    </div>
+                  </td>
                     <td className="px-4 py-3 text-gray-900">{email.subject}</td>
                     <td className="px-4 py-3"><StatusBadge status={email.status} /></td>
                     <td className="px-4 py-3 text-gray-700">
@@ -2272,7 +2272,7 @@ export default function PromotionalEmailsPage() {
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}
-                    </td>
+                  </td>
                     <td className="px-4 py-3 text-gray-700">
                       {Number(email.clickCount) > 0 ? (
                         <div>
@@ -2287,18 +2287,18 @@ export default function PromotionalEmailsPage() {
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {new Date(email.sentAt || email.createdAt).toLocaleString()}
-                    </td>
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {new Date(email.sentAt || email.createdAt).toLocaleString()}
+                  </td>
                     <td className="px-4 py-3 text-gray-700">{email.errorMessage || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-          {history.length === 0 && (
+        {history.length === 0 && (
             <div className="py-8 text-center text-gray-500">No promotional email history found</div>
           )}
 
@@ -2317,8 +2317,8 @@ export default function PromotionalEmailsPage() {
               historyTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }}
           />
-        </div>
-      )}
+          </div>
+        )}
     </div>
 
       {previewModal ? (
@@ -2334,14 +2334,14 @@ export default function PromotionalEmailsPage() {
                   <div className="mt-0.5 text-xs text-gray-500">Subject: {previewModal.subject}</div>
                 ) : null}
               </div>
-              <button
+            <button
                 type="button"
                 onClick={closeTemplatePreview}
                 className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
                 aria-label="Close preview"
               >
                 <X className="h-5 w-5" />
-              </button>
+            </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto bg-slate-100 p-4">
               <iframe
@@ -2351,13 +2351,13 @@ export default function PromotionalEmailsPage() {
               />
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 px-4 py-3">
-              <button
+            <button
                 type="button"
                 onClick={closeTemplatePreview}
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700"
               >
                 Close
-              </button>
+            </button>
               {previewModal.type === 'preset' ? (
                 <>
                   <button
@@ -2400,9 +2400,9 @@ export default function PromotionalEmailsPage() {
                   Edit template
                 </button>
               ) : null}
-            </div>
           </div>
-        </div>
+      </div>
+    </div>
       ) : null}
     </>
   );

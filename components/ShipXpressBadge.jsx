@@ -3,8 +3,8 @@
 import Link from 'next/link';
 
 export default function ShipXpressBadge({
-  href = '/fast-delivery',
-  interactive = true,
+  href,
+  interactive = false,
 }) {
   const button = (
     <span className="shipxpress-link">
@@ -12,9 +12,9 @@ export default function ShipXpressBadge({
     </span>
   );
 
-  if (interactive) {
+  if (interactive && href) {
     return (
-      <Link href={href} className="shipxpress-wrap shipxpress-link-anchor group shrink-0" aria-label="ShipXpress fast delivery">
+      <Link href={href} className="shipxpress-wrap shipxpress-link-anchor group shrink-0" aria-label="ShipXpress">
         {button}
       </Link>
     );

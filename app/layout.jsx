@@ -15,6 +15,7 @@ import { META_PIXEL_ID, getMetaPixelBootstrapScript } from "@/lib/metaPixelConfi
 import { TIKTOK_PIXEL_ID, getTikTokPixelBootstrapScript } from "@/lib/tiktokPixelConfig";
 import OrganizationJsonLd from "@/components/OrganizationJsonLd";
 import { SITE_URL } from "@/lib/sitemapData";
+import { getRequestHostFromHeaders, isStagingStoreHost } from "@/lib/stagingHost";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -40,15 +41,35 @@ const shadowsIntoLight = Shadows_Into_Light({
   preload: false,
 });
 
-export const metadata = {
-  metadataBase: new URL(SITE_URL),
-  alternates: {
-    canonical: "./",
-  },
-  title: "store1920 - Shop smarter",
-  description:
-    "Discover trending gadgets, fashion, home essentials & more at the best price. Fast delivery, secure checkout, and deals you don't want to miss.",
-};
+export async function generateMetadata() {
+  const requestHeaders = await headers();
+  const staging = isStagingStoreHost(getRequestHostFromHeaders(requestHeaders));
+
+  return {
+    metadataBase: new URL(SITE_URL),
+    alternates: {
+      canonical: "./",
+    },
+    title: "store1920 - Shop smarter",
+    description:
+      "Discover trending gadgets, fashion, home essentials & more at the best price. Fast delivery, secure checkout, and deals you don't want to miss.",
+    robots: staging
+      ? {
+          index: false,
+          follow: false,
+          nocache: true,
+          googleBot: {
+            index: false,
+            follow: false,
+            noimageindex: true,
+          },
+        }
+      : {
+          index: true,
+          follow: true,
+        },
+  };
+}
 
 // Performance optimization - Prevent auto-zoom on mobile
 export const viewport = {

@@ -7,12 +7,18 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
 import { getProductPath } from '@/lib/productUrl';
+import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
+import { getContentDirection } from '@/lib/storefrontLanguage';
+import { getLocalizedCategorySliderSubtitle, getLocalizedCategorySliderTitle } from '@/lib/categorySliderCopy';
 
 export default function CategorySliderDisplay({ slider }) {
   const scrollRef = useRef(null);
   const products = useSelector(state => state.product.list);
   const [sliderProducts, setSliderProducts] = useState([]);
   const { market, convertPrice } = useStorefrontMarket();
+  const { language } = useStorefrontI18n();
+  const title = getLocalizedCategorySliderTitle(slider, language);
+  const subtitle = getLocalizedCategorySliderSubtitle(slider, language);
 
   useEffect(() => {
     const normalizeId = (value) => {
@@ -57,9 +63,13 @@ export default function CategorySliderDisplay({ slider }) {
       <div className="qf-slider__header">
         <div className="qf-slider__title-wrap">
           <span className="qf-slider__eyebrow">Featured picks</span>
-          <h2 className="qf-slider__title">{slider.title}</h2>
-          {slider.subtitle && slider.subtitle.trim() && (
-            <p className="qf-slider__subtitle">{slider.subtitle}</p>
+          <h2 className="qf-slider__title">
+            <bdi dir={getContentDirection(title)}>{title}</bdi>
+          </h2>
+          {subtitle && subtitle.trim() && (
+            <p className="qf-slider__subtitle">
+              <bdi dir={getContentDirection(subtitle)}>{subtitle}</bdi>
+            </p>
           )}
         </div>
         <Link href="/shop" className="qf-slider__cta">

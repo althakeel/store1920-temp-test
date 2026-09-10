@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, ShoppingCart, Menu, X, HeartIcon, StarIcon, ArrowLeft, LogOut, User, MapPin, Package, ChevronDown, Grid3x3, Truck, Heart, Shield, History, Flame, Sparkles } from "lucide-react";
+import { Search, ShoppingCart, Menu, X, HeartIcon, StarIcon, ArrowLeft, LogOut, User, MapPin, Package, ChevronDown, Grid3x3, Heart, Shield, History, Flame, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -2092,10 +2092,6 @@ const Navbar = () => {
                     <Link href="/5-star-rated" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
                       <StarIcon size={17} className="text-amber-500" fill="currentColor" />
                       <span>{t('navbar.fiveStarRated')}</span>
-                    </Link>
-                    <Link href="/fast-delivery" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
-                      <Truck size={17} className="text-sky-600" />
-                      <span>{t('navbar.fastDelivery')}</span>
                     </Link>
                     <Link
                       href={firebaseUser ? '/dashboard/wishlist' : '/wishlist'}

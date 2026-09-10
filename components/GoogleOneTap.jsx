@@ -188,20 +188,9 @@ export default function GoogleOneTap() {
           },
         });
 
-        window.google.accounts.id.prompt((notification) => {
-          if (!notification) return;
-          try {
-            if (notification.isDismissedMoment?.()) {
-              markDismissed();
-            }
-            // Skipped / not displayed (FedCM network, cooldown, etc.) — not an app error.
-            if (notification.isSkippedMoment?.() || notification.isNotDisplayed?.()) {
-              return;
-            }
-          } catch {
-            // Older GSI notification shapes
-          }
-        });
+        // Do not pass a prompt notification callback — Google FedCM deprecates
+        // isDismissedMoment / isSkippedMoment / isNotDisplayed.
+        window.google.accounts.id.prompt();
       } catch (error) {
         // FedCM/Network failures should not surface as Next.js overlay errors.
         console.warn('[GoogleOneTap] prompt unavailable:', error?.message || error);

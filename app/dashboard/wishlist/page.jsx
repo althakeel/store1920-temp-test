@@ -156,7 +156,7 @@ export default function DashboardWishlistPage() {
                             <h2 className="text-xl font-bold text-gray-800 mb-2">Your wishlist is empty</h2>
                             <p className="text-gray-600 mb-6">Start adding products you love!</p>
                             <button
-                                onClick={() => router.push('/products')}
+                                onClick={() => router.push('/shop')}
                                 className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
                             >
                                 Browse Products

@@ -14,30 +14,44 @@ import {
 } from '@/lib/authOtp';
 import { sendMail } from '@/lib/email';
 import { getAuth } from '@/lib/firebase-admin';
-import { getCustomerSiteUrl, normalizePublicSiteUrl } from '@/lib/appUrl';
+import connectDB from '@/lib/mongodb';
+import User from '@/models/User';
+import { buildLoginOtpEmailHtml } from '@/lib/transactionalEmailLayout';
 
 export const dynamic = 'force-dynamic';
 
-function siteOrigin(request) {
-  return normalizePublicSiteUrl(
-    process.env.NEXT_PUBLIC_SITE_URL
-    || process.env.SITE_URL
-    || request.headers.get('origin')
-    || getCustomerSiteUrl()
-  );
+async function findFirebaseUserForEmail(email) {
+  try {
+    return await getAuth().getUserByEmail(email);
+  } catch (error) {
+    if (error?.code && error.code !== 'auth/user-not-found') {
+      throw error;
+    }
+  }
+
+  await connectDB();
+  const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const mongo = await User.findOne({
+    email: { $regex: `^${escaped}$`, $options: 'i' },
+  }).lean();
+  const uid = String(mongo?.firebaseUid || mongo?._id || '').trim();
+  if (!uid) return null;
+
+  try {
+    return await getAuth().getUser(uid);
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Request password reset — emails a Firebase link + OTP (and our app link).
- * Always returns a generic success message to avoid email enumeration.
+ * Request password reset — emails the same OTP layout as login, or sends WhatsApp OTP.
+ * Always returns a generic success message to avoid account enumeration.
  */
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const email = normalizeEmail(body.email);
-    if (!email) {
-      return NextResponse.json({ error: 'Email required' }, { status: 400 });
-    }
+    const channel = String(body.channel || 'email').trim().toLowerCase();
 
     const google = await verifyGoogleRecaptcha(body.recaptchaToken, getClientIp(request));
     let captchaOk = google.ok;
@@ -51,59 +65,66 @@ export async function POST(request) {
       return NextResponse.json({ error: 'CAPTCHA verification failed' }, { status: 400 });
     }
 
+    if (channel === 'whatsapp') {
+      const { sendWhatsAppPasswordReset } = await import('@/lib/whatsappPasswordReset');
+      const result = await sendWhatsAppPasswordReset({
+        phone: body.phone,
+        phoneCode: body.phoneCode,
+      });
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.status || 400 });
+      }
+      return NextResponse.json({
+        ok: true,
+        message: result.message || 'If an account exists for that number, a WhatsApp code has been sent.',
+      });
+    }
+
+    const email = normalizeEmail(body.email);
+    if (!email) {
+      return NextResponse.json({ error: 'Email required' }, { status: 400 });
+    }
+
     const generic = {
       ok: true,
-      message: 'If an account exists for that email, a reset link has been sent. Check inbox and spam.',
+      message: 'If an account exists for that email, a reset code has been sent. Check inbox and spam.',
     };
 
     let userRecord = null;
     try {
-      userRecord = await getAuth().getUserByEmail(email);
-    } catch {
+      userRecord = await findFirebaseUserForEmail(email);
+    } catch (error) {
+      console.error('[password-reset] lookup failed', error);
+      return NextResponse.json({
+        error: 'Could not send the reset code right now. Please try again.',
+      }, { status: 500 });
+    }
+
+    if (!userRecord) {
       return NextResponse.json(generic);
     }
 
-    const origin = siteOrigin(request);
     const resetToken = generateToken(32);
     await issuePasswordResetToken(email, resetToken);
-
-    const { code, expiresAt } = await issueOtp(email, 'password_reset');
-
-    let firebaseResetLink = '';
-    try {
-      firebaseResetLink = await getAuth().generatePasswordResetLink(email, {
-        url: `${origin}/sign-in`,
-      });
-    } catch (e) {
-      console.warn('[password-reset] Firebase link:', e?.message || e);
-    }
-
-    const appResetUrl = `${origin}/sign-in?resetToken=${encodeURIComponent(resetToken)}&email=${encodeURIComponent(email)}`;
-    const primaryLink = firebaseResetLink || appResetUrl;
+    const { code, ttlSeconds } = await issueOtp(email, 'password_reset', { length: 6 });
+    const minutes = Math.max(1, Math.round((ttlSeconds || 600) / 60));
 
     try {
       await sendMail({
         to: email,
-        subject: 'Reset your Store1920 password',
-        html: `
-          <p>Hi${userRecord.displayName ? ` ${userRecord.displayName}` : ''},</p>
-          <p>We received a request to reset your Store1920 password.</p>
-          <p><a href="${primaryLink}" style="display:inline-block;padding:12px 20px;background:#1f2937;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Reset password</a></p>
-          <p>Or open this link:<br/><a href="${primaryLink}">${primaryLink}</a></p>
-          ${firebaseResetLink && firebaseResetLink !== appResetUrl
-            ? `<p>Prefer the in-app form? Use this link and the code below:<br/><a href="${appResetUrl}">${appResetUrl}</a></p>`
-            : ''}
-          <p>Or enter this one-time code in the app: <strong style="font-size:18px;letter-spacing:2px;">${code}</strong></p>
-          <p>Code expires at ${expiresAt.toISOString()} (about 10 minutes). If you did not request this, you can ignore this email.</p>
-        `,
+        subject: 'Your Store1920 password reset code',
+        html: buildLoginOtpEmailHtml({
+          code,
+          minutes,
+          name: userRecord.displayName || '',
+          title: 'Reset your password',
+          intro: 'Use this one-time code in the app to set a new password. Do not share it with anyone.',
+          preheader: `Your Store1920 reset code expires in ${minutes} minutes.`,
+        }),
         fromType: 'transactional',
-        skipStoreSmtp: true,
       });
     } catch (mailErr) {
       console.error('[password-reset] email failed', mailErr);
-      // Still return generic — but log so ops can see provider failures.
-      // Do not claim success if we know delivery failed for a real account:
-      // return a soft retry hint without confirming the email exists.
       return NextResponse.json({
         ok: false,
         error: 'We could not send the reset email right now. Please try again in a few minutes, or contact support@store1920.com.',
@@ -124,13 +145,34 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const email = normalizeEmail(body.email);
+    const channel = String(body.channel || 'email').trim().toLowerCase();
     const newPassword = String(body.newPassword || '');
     const { validatePasswordStrength } = await import('@/lib/passwordPolicy');
     const policy = validatePasswordStrength(newPassword);
     if (!policy.ok) {
       return NextResponse.json({ error: policy.message }, { status: 400 });
     }
+
+    if (channel === 'whatsapp') {
+      const { confirmWhatsAppPasswordReset } = await import('@/lib/whatsappPasswordReset');
+      const confirmed = await confirmWhatsAppPasswordReset({
+        phone: body.phone,
+        phoneCode: body.phoneCode,
+        code: body.otp,
+      });
+      if (!confirmed.ok) {
+        return NextResponse.json({ error: confirmed.error }, { status: confirmed.status || 400 });
+      }
+      await getAuth().updateUser(confirmed.uid, { password: newPassword });
+      try {
+        await getAuth().revokeRefreshTokens(confirmed.uid);
+      } catch {
+        // non-fatal
+      }
+      return NextResponse.json({ ok: true, message: 'Password updated. Please sign in.' });
+    }
+
+    const email = normalizeEmail(body.email);
     if (!email) {
       return NextResponse.json({ error: 'Email required' }, { status: 400 });
     }
@@ -142,9 +184,12 @@ export async function PUT(request) {
         return NextResponse.json({ error: consumed.error }, { status: 400 });
       }
       try {
-        const userRecord = await getAuth().getUserByEmail(email);
-        uid = userRecord.uid;
+        const userRecord = await findFirebaseUserForEmail(email);
+        uid = userRecord?.uid || null;
       } catch {
+        uid = null;
+      }
+      if (!uid) {
         return NextResponse.json({ error: 'Account not found' }, { status: 404 });
       }
     } else if (body.otp) {
@@ -153,9 +198,12 @@ export async function PUT(request) {
         return NextResponse.json({ error: verified.error }, { status: 400 });
       }
       try {
-        const userRecord = await getAuth().getUserByEmail(email);
-        uid = userRecord.uid;
+        const userRecord = await findFirebaseUserForEmail(email);
+        uid = userRecord?.uid || null;
       } catch {
+        uid = null;
+      }
+      if (!uid) {
         return NextResponse.json({ error: 'Account not found' }, { status: 404 });
       }
     } else {

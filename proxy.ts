@@ -6,6 +6,7 @@ import {
 } from '@/lib/storefrontLanguage';
 import { resolveLegacyCategoryRedirect } from '@/lib/categoryRedirects';
 import { resolveLegacyProductRedirect } from '@/lib/productRedirects';
+import { isStagingStoreHost, normalizeRequestHost } from '@/lib/stagingHost';
 import {
   applyCorsHeaders,
   applyRateLimitHeaders,
@@ -96,14 +97,31 @@ function enforceStoreAuth(request: NextRequest, pathname: string, method: string
   return null;
 }
 
-function redirectApexHostToWww(request: NextRequest) {
-  const host = String(
+function getRequestHost(request: NextRequest) {
+  return normalizeRequestHost(
     request.headers.get('x-forwarded-host') || request.headers.get('host') || '',
-  )
-    .split(',')[0]
-    .trim()
-    .toLowerCase()
-    .replace(/:\d+$/, '');
+  );
+}
+
+function goneCreateStore(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (pathname === '/create-store' || pathname.startsWith('/create-store/')) {
+    return new NextResponse('This page has been removed.', {
+      status: 410,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
+  }
+  return null;
+}
+
+function applyStagingRobotsTag(request: NextRequest, response: NextResponse) {
+  if (!isStagingStoreHost(getRequestHost(request))) return response;
+  response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  return response;
+}
+
+function redirectApexHostToWww(request: NextRequest) {
+  const host = getRequestHost(request);
 
   if (host !== 'store1920.com') return null;
 
@@ -117,6 +135,9 @@ function redirectApexHostToWww(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  const removedStoreSignup = goneCreateStore(request);
+  if (removedStoreSignup) return applyStagingRobotsTag(request, removedStoreSignup);
+
   const apexRedirect = redirectApexHostToWww(request);
   if (apexRedirect) return apexRedirect;
 
@@ -242,7 +263,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return response;
+  return applyStagingRobotsTag(request, response);
 }
 
 export const config = {

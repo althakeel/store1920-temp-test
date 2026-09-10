@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useHorizontalCarouselDrag } from '@/lib/useHorizontalCarouselDrag'
 import { auth } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import Loading from '@/components/Loading'
@@ -22,6 +23,17 @@ export default function DashboardOrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState('ALL')
   const [showLeftArrow, setShowLeftArrow] = useState(false)
   const [showRightArrow, setShowRightArrow] = useState(false)
+  const {
+    scrollRef: tabsScrollRef,
+    isDragging: isTabsDragging,
+    handlePointerDown: handleTabsPointerDown,
+    handleCardClick: handleTabsDragClick,
+    shouldSuppressClick: shouldSuppressTabsClick,
+  } = useHorizontalCarouselDrag({
+    enableSnap: false,
+    enableMomentum: true,
+    enableTouchDrag: true,
+  })
   const [showReturnModal, setShowReturnModal] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [returnType, setReturnType] = useState('RETURN')
@@ -189,7 +201,7 @@ export default function DashboardOrdersPage() {
   const filteredOrders = selectedStatus === 'ALL' ? orders : orders.filter(order => order.status === selectedStatus)
 
   const checkScrollPosition = () => {
-    const container = document.querySelector('.tabs-wrapper')
+    const container = tabsScrollRef.current
     if (container) {
       setShowLeftArrow(container.scrollLeft > 0)
       setShowRightArrow(container.scrollLeft < container.scrollWidth - container.clientWidth - 1)
@@ -197,7 +209,7 @@ export default function DashboardOrdersPage() {
   }
 
   const scrollTabs = (direction) => {
-    const container = document.querySelector('.tabs-wrapper')
+    const container = tabsScrollRef.current
     if (container) {
       const scrollAmount = 200
       container.scrollBy({
@@ -210,12 +222,20 @@ export default function DashboardOrdersPage() {
 
   useEffect(() => {
     checkScrollPosition()
-    const container = document.querySelector('.tabs-wrapper')
+    const container = tabsScrollRef.current
     if (container) {
       container.addEventListener('scroll', checkScrollPosition)
       window.addEventListener('resize', checkScrollPosition)
+      const onWheel = (event) => {
+        if (container.scrollWidth <= container.clientWidth) return
+        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+        event.preventDefault()
+        container.scrollLeft += event.deltaY
+      }
+      container.addEventListener('wheel', onWheel, { passive: false })
       return () => {
         container.removeEventListener('scroll', checkScrollPosition)
+        container.removeEventListener('wheel', onWheel)
         window.removeEventListener('resize', checkScrollPosition)
       }
     }
@@ -225,6 +245,12 @@ export default function DashboardOrdersPage() {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u ?? null))
     return () => unsub()
   }, [])
+
+  useEffect(() => {
+    if (user !== null) return undefined
+    window.dispatchEvent(new CustomEvent('openSignInModal', { detail: { mode: 'login' } }))
+    return undefined
+  }, [user])
 
   useEffect(() => {
     const loadOrders = async () => {
@@ -457,7 +483,13 @@ export default function DashboardOrdersPage() {
       <div className="max-w-4xl mx-auto px-4 py-10">
         <h1 className="text-2xl font-semibold text-slate-800 mb-3">Dashboard / Orders</h1>
         <p className="text-slate-600 mb-6">Please sign in to view your orders.</p>
-        <Link href="/" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg">Go to Home</Link>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('openSignInModal', { detail: { mode: 'login' } }))}
+          className="inline-block px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+        >
+          Sign In
+        </button>
       </div>
     )
   }
@@ -475,12 +507,16 @@ export default function DashboardOrdersPage() {
               .tabs-wrapper {
                 display: block !important;
                 width: 100% !important;
-                overflow-x: scroll !important;
+                overflow-x: auto !important;
                 overflow-y: hidden !important;
                 padding-bottom: 10px !important;
                 border-bottom: 1px solid #e2e8f0 !important;
                 -webkit-overflow-scrolling: touch !important;
-                scroll-behavior: smooth !important;
+                cursor: grab;
+              }
+              .tabs-wrapper.is-dragging {
+                cursor: grabbing;
+                scroll-behavior: auto !important;
               }
               .tabs-wrapper::-webkit-scrollbar {
                 height: 0px !important;
@@ -557,12 +593,23 @@ export default function DashboardOrdersPage() {
               </button>
             )}
 
-            <div className="tabs-wrapper">
+            <div
+              ref={tabsScrollRef}
+              data-carousel-allow-drag
+              className={`tabs-wrapper ${isTabsDragging ? 'is-dragging' : ''}`}
+              onPointerDown={handleTabsPointerDown}
+            >
               <div className="tabs-inner">
                 {orderStatuses.map((status) => (
                   <button
                     key={status.value}
-                    onClick={() => setSelectedStatus(status.value)}
+                    onClick={(event) => {
+                      if (shouldSuppressTabsClick()) {
+                        handleTabsDragClick(event)
+                        return
+                      }
+                      setSelectedStatus(status.value)
+                    }}
                     className={`px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition flex items-center gap-2 flex-shrink-0 ${
                       selectedStatus === status.value
                         ? 'bg-blue-600 text-white shadow-md'
@@ -593,7 +640,7 @@ export default function DashboardOrdersPage() {
           ) : orders.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
               <p className="text-slate-600">No orders found.</p>
-              <Link href="/products" className="inline-block mt-3 px-4 py-2 bg-slate-800 text-white rounded-lg">Shop Now</Link>
+              <Link href="/shop" className="inline-block mt-3 px-4 py-2 bg-slate-800 text-white rounded-lg">Shop Now</Link>
             </div>
           ) : filteredOrders.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-center">

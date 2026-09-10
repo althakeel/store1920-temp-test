@@ -262,6 +262,109 @@
             opacity: 0.85;
         }
     }
+
+    @keyframes otp-box-pop {
+        0% { transform: scale(1); }
+        40% { transform: scale(1.12); }
+        100% { transform: scale(1); }
+    }
+
+    @keyframes otp-box-complete {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
+        55% { transform: scale(1.06); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .otp-box-pop {
+        animation: otp-box-pop 0.28s ease-out;
+    }
+
+    .otp-box-complete {
+        animation: otp-box-complete 0.45s ease-out;
+    }
+
+    @keyframes otp-pin-pop {
+        0% { transform: translateY(0); }
+        40% { transform: translateY(-4px); }
+        100% { transform: translateY(0); }
+    }
+
+    @keyframes otp-pin-bar {
+        0% { transform: scaleX(0.35); }
+        100% { transform: scaleX(1); }
+    }
+
+    .otp-pin-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 4px 0;
+    }
+
+    .otp-pin-cell {
+        position: relative;
+        display: flex;
+        flex: 1 1 0;
+        min-width: 36px;
+        max-width: 56px;
+        height: 56px;
+        align-items: center;
+        justify-content: center;
+        background: #f4f4f5;
+        border: 1.5px solid #e4e4e7;
+        border-radius: 14px;
+        cursor: text;
+        transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .otp-pin-cell:focus-within {
+        background: #ffffff;
+        border-color: #18181b;
+        box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
+    }
+
+    .otp-pin-input {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: transparent;
+        text-align: center;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0;
+        color: #111111;
+        outline: none;
+        caret-color: #111111;
+    }
+
+    .otp-pin-bar {
+        display: none;
+    }
+
+    .otp-pin-cell.is-filled {
+        background: #ffffff;
+        border-color: #18181b;
+    }
+
+    .otp-pin-cell.is-complete {
+        background: #ecfdf5;
+        border-color: #22c55e;
+        box-shadow: none;
+    }
+
+    .otp-pin-cell.is-complete .otp-pin-input {
+        color: #15803d;
+    }
+
+    .otp-pin-pop {
+        animation: otp-pin-pop 0.28s ease-out;
+    }
+
+    .otp-pin-complete {
+        animation: otp-pin-pop 0.28s ease-out;
+    }
 }
 
 @layer base {

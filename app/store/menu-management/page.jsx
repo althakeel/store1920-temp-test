@@ -130,7 +130,6 @@ const EXISTING_PAGES = [
   '/',
   '/shop',
   '/categories',
-  '/products',
   '/new-arrivals',
   '/best-sellers',
   '/offers',

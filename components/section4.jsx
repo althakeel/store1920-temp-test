@@ -17,6 +17,9 @@ import {
 import { normalizeCategorySliderBackground, normalizeCategorySliderSideImagePosition, normalizeCategorySliderAutoSlide, normalizeCategorySliderAutoSlideInterval } from '@/lib/categorySliderTheme'
 import { HomeSideImageSliderSkeleton } from '@/components/home/HomeSectionSkeletons'
 import BannerSlider from '@/components/BannerSlider'
+import { useStorefrontI18n } from '@/lib/useStorefrontI18n'
+import { getContentDirection } from '@/lib/storefrontLanguage'
+import { getLocalizedCategorySliderSubtitle, getLocalizedCategorySliderTitle } from '@/lib/categorySliderCopy'
 
 const Section4 = ({ sections: initialSections = null, loading: loadingProp = false }) => {
   const shouldSelfFetch = initialSections == null
@@ -128,6 +131,9 @@ function resolveSectionProducts(section) {
 }
 
 const HorizontalSlider = ({ section }) => {
+  const { language } = useStorefrontI18n()
+  const title = getLocalizedCategorySliderTitle(section, language)
+  const subtitle = getLocalizedCategorySliderSubtitle(section, language)
   const embeddedProducts = useMemo(() => resolveSectionProducts(section), [section.products])
   const [sectionProducts, setSectionProducts] = useState(embeddedProducts)
   const [loading, setLoading] = useState(
@@ -206,7 +212,7 @@ const HorizontalSlider = ({ section }) => {
     <div className={CATEGORY_SLIDER_SIDE_IMAGE_CLASS}>
       <Image
         src={sideImage}
-        alt={section.title || 'Featured collection'}
+        alt={title || 'Featured collection'}
         fill
         className="object-cover"
         sizes="(max-width: 1023px) 100vw, (min-width: 1536px) 320px, (min-width: 1280px) 280px, 240px"
@@ -222,14 +228,13 @@ const HorizontalSlider = ({ section }) => {
     >
       <div className={`${hasSideImage ? 'mb-3 lg:mb-2 lg:shrink-0' : 'mb-3 lg:mb-5'}`}>
         <h2 className={`text-start font-bold text-gray-900 ${hasSideImage ? 'text-lg lg:line-clamp-1 lg:text-base xl:text-lg' : 'text-xl lg:text-2xl'}`}>
-          {section.title || section.category}
+          <bdi dir={getContentDirection(title)}>{title}</bdi>
         </h2>
-        {section.subtitle ? (
+        {subtitle ? (
           <p
-            dir="auto"
             className={`text-start text-gray-500 ${hasSideImage ? 'mt-0.5 line-clamp-2 text-xs lg:line-clamp-1 lg:text-[10px] xl:text-xs' : 'mt-0.5 text-xs lg:text-sm'}`}
           >
-            {section.subtitle}
+            <bdi dir={getContentDirection(subtitle)}>{subtitle}</bdi>
           </p>
         ) : null}
       </div>

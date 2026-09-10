@@ -14,6 +14,7 @@ import { useStorefrontMarket } from '@/lib/useStorefrontMarket'
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n'
 
 import { getLocalizedProductName } from '@/lib/displayText'
+import { getContentDirection } from '@/lib/storefrontLanguage'
 import { showStorefrontActionToast } from '@/lib/storefrontActionToast'
 import { PLACEHOLDER_IMAGE as PLACEHOLDER } from '@/lib/mediaUrls'
 import {
@@ -431,7 +432,7 @@ const ProductCard = ({
 
       <div className={`flex min-h-0 flex-col ${compactAll ? 'shrink-0 p-1.5' : compactLg ? 'flex-1 p-2 sm:p-2.5 lg:shrink-0 lg:p-1.5' : 'flex-1 p-2 sm:p-2.5'}`}>
         <h3 className={`text-start font-semibold leading-tight text-slate-900 ${compactAll ? 'mb-1 line-clamp-1 text-[10px]' : compactLg ? 'mb-1.5 line-clamp-2 min-h-[2.5em] text-xs sm:min-h-[2.75em] sm:text-sm lg:mb-1 lg:line-clamp-1 lg:min-h-0 lg:text-[10px]' : 'mb-1.5 line-clamp-2 min-h-[2.5em] text-xs sm:min-h-[2.75em] sm:text-sm'}`}>
-          {productName}
+          <bdi dir={getContentDirection(productName)}>{productName}</bdi>
         </h3>
 
         <div className={compactAll || compactLg ? '' : 'mt-auto'}>

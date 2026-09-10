@@ -214,7 +214,7 @@ const Hero = () => {
 
   const buttonHref = adminSlides
     ? (mainSel?.bannerCtaLink || toPublicCategoryPath(mainSel?.title || ''))
-    : (slide.buttonLink || '/products')
+    : (slide.buttonLink || '/shop')
 
   /* ---------------------------------------------------
      RENDER

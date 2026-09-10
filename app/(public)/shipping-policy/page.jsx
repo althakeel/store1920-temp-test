@@ -17,7 +17,7 @@ const PAGE_COPY = {
     title: 'Shipping & Delivery Policy',
     intro:
       `This is the single shipping and delivery policy for orders placed on Store1920.com by ${TRADING_AS}. It covers processing cut-offs, delivery estimates, fees, delivery attempts, and remote-area rules inside the United Arab Emirates.`,
-    lastUpdated: 'Last updated: 8 September 2026',
+        lastUpdated: 'Last updated: 10 September 2026',
     sections: [
       {
         title: '1. Where we deliver',
@@ -45,7 +45,7 @@ const PAGE_COPY = {
         ],
         bullets: [
           'Standard delivery: typically 2–5 business days after dispatch',
-          'Express / next-day (Fast Delivery): eligible in-stock items ordered before 2:00 PM on a working day, where offered for your address. After 2:00 PM the order is processed on the following working day. Full rules are on the Fast Delivery page',
+          'Express / next-day: eligible in-stock items ordered before 2:00 PM on a working day, where offered for your address. After 2:00 PM the order is processed on the following working day. The delivery option, charge and estimated date shown at checkout apply to the order.',
           'Remote or outlying areas: typically 1–3 extra business days after the standard or express estimate',
         ],
       },
@@ -53,7 +53,8 @@ const PAGE_COPY = {
         title: '5. Shipping fees',
         paragraphs: [
           'All shipping fees that apply to your order are shown at checkout before you pay. Fees can include a standard or express charge, a Cash on Delivery fee, weight-based charges, and location charges.',
-          'Free shipping applies only when checkout shows it — for example when an offer, product, or order total qualifies. If a fee is not shown at checkout, it is not added later except for a failed-delivery reattempt described below.',
+          'Free standard delivery applies to orders with a qualifying merchandise total of AED 100 or more. Any exclusions, express-delivery charges, remote-area charges or Cash on Delivery fees will be displayed at checkout before the customer places the order.',
+          'Free shipping applies only when checkout shows it. If a fee is not shown at checkout, it is not added later except for a failed-delivery reattempt described below.',
         ],
       },
       {
@@ -100,7 +101,7 @@ const PAGE_COPY = {
     title: 'سياسة الشحن والتوصيل',
     intro:
       `هذه هي سياسة الشحن والتوصيل الموحدة لطلبات Store1920.com من ${STORE1920_LEGAL_NAME_AR} (${STORE1920_LEGAL_NAME}). تشمل حد القطع للمعالجة، ومدد التوصيل، والرسوم، ومحاولات التسليم، وقواعد المناطق النائية داخل دولة الإمارات العربية المتحدة.`,
-    lastUpdated: 'آخر تحديث: 8 سبتمبر 2026',
+    lastUpdated: 'آخر تحديث: 10 سبتمبر 2026',
     sections: [
       {
         title: '1. نطاق التوصيل',
@@ -128,7 +129,7 @@ const PAGE_COPY = {
         ],
         bullets: [
           'التوصيل العادي: عادة من 2 إلى 5 أيام عمل بعد الشحن',
-          'التوصيل السريع / في اليوم التالي: للمنتجات المتوفرة المؤهلة إذا اكتمل الطلب قبل الساعة 2:00 م في يوم عمل، وحيث يتوفر لعنوانك. بعد 2:00 م يُعالج الطلب في يوم العمل التالي. التفاصيل الكاملة في صفحة التوصيل السريع',
+          'التوصيل السريع / في اليوم التالي: للمنتجات المتوفرة المؤهلة إذا اكتمل الطلب قبل الساعة 2:00 م في يوم عمل، وحيث يتوفر لعنوانك. بعد 2:00 م يُعالج الطلب في يوم العمل التالي. خيار التوصيل والرسوم والتاريخ التقديري الظاهر عند الدفع هو الذي يسري على الطلب.',
           'المناطق النائية أو الخارجية: عادة من 1 إلى 3 أيام عمل إضافية بعد تقدير التوصيل العادي أو السريع',
         ],
       },
@@ -136,7 +137,8 @@ const PAGE_COPY = {
         title: '5. رسوم الشحن',
         paragraphs: [
           'تظهر جميع رسوم الشحن المطبقة على طلبك عند الدفع قبل السداد. قد تشمل رسومًا عادية أو سريعة، ورسوم الدفع عند الاستلام، ورسومًا حسب الوزن أو الموقع.',
-          'الشحن المجاني ينطبق فقط عندما يظهر ذلك عند الدفع — مثل عرض أو منتج أو حد أدنى لمجموع الطلب. لا تُضاف رسوم لاحقًا إذا لم تظهر عند الدفع، باستثناء إعادة محاولة التسليم بعد الفشل كما هو موضح أدناه.',
+          'التوصيل العادي مجاني للطلبات التي يبلغ مجموع بضاعتها المؤهلة 100 درهم أو أكثر. تظهر أي استثناءات أو رسوم توصيل سريع أو رسوم مناطق نائية أو رسوم الدفع عند الاستلام عند الدفع قبل أن يقدّم العميل الطلب.',
+          'الشحن المجاني ينطبق فقط عندما يظهر ذلك عند الدفع. لا تُضاف رسوم لاحقًا إذا لم تظهر عند الدفع، باستثناء إعادة محاولة التسليم بعد الفشل كما هو موضح أدناه.',
         ],
       },
       {

@@ -33,7 +33,7 @@ const ShippingSettingSchema = new mongoose.Schema({
   baseWeight: { type: Number, default: 1 },
   baseWeightFee: { type: Number, default: 5 },
   additionalWeightFee: { type: Number, default: 2 },
-  freeShippingMin: { type: Number, default: 499 },
+  freeShippingMin: { type: Number, default: 100 },
   enableProductSpecificFreeShipping: { type: Boolean, default: false },
   productSpecificFreeShippingMode: {
     type: String,

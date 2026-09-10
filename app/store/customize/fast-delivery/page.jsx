@@ -161,7 +161,7 @@ export default function FastDeliveryCustomizePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Fast Delivery Page Design</h1>
-          <p className="text-sm text-slate-600 mt-1">Edit the title, subtitle, banners, and empty state. Click Save to update /fast-delivery.</p>
+          <p className="text-sm text-slate-600 mt-1">Edit the title, subtitle, banners, and empty state.</p>
         </div>
         <button
           type="button"
@@ -186,7 +186,7 @@ export default function FastDeliveryCustomizePage() {
               onChange={(e) => setForm((prev) => ({ ...prev, headerTitleEnabled: e.target.checked }))}
               className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
             />
-            Show title on /fast-delivery
+            Show title
           </span>
           <input
             type="text"
@@ -206,7 +206,7 @@ export default function FastDeliveryCustomizePage() {
               onChange={(e) => setForm((prev) => ({ ...prev, headerSubtitleEnabled: e.target.checked }))}
               className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
             />
-            Show subtitle on /fast-delivery
+            Show subtitle
           </span>
           <textarea
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 resize-none disabled:bg-slate-50 disabled:text-slate-400"
@@ -342,7 +342,7 @@ export default function FastDeliveryCustomizePage() {
                       className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-sm"
                       value={slide.link}
                       onChange={(e) => updateSlide(index, 'link', e.target.value)}
-                      placeholder="/products or https://..."
+                      placeholder="/shop or https://..."
                     />
                   </label>
                 </div>
