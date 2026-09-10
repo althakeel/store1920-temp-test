@@ -1227,22 +1227,33 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
     }
   }, [shippingSetting, cartArray, form.payment, form.state, shippingMethod]);
 
-  // Redirect to shop when cart is empty (must be a top-level hook)
+  // Empty cart must never show delivery/payment. Send the shopper to /cart.
   useEffect(() => {
     if (
-      !authLoading
-      && (!cartItems || Object.keys(cartItems).length === 0)
-      && !placingOrder
-      && !showPrepaidModal
-      && !upsellOrderId
-      && !leavingCheckout
+      authLoading
+      || !checkoutProductsLoaded
+      || placingOrder
+      || showPrepaidModal
+      || navigatingToSuccess
+      || upsellOrderId
+      || leavingCheckout
     ) {
-      const timer = setTimeout(() => {
-        router.push('/shop');
-      }, 3000);
-      return () => clearTimeout(timer);
+      return undefined;
     }
-  }, [authLoading, cartItems, router, placingOrder, showPrepaidModal, upsellOrderId, leavingCheckout]);
+    if (cartArray.length === 0) {
+      router.replace('/cart');
+    }
+  }, [
+    authLoading,
+    checkoutProductsLoaded,
+    cartArray.length,
+    router,
+    placingOrder,
+    showPrepaidModal,
+    navigatingToSuccess,
+    upsellOrderId,
+    leavingCheckout,
+  ]);
 
   const checkoutSelectClass =
     'w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-left text-sm text-slate-900 outline-none transition focus:border-[#f59e0b] focus:bg-white focus:ring-4 focus:ring-[#fde7c2]';
@@ -2362,22 +2373,20 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
     }
   };
 
-  if (authLoading) return null;
+  if (authLoading || leavingCheckout) return null;
 
-  if (leavingCheckout) return null;
-  
-  if ((!cartItems || Object.keys(cartItems).length === 0) && !showPrepaidModal && !navigatingToSuccess && !upsellOrderId) {
+  const canShowCheckoutForm = cartArray.length > 0
+    || showPrepaidModal
+    || navigatingToSuccess
+    || Boolean(upsellOrderId);
+
+  if (!canShowCheckoutForm) {
     return (
-      <div className="py-20 text-center min-h-[50vh] flex flex-col items-center justify-center">
-        <div className="text-6xl mb-4">🛒</div>
-        <div className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</div>
-        <div className="text-gray-600 mb-6">Add some products to your cart and come back!</div>
-        <button 
-          onClick={() => router.push('/shop')}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-lg font-semibold transition-colors"
-        >
-          Continue Shopping
-        </button>
+      <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
+        <h1 className="text-2xl font-bold text-gray-900">{t('checkout.pageTitle')}</h1>
+        <p className="mt-3 text-sm text-gray-500">
+          {checkoutProductsLoaded ? t('checkout.cartEmpty') : t('checkout.loadingCart')}
+        </p>
       </div>
     );
   }
@@ -2647,6 +2656,9 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
   return (
     <>
       <div className="bg-white pb-24 pt-0 md:min-h-[35dvh] md:pb-14 md:py-10">
+      <div className="mx-auto max-w-[1250px] px-4 pt-4 md:pt-0 md:pb-2" dir={isArabic ? 'rtl' : 'ltr'}>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">{t('checkout.pageTitle')}</h1>
+      </div>
       {activeCheckoutAlert ? (
         <div className="mx-auto max-w-[1250px] px-4 pb-3 pt-3 md:pb-4 md:pt-4" dir={isArabic ? 'rtl' : 'ltr'}>
           <CheckoutAlertBanner alert={activeCheckoutAlert} />
