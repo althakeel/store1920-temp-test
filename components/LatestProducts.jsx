@@ -273,6 +273,7 @@ const BestSelling = ({
       <Title
         title={effectiveSectionTitle}
         description={effectiveSectionDescription}
+        href="/offers"
         visibleButton={false}
       />
 

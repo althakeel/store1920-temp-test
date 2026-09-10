@@ -25,6 +25,7 @@ const BestSelling = () => {
       <Title
         title="Fast Selling Products"
         description="Grab the best deals before they're gone!"
+        href="/offers"
         visibleButton={false}
       />
 
