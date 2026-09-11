@@ -12,9 +12,11 @@ import TikTokPixel from "@/components/TikTokPixel";
 import GtmPageView from "@/components/GtmPageView";
 import { Toaster } from "react-hot-toast";
 import SilentDomErrorBoundary from "@/components/SilentDomErrorBoundary";
+import { installDomReconcileGuard } from "@/lib/domReconcileError";
 
 const SpinWheelWidget = dynamic(() => import("@/components/SpinWheelWidget"), { ssr: false });
 const GiveawayCartManager = dynamic(() => import("@/components/GiveawayCartManager"), { ssr: false });
+const TawkToWidget = dynamic(() => import("@/components/TawkToWidget"), { ssr: false });
 const AuthSessionGuard = dynamic(() => import("@/components/AuthSessionGuard"), { ssr: false });
 const GoogleOneTap = dynamic(() => import("@/components/GoogleOneTap"), { ssr: false });
 
@@ -37,6 +39,7 @@ function DeferredWidgets() {
     <>
       <GiveawayCartManager />
       <SpinWheelWidget />
+      <TawkToWidget />
     </>
   );
 }
@@ -52,6 +55,7 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
   const hideStorefrontChrome = shouldHideStorefrontChrome(pathname);
 
   useEffect(() => {
+    installDomReconcileGuard();
     try {
       window.sessionStorage.removeItem('store1920-chunk-reload');
     } catch {
@@ -66,12 +70,6 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
         <MetaPixel />
         <TikTokPixel />
       </Suspense>
-      {!hideStorefrontChrome && (
-        <>
-          <TopBar initialLanguage={initialStorefrontLanguage} />
-          <Navbar />
-        </>
-      )}
       <Toaster
         position="top-center"
         containerClassName={hideStorefrontChrome ? 'store-toaster' : 'storefront-toaster'}
@@ -114,13 +112,19 @@ export default function ClientLayout({ children, initialStorefrontLanguage = 'en
       <DynamicMetaTags />
       <AuthSessionGuard />
       {!hideStorefrontChrome ? <GoogleOneTap /> : null}
-      <SilentDomErrorBoundary>{children}</SilentDomErrorBoundary>
-      {!hideStorefrontChrome && (
-        <>
-          <DeferredWidgets />
-          <Footer />
-        </>
-      )}
+      <SilentDomErrorBoundary
+        className={hideStorefrontChrome ? 'flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden' : 'min-w-0'}
+      >
+        {!hideStorefrontChrome ? (
+          <>
+            <TopBar initialLanguage={initialStorefrontLanguage} />
+            <Navbar />
+          </>
+        ) : null}
+        {children}
+        <DeferredWidgets />
+        {!hideStorefrontChrome ? <Footer /> : null}
+      </SilentDomErrorBoundary>
     </ReduxProvider>
   );
 }

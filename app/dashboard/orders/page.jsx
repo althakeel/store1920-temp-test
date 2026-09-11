@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useHorizontalCarouselDrag } from '@/lib/useHorizontalCarouselDrag'
-import { auth } from '@/lib/firebase'
+import { auth, waitForAuthReady } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import Loading from '@/components/Loading'
 import Link from 'next/link'
@@ -242,8 +242,18 @@ export default function DashboardOrdersPage() {
   }, [orders])
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u ?? null))
-    return () => unsub()
+    let cancelled = false
+    let unsub = () => {}
+    ;(async () => {
+      await waitForAuthReady()
+      if (cancelled) return
+      setUser(auth.currentUser ?? null)
+      unsub = onAuthStateChanged(auth, (u) => setUser(u ?? null))
+    })()
+    return () => {
+      cancelled = true
+      unsub()
+    }
   }, [])
 
   useEffect(() => {

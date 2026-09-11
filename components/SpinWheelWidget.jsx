@@ -104,7 +104,7 @@ export default function SpinWheelWidget() {
   const [rotation, setRotation] = useState(0);
   const [showLauncher, setShowLauncher] = useState(false);
 
-  const hiddenByPath = ["/checkout", "/cart", "/order-success", "/order-failed"].some(
+  const hiddenByPath = ["/checkout", "/cart", "/order-success", "/order-failed", "/store", "/admin", "/dashboard"].some(
     (p) => pathname === p || pathname?.startsWith(p + "/"),
   );
 

@@ -31,6 +31,8 @@ import { productToGa4Item } from '@/lib/ga4Item'
 import { GTM_EVENTS } from '@/lib/gtmEvents'
 import { STORE_CURRENCY } from '@/lib/storeCurrency'
 import { getProductPath } from '@/lib/productUrl'
+import CurrencySymbol from '@/components/CurrencySymbol'
+import NewProductTagBadge from '@/components/NewProductTagBadge'
 
 const parseAmount = (value) => {
   const num = Number(String(value ?? '').replace(/[^0-9.]/g, ''))
@@ -427,51 +429,65 @@ const ProductCard = ({
           </>
         )}
 
+        <NewProductTagBadge product={product} size="card" />
         {renderCartControl()}
       </div>
 
       <div className={`flex min-h-0 flex-col ${compactAll ? 'shrink-0 p-1.5' : compactLg ? 'flex-1 p-2 sm:p-2.5 lg:shrink-0 lg:p-1.5' : 'flex-1 p-2 sm:p-2.5'}`}>
-        <h3 className={`text-start font-semibold leading-tight text-slate-900 ${compactAll ? 'mb-1 line-clamp-1 text-[10px]' : compactLg ? 'mb-1.5 line-clamp-2 min-h-[2.5em] text-xs sm:min-h-[2.75em] sm:text-sm lg:mb-1 lg:line-clamp-1 lg:min-h-0 lg:text-[10px]' : 'mb-1.5 line-clamp-2 min-h-[2.5em] text-xs sm:min-h-[2.75em] sm:text-sm'}`}>
-          <bdi dir={getContentDirection(productName)}>{productName}</bdi>
+        <h3 className={`overflow-hidden text-start font-semibold leading-tight text-slate-900 ${compactAll ? 'mb-1 text-[10px]' : compactLg ? 'mb-1.5 min-h-[2.5em] text-xs sm:text-sm lg:mb-1 lg:min-h-0 lg:text-[10px]' : 'mb-1.5 min-h-[2.5em] text-xs sm:text-sm'}`}>
+          <bdi
+            dir={getContentDirection(productName)}
+            className={`break-words ${compactAll ? 'line-clamp-1' : compactLg ? 'line-clamp-2 lg:line-clamp-1' : 'line-clamp-2'}`}
+          >
+            {productName}
+          </bdi>
         </h3>
 
         <div className={compactAll || compactLg ? '' : 'mt-auto'}>
           {(priceNum > 0 || AEDNum > 0) ? (
-            <div className={`flex flex-wrap items-center gap-1 ${compactAll || compactLg ? '' : 'mb-1'}`}>
-              {priceNum > 0 ? (
-                <p className={`inline-flex items-center gap-1 font-medium leading-none text-slate-950 ${compactAll ? 'text-xs' : compactLg ? 'text-base sm:text-lg lg:text-xs' : 'gap-1.5 text-base sm:text-lg'}`}>
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
-                    {market.currency}
+            <div className={`flex min-w-0 flex-nowrap items-baseline justify-start gap-x-1.5 overflow-hidden ${compactAll || compactLg ? '' : 'mb-1'}`}>
+              <span dir="ltr" className="inline-flex min-w-0 flex-nowrap items-baseline gap-x-1.5 overflow-hidden">
+                {priceNum > 0 ? (
+                  <span className={`inline-flex shrink-0 items-baseline gap-0.5 font-semibold leading-none text-slate-950 ${compactAll ? 'text-xs' : compactLg ? 'text-sm sm:text-base lg:text-xs' : 'text-sm sm:text-base'}`}>
+                    <CurrencySymbol currency={market.currency} />
+                    <span>{formatNumber(convertedPrice, language, { maximumFractionDigits: 0 })}</span>
                   </span>
-                  <span>{formatNumber(convertedPrice, language, { maximumFractionDigits: 0 })}</span>
-                </p>
-              ) : null}
-              {AEDNum > 0 && AEDNum > priceNum ? (
-                <p className="inline-flex items-center gap-1 text-[10px] leading-none text-slate-400 line-through sm:text-xs">
-                  <span className="uppercase tracking-wide">{market.currency}</span>
-                  <span>{formatNumber(convertedAED, language, { maximumFractionDigits: 0 })}</span>
-                </p>
-              ) : null}
+                ) : null}
+                {AEDNum > 0 && AEDNum > priceNum ? (
+                  <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[10px] leading-none text-slate-400 line-through sm:text-xs">
+                    <CurrencySymbol currency={market.currency} />
+                    <span>{formatNumber(convertedAED, language, { maximumFractionDigits: 0 })}</span>
+                  </span>
+                ) : null}
+              </span>
               {discount > 0 ? (
-                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-emerald-700 sm:text-xs">
-                  {t('common.offPercent', { discount })}
+                <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold leading-none text-emerald-700 sm:text-xs">
+                  {language === 'ar' ? (
+                    <>خصم <bdi dir="ltr">{discount}%</bdi></>
+                  ) : (
+                    t('common.offPercent', { discount })
+                  )}
                 </span>
               ) : null}
             </div>
           ) : null}
 
           {!compactAll ? (
-            <div className={`flex min-w-0 items-center gap-1 ${compactLg ? 'lg:hidden' : ''}`}>
-              {[...Array(5)].map((_, i) => (
-                <FaStar
-                  key={i}
-                  size={9}
-                  className={i < ratingValue ? 'text-yellow-400' : 'text-gray-300'}
-                />
-              ))}
-              <span className="min-w-0 truncate text-[9px] text-gray-500 sm:text-xs">
-                {reviewCount > 0 ? `(${reviewCount})` : t('common.noReviewsYet')}
-              </span>
+            <div className={`flex min-h-[14px] min-w-0 justify-start ${compactLg ? 'lg:hidden' : ''}`}>
+              {reviewCount > 0 ? (
+                <span dir="ltr" className="inline-flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <FaStar
+                      key={i}
+                      size={9}
+                      className={i < ratingValue ? 'text-yellow-400' : 'text-gray-300'}
+                    />
+                  ))}
+                  <span className="min-w-0 truncate text-[9px] text-gray-500 sm:text-xs">
+                    ({reviewCount})
+                  </span>
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>

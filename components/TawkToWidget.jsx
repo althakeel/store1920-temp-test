@@ -8,6 +8,12 @@ import {
   getTawkEmbedSrc,
   isTawkEnabled,
 } from '@/lib/tawkConfig';
+import {
+  applyTawkVisibility,
+  isTawkForcedHidden,
+  setTawkHiddenBy,
+  TAWK_HIDDEN_ROUTE_CLASS,
+} from '@/lib/tawkVisibility';
 
 const HIDDEN_PREFIXES = ['/store', '/admin', '/dashboard'];
 const HIDDEN_EXACT = ['/checkout'];
@@ -23,11 +29,21 @@ function injectGreetingHideStyles() {
   if (document.getElementById(GREETING_STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = GREETING_STYLE_ID;
-  // Keep the green chat button; hide "We Are Here!" attention grabber.
+  // Keep the green chat button on the storefront; hide "We Are Here!".
+  // On /store (and other hidden routes) hide the whole widget without removing it.
   style.textContent = `
     div[class*="tawk"] [class*="attention"],
     div[class*="tawk"] [class*="greeting"],
     div[class*="tawk"] [class*="bubble-text"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    html.${TAWK_HIDDEN_ROUTE_CLASS} iframe[src*="tawk.to"],
+    html.${TAWK_HIDDEN_ROUTE_CLASS} iframe[title*="chat"],
+    html.${TAWK_HIDDEN_ROUTE_CLASS} div[class*="tawk"],
+    html.${TAWK_HIDDEN_ROUTE_CLASS} div[id*="tawk"] {
       display: none !important;
       visibility: hidden !important;
       opacity: 0 !important;
@@ -50,12 +66,14 @@ function hideIfGreetingNode(node) {
 }
 
 function hideGreetingDomNodes(root = document.body) {
-  if (!root) return;
-  const candidates = root.querySelectorAll
-    ? root.querySelectorAll('div, span, p, strong, em')
+  if (!root?.querySelectorAll) return;
+  const scope = root.querySelectorAll
+    ? root.querySelectorAll('[class*="tawk"], [id*="tawk"]')
     : [];
-  candidates.forEach(hideIfGreetingNode);
-  hideIfGreetingNode(root);
+  scope.forEach((node) => {
+    hideIfGreetingNode(node);
+    node.querySelectorAll?.('div, span, p, strong, em').forEach(hideIfGreetingNode);
+  });
 }
 
 /**
@@ -77,6 +95,7 @@ export default function TawkToWidget() {
     const previousOnLoad = window.Tawk_API.onLoad;
     window.Tawk_API.onLoad = function onTawkLoad() {
       try {
+        applyTawkVisibility();
         hideGreetingDomNodes();
         window.setTimeout(() => hideGreetingDomNodes(), 600);
         window.setTimeout(() => hideGreetingDomNodes(), 2000);
@@ -84,15 +103,6 @@ export default function TawkToWidget() {
         // ignore
       }
       if (typeof previousOnLoad === 'function') previousOnLoad();
-    };
-
-    let hideTimer = null;
-    const scheduleHide = () => {
-      if (hideTimer) return;
-      hideTimer = window.setTimeout(() => {
-        hideTimer = null;
-        hideGreetingDomNodes();
-      }, 200);
     };
 
     const existing = document.getElementById('tawk-to-script');
@@ -106,46 +116,23 @@ export default function TawkToWidget() {
       document.body.appendChild(script);
     } else {
       try {
-        window.Tawk_API?.showWidget?.();
+        applyTawkVisibility();
         hideGreetingDomNodes();
       } catch {
         // ignore
       }
     }
 
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        mutation.addedNodes.forEach((node) => {
-          if (node instanceof HTMLElement) hideGreetingDomNodes(node);
-        });
-      }
-      scheduleHide();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    return () => {
-      observer.disconnect();
-      if (hideTimer) window.clearTimeout(hideTimer);
-      try {
-        window.Tawk_API?.hideWidget?.();
-      } catch {
-        // ignore
-      }
-    };
+    // Do not observe document.body. Tawk + React both mutate the tree during
+    // /store navigation and that observer caused removeChild.
+    return undefined;
   }, [enabled]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.Tawk_API) return;
-    try {
-      if (enabled) {
-        window.Tawk_API.showWidget?.();
-        hideGreetingDomNodes();
-      } else {
-        window.Tawk_API.hideWidget?.();
-      }
-    } catch {
-      // ignore
-    }
+    if (typeof window === 'undefined') return;
+    injectGreetingHideStyles();
+    setTawkHiddenBy('route', !enabled);
+    if (!isTawkForcedHidden()) hideGreetingDomNodes();
   }, [enabled]);
 
   return null;

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { GripVertical, Loader2, RefreshCw, Save } from 'lucide-react'
+import BusyButtonIcon from '@/components/store/BusyButtonIcon'
 import { useAuth } from '@/lib/useAuth'
 import {
   getHomeLayoutSectionMeta,
@@ -241,7 +242,7 @@ export default function MobileHomeLayoutPreview({
               disabled={refreshing}
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
             >
-              {refreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              <BusyButtonIcon busy={refreshing} icon={RefreshCw} size={12} />
               Refresh
             </button>
           ) : null}
@@ -252,7 +253,7 @@ export default function MobileHomeLayoutPreview({
               disabled={saving}
               className="inline-flex items-center gap-1 rounded-lg bg-sky-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
             >
-              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              <BusyButtonIcon busy={saving} icon={Save} size={12} />
               Save order
             </button>
           ) : null}

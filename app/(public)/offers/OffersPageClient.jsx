@@ -6,6 +6,7 @@ import { ChevronLeft } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
 import { OFFERS_PAGE_SIZE } from '@/lib/offersPageSettings';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
+import { getContentDirection } from '@/lib/storefrontLanguage';
 
 function productKey(product, index) {
   return String(product?._id || product?.id || product?.slug || index);
@@ -133,15 +134,15 @@ export default function OffersPageClient({ initialData = null }) {
           <div>
             {eyebrow ? (
               <span className="text-xs font-bold uppercase tracking-wider text-red-600">
-                {eyebrow}
+                <bdi dir={getContentDirection(eyebrow)}>{eyebrow}</bdi>
               </span>
             ) : null}
             <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
-              {title}
+              <bdi dir={getContentDirection(title)}>{title}</bdi>
             </h1>
             {subtitle ? (
               <p className="mt-2 text-sm text-gray-600 sm:text-base">
-                {subtitle}
+                <bdi dir={getContentDirection(subtitle)}>{subtitle}</bdi>
               </p>
             ) : null}
           </div>

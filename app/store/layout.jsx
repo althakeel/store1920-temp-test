@@ -2,6 +2,7 @@
 import StoreLayout from "@/components/store/StoreLayout";
 import StoreLanguageScope from "@/components/store/StoreLanguageScope";
 import StoreShellSkeleton from "@/components/store/StoreShellSkeleton";
+import SilentDomErrorBoundary from "@/components/SilentDomErrorBoundary";
 import "@/styles/store-editor.css";
 
 import { useEffect, useState } from "react"
@@ -177,9 +178,11 @@ export default function RootAdminLayout({ children }) {
 
     return (
         <StoreLanguageScope>
-        <StoreLayout>
-            {children}
-        </StoreLayout>
+          <SilentDomErrorBoundary className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <StoreLayout>
+              {children}
+            </StoreLayout>
+          </SilentDomErrorBoundary>
         </StoreLanguageScope>
     );
 }

@@ -7,6 +7,8 @@ import Counter from '@/components/Counter';
 import { getProductSubtitle } from '@/lib/productDisplay';
 import { resolveCartLinePriceDisplay } from '@/lib/cartPriceDisplay';
 import { getProductThumbnailUrl } from '@/lib/productMedia';
+import { AedText } from '@/components/CurrencySymbol';
+import NewProductTagBadge from '@/components/NewProductTagBadge';
 
 const LINE_TOTAL_CLASS =
   'shrink-0 min-w-[7.5rem] text-right tabular-nums text-base font-bold text-slate-900 sm:text-lg';
@@ -22,7 +24,11 @@ function getItemSubtitle(item) {
 }
 
 function formatMoney(currency, amount) {
-  return `${currency} ${Number(amount || 0).toLocaleString()}`;
+  return (
+    <AedText currency={currency}>
+      {`${currency} ${Number(amount || 0).toLocaleString()}`}
+    </AedText>
+  );
 }
 
 export default function CartLineItem({
@@ -58,6 +64,7 @@ export default function CartLineItem({
             sizes="112px"
             className="object-contain p-2"
           />
+          <NewProductTagBadge product={item} size="thumb" />
         </Link>
 
         <div className="min-w-0 flex-1">

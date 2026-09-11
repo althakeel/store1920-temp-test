@@ -214,9 +214,19 @@ export default function StoreSettingsHistory() {
                       <p className="text-xs text-slate-500">{row.actorEmail || '—'}</p>
                       <p className="mt-0.5 text-[11px] font-medium text-slate-400">{roleLabel(row.actorRole)}</p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="max-w-md px-4 py-3">
                       <p className="font-medium text-slate-900">{row.action}</p>
-                      {row.summary ? <p className="mt-0.5 text-xs text-slate-500">{row.summary}</p> : null}
+                      {row.details?.length ? (
+                        <ul className="mt-1 space-y-0.5 text-xs leading-relaxed text-slate-600">
+                          {row.details.map((detail) => (
+                            <li key={detail}>{detail}</li>
+                          ))}
+                        </ul>
+                      ) : row.summary ? (
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600">{row.summary}</p>
+                      ) : (
+                        <p className="mt-1 text-xs text-slate-400">No field details were stored for this change.</p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">
                       <p>{row.pagePath || '—'}</p>

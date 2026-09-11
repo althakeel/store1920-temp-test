@@ -15,6 +15,7 @@ import axios from "axios"
 import nextDynamic from "next/dynamic"
 import { ChevronDown } from 'lucide-react'
 import ProductDetailCompletenessDots from '@/components/store/ProductDetailCompletenessDots'
+import HideTawkOnWhatsAppToggle from '@/components/store/HideTawkOnWhatsAppToggle'
 import {
     buildCategoryLookup,
     getProductCategoryLabels,
@@ -1501,6 +1502,12 @@ export default function StoreManageProducts() {
                     {showImportPanel ? 'Back to products' : 'Import products'}
                 </button>
             </div>
+
+            {showImportPanel ? null : (
+                <div className="mb-4">
+                    <HideTawkOnWhatsAppToggle compact />
+                </div>
+            )}
 
             {showImportPanel ? (
                 <ProductBulkImportPanel onImportComplete={handleImportComplete} embedded />

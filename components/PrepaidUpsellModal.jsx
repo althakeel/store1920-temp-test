@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
+import { AedText } from '@/components/CurrencySymbol';
 
 const DEFAULT_AUTO_DISMISS_SECONDS = 15;
 
@@ -95,16 +96,16 @@ export default function PrepaidUpsellModal({
               <div className="mt-4 bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4 border-2 border-green-300">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-slate-600 text-sm">Original Amount:</span>
-                  <span className="text-slate-900 font-semibold line-through">{currency}{formatAmount(orderTotal)}</span>
+                  <span className="text-slate-900 font-semibold line-through"><AedText currency={currency}>{`${currency}${formatAmount(orderTotal)}`}</AedText></span>
                 </div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-green-700 font-semibold text-sm">5% Discount:</span>
-                  <span className="text-green-700 font-bold">- {currency}{formatAmount(discountAmount)}</span>
+                  <span className="text-green-700 font-bold">- <AedText currency={currency}>{`${currency}${formatAmount(discountAmount)}`}</AedText></span>
                 </div>
                 <div className="border-t border-green-300 pt-2 mt-2">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-900 font-bold">Pay Now:</span>
-                    <span className="text-green-600 font-bold text-xl">{currency}{formatAmount(orderTotal - discountAmount)}</span>
+                    <span className="text-green-600 font-bold text-xl"><AedText currency={currency}>{`${currency}${formatAmount(orderTotal - discountAmount)}`}</AedText></span>
                   </div>
                 </div>
               </div>

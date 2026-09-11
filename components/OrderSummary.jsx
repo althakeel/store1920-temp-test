@@ -16,6 +16,7 @@ import { countryCodes } from '@/assets/countryCodes';
 import { STORE1920_LOGO_PATH } from '@/lib/brandLogo';
 import { useAuth } from '@/lib/useAuth';
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
+import CurrencySymbol from '@/components/CurrencySymbol';
 const PrepaidUpsellModal = dynamic(() => import('@/components/PrepaidUpsellModal'), { ssr: false });
 
 
@@ -672,7 +673,7 @@ const OrderSummary = ({ totalPrice, items }) => {
                 <div className='space-y-3'>
                     <div className='flex justify-between text-sm'>
                         <span className='text-gray-600'>Subtotal</span>
-                        <span className='font-semibold text-gray-900'>{currency} {formatAmount(totalPrice)}</span>
+                        <span className='inline-flex items-baseline gap-1 font-semibold text-gray-900'><CurrencySymbol currency={currency} />{formatAmount(totalPrice)}</span>
                     </div>
                     <div className='flex justify-between text-sm'>
                         <span className='text-gray-600'>Shipping</span>
@@ -687,18 +688,23 @@ const OrderSummary = ({ totalPrice, items }) => {
                     </div>
                     {coupon && (
                         <div className='flex justify-between text-sm'>
-                            <span className='text-gray-600'>Coupon ({coupon.discountType === 'percentage' ? `${coupon.discount}%` : `${currency}${formatAmount(coupon.discount)}`})</span>
-                            <span className='font-semibold text-green-600'>-{currency}{coupon.discountType === 'percentage' ? formatAmount(coupon.discount / 100 * totalPrice) : formatAmount(Math.min(coupon.discount, totalPrice))}</span>
+                            <span className='text-gray-600'>Coupon ({coupon.discountType === 'percentage' ? `${coupon.discount}%` : (
+                              <span className="inline-flex items-baseline gap-0.5"><CurrencySymbol currency={currency} />{formatAmount(coupon.discount)}</span>
+                            )})</span>
+                            <span className='inline-flex items-baseline gap-0.5 font-semibold text-green-600'>-<CurrencySymbol currency={currency} />{coupon.discountType === 'percentage' ? formatAmount(coupon.discount / 100 * totalPrice) : formatAmount(Math.min(coupon.discount, totalPrice))}</span>
                         </div>
                     )}
                 </div>
                 <div className='flex justify-between text-sm font-semibold mt-4'>
                     <span className='text-gray-700'>Total</span>
                     <span className='text-gray-900'>
-                        {currency} {formatAmount(
+                        <span className="inline-flex items-baseline gap-1">
+                          <CurrencySymbol currency={currency} />
+                          {formatAmount(
                             Number(totalPrice) + Number(shippingFee)
                             - (coupon ? (coupon.discountType === 'percentage' ? (coupon.discount / 100 * totalPrice) : Math.min(coupon.discount, totalPrice)) : 0)
-                        )}
+                          )}
+                        </span>
                     </span>
                 </div>
             </div>

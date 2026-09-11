@@ -6,6 +6,7 @@ import {
   buildWhatsAppProductChatUrl,
   shouldShowWhatsAppProductWidget,
 } from '@/lib/whatsappProductWidget'
+import { setTawkHiddenBy } from '@/lib/tawkVisibility'
 import { trackWhatsAppClick } from '@/lib/ga4Ecommerce'
 
 function WhatsAppGlyph({ className = 'h-7 w-7' }) {
@@ -53,6 +54,13 @@ export default function ProductWhatsAppWidget({
       productUrl: pageUrl,
     })
   }, [pageUrl, productId, productName, widget])
+
+  const hideTawk = widget?.hideTawkWhenVisible !== false
+
+  useEffect(() => {
+    setTawkHiddenBy('whatsapp-product', Boolean(href && hideTawk))
+    return () => setTawkHiddenBy('whatsapp-product', false)
+  }, [hideTawk, href])
 
   if (!href) return null
 

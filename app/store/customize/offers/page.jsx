@@ -14,6 +14,7 @@ import {
   Save,
   Search,
 } from 'lucide-react'
+import BusyButtonIcon from '@/components/store/BusyButtonIcon'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/lib/useAuth'
 import PageSkeleton from '@/components/PageSkeleton'
@@ -104,6 +105,7 @@ export default function OffersCustomizePage() {
   const [pagination, setPagination] = useState({ page: 1, limit: PRODUCTS_PER_PAGE, total: 0, totalPages: 1 })
   const [selectedProducts, setSelectedProducts] = useState([])
   const [translatingNav, setTranslatingNav] = useState(false)
+  const [translatingCopy, setTranslatingCopy] = useState(false)
   const searchDebounceRef = useRef(null)
   const productsAbortRef = useRef(null)
 
@@ -257,6 +259,60 @@ export default function OffersCustomizePage() {
     })
   }
 
+  const translateTextToArabic = async (text, token, maxLength) => {
+    const english = String(text || '').trim()
+    if (!english) return ''
+    const { data } = await axios.post(
+      '/api/store/categories/translate-arabic',
+      { text: english },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    return String(data?.descriptionAr || '').trim().slice(0, maxLength)
+  }
+
+  const translatePageCopyToArabic = async () => {
+    const eyebrow = String(form.eyebrow || '').trim()
+    const title = String(form.title || '').trim()
+    const subtitle = String(form.subtitle || '').trim() || String(previewSubtitle || '').trim()
+    if (!eyebrow && !title && !subtitle) {
+      toast.error('Enter English page copy first')
+      return
+    }
+
+    try {
+      setTranslatingCopy(true)
+      const token = await getToken()
+      if (!token) {
+        toast.error('Please sign in again')
+        return
+      }
+
+      const [eyebrowAr, titleAr, subtitleAr] = await Promise.all([
+        translateTextToArabic(eyebrow, token, 160),
+        translateTextToArabic(title, token, 160),
+        translateTextToArabic(subtitle, token, 160),
+      ])
+
+      if (!eyebrowAr && !titleAr && !subtitleAr) {
+        toast.error('Could not translate page copy to Arabic')
+        return
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        ...(eyebrowAr ? { eyebrowAr } : {}),
+        ...(titleAr ? { titleAr } : {}),
+        ...(subtitleAr ? { subtitleAr } : {}),
+      }))
+      toast.success('Arabic page copy updated')
+    } catch (error) {
+      console.error('Translate page copy failed:', error)
+      toast.error(error?.response?.data?.error || 'Failed to translate to Arabic')
+    } finally {
+      setTranslatingCopy(false)
+    }
+  }
+
   const translateNavLabelToArabic = async () => {
     const english = String(form.navLabel || '').trim()
     if (!english) {
@@ -308,12 +364,11 @@ export default function OffersCustomizePage() {
       setSaving(true)
       const token = await getToken()
       const payload = normalizeOffersPage(form)
-      const { data } = await axios.post(
+      await axios.post(
         '/api/store/appearance/sections',
         { offersPage: payload },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setForm(normalizeOffersPage(data?.offersPage || payload))
       toast.success('Offers page saved. /offers will show this list now.', { id: SAVE_TOAST_ID })
     } catch (error) {
       console.error(error)
@@ -338,7 +393,7 @@ export default function OffersCustomizePage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/offers?refresh=${Date.now()}`}
+              href="/offers"
               target="_blank"
               className="rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
             >
@@ -350,8 +405,19 @@ export default function OffersCustomizePage() {
               disabled={saving}
               className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
             >
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              Save
+              <span className="relative inline-flex h-4 w-4 items-center justify-center">
+                <Loader2
+                  size={16}
+                  className={`absolute animate-spin ${saving ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+                  aria-hidden={!saving}
+                />
+                <Save
+                  size={16}
+                  className={saving ? 'pointer-events-none opacity-0' : 'opacity-100'}
+                  aria-hidden={saving}
+                />
+              </span>
+              {saving ? 'Saving' : 'Save'}
             </button>
           </div>
         </div>
@@ -364,6 +430,13 @@ export default function OffersCustomizePage() {
               <p className="text-xs font-bold uppercase tracking-wider text-red-300">{form.eyebrow || 'Hot Deals'}</p>
               <p className="mt-1 text-xl font-bold">{form.title || 'Special Offers'}</p>
                 <p className="mt-2 text-sm text-white/70">{previewSubtitle}</p>
+                {(form.eyebrowAr || form.titleAr || form.subtitleAr) ? (
+                  <div className="mt-3 border-t border-white/15 pt-3" dir="rtl">
+                    <p className="text-xs font-bold uppercase tracking-wider text-red-300">{form.eyebrowAr || form.eyebrow}</p>
+                    <p className="mt-1 text-lg font-bold">{form.titleAr || form.title}</p>
+                    <p className="mt-2 text-sm text-white/70">{form.subtitleAr || getOffersPageSubtitle(form, 'ar')}</p>
+                  </div>
+                ) : null}
                 <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/80">
                   Navbar · /offers
                 </p>
@@ -385,10 +458,21 @@ export default function OffersCustomizePage() {
             </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-            <h2 className="mb-4 text-sm font-semibold text-slate-900">Page copy</h2>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-slate-900">Page copy</h2>
+              <button
+                type="button"
+                onClick={translatePageCopyToArabic}
+                disabled={translatingCopy || (!String(form.eyebrow || '').trim() && !String(form.title || '').trim() && !String(form.subtitle || previewSubtitle || '').trim())}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <BusyButtonIcon busy={translatingCopy} icon={Languages} size={12} />
+                {translatingCopy ? 'Translating...' : 'Translate'}
+              </button>
+            </div>
             <div className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">Eyebrow</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">Eyebrow (English)</label>
                 <input
                   type="text"
                   value={form.eyebrow}
@@ -398,7 +482,18 @@ export default function OffersCustomizePage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">Title</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">Eyebrow (Arabic)</label>
+                <input
+                  type="text"
+                  dir="rtl"
+                  value={form.eyebrowAr || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, eyebrowAr: e.target.value }))}
+                  placeholder="عروض مميزة"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">Title (English)</label>
                 <input
                   type="text"
                   value={form.title}
@@ -408,7 +503,18 @@ export default function OffersCustomizePage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">Subtitle</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">Title (Arabic)</label>
+                <input
+                  type="text"
+                  dir="rtl"
+                  value={form.titleAr || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, titleAr: e.target.value }))}
+                  placeholder="عروض خاصة"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">Subtitle (English)</label>
                 <textarea
                   rows={2}
                   value={form.subtitle}
@@ -419,6 +525,17 @@ export default function OffersCustomizePage() {
                 <p className="mt-1 text-[11px] text-slate-400">
                   Leave blank to auto-generate from the product source below.
                 </p>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">Subtitle (Arabic)</label>
+                <textarea
+                  rows={2}
+                  dir="rtl"
+                  value={form.subtitleAr || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, subtitleAr: e.target.value }))}
+                  placeholder={getOffersPageSubtitle(form, 'ar')}
+                  className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                />
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-slate-500">Navbar button (English)</label>
@@ -443,7 +560,7 @@ export default function OffersCustomizePage() {
                     disabled={translatingNav || !String(form.navLabel || '').trim()}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {translatingNav ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
+                    <BusyButtonIcon busy={translatingNav} icon={Languages} size={12} />
                     {translatingNav ? 'Translating...' : 'Translate'}
                   </button>
                 </div>

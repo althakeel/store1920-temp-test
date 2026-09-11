@@ -9,6 +9,7 @@ import {
   canViewStoreActivityHistory,
   formatActivityLogRow,
   listActivityActors,
+  describeStoreActivity,
   recordStoreActivity,
   startOfDubaiDay,
   endOfDubaiDay,
@@ -45,6 +46,17 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const profile = await User.findById(String(auth.decoded.uid)).select('name email').lean();
 
+    const itemName = String(body.itemName || '').trim();
+    const details = Array.isArray(body.details)
+      ? body.details.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 8)
+      : [];
+    const action = describeStoreActivity({
+      method: body.method,
+      path: body.path,
+      pagePath: body.pagePath,
+      itemName,
+    });
+
     await recordStoreActivity({
       storeId: access.storeId,
       actorUserId: String(auth.decoded.uid),
@@ -54,9 +66,10 @@ export async function POST(request) {
       method: body.method,
       path: body.path,
       pagePath: body.pagePath,
-      action: body.action,
+      action,
       summary: body.summary,
       status: body.status,
+      metadata: { details, itemName },
     });
 
     return NextResponse.json({ ok: true });

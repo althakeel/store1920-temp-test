@@ -6,12 +6,12 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import { Eye, Radio, ShoppingBag, UserCheck, Users } from 'lucide-react';
+import SafeResponsiveContainer from '@/components/store/SafeResponsiveContainer';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -99,7 +99,7 @@ function OpenProductsBarChart({ products = [], onViewerClick }) {
 
   return (
     <div className="shrink-0 rounded-lg border border-violet-100 bg-white px-1 py-1" style={{ height: chartHeight }}>
-      <ResponsiveContainer width="100%" height="100%">
+      <SafeResponsiveContainer>
         <BarChart data={chartData} layout="vertical" margin={{ left: 4, right: 12, top: 4, bottom: 0 }}>
           <CartesianGrid stroke="#E2E8F0" horizontal={false} />
           <XAxis
@@ -120,7 +120,7 @@ function OpenProductsBarChart({ products = [], onViewerClick }) {
           />
           <Bar dataKey="views" name="Viewers" fill="#8B5CF6" radius={[0, 4, 4, 0]} maxBarSize={14} />
         </BarChart>
-      </ResponsiveContainer>
+      </SafeResponsiveContainer>
     </div>
   );
 }

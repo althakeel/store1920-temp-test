@@ -2,6 +2,10 @@
 
 import { useEffect } from 'react';
 import axios from 'axios';
+import {
+  shouldSkipStoreActivityPath,
+  summarizeStoreActivityPayload,
+} from '@/lib/storeActivityDescribe';
 
 const MUTATING = new Set(['post', 'put', 'patch', 'delete']);
 
@@ -24,10 +28,27 @@ function readAuthHeader(headers) {
   return headers.Authorization || headers.authorization || '';
 }
 
-function logStoreChange({ method, path, status, authorization }) {
+function readRequestPayload(data) {
+  if (!data) return null;
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return { upload: 'file' };
+  }
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+  return data;
+}
+
+function logStoreChange({ method, path, status, authorization, payload }) {
   if (!MUTATING.has(method)) return;
-  if (!path.startsWith('/api/store/') || path.includes('/activity-log')) return;
+  if (!path.startsWith('/api/store/') || shouldSkipStoreActivityPath(path)) return;
   if (Number(status) >= 400) return;
+
+  const { summary, details, itemName } = summarizeStoreActivityPayload(payload);
 
   axios.post(
     '/api/store/activity-log',
@@ -36,6 +57,9 @@ function logStoreChange({ method, path, status, authorization }) {
       path,
       pagePath: typeof window !== 'undefined' ? window.location.pathname : '',
       status,
+      summary,
+      details,
+      itemName,
     },
     authorization ? { headers: { Authorization: authorization } } : {},
   ).catch(() => {});
@@ -51,6 +75,7 @@ export default function StoreActivityLogger() {
           path: requestPath(config.url),
           status: response.status,
           authorization: readAuthHeader(config.headers),
+          payload: readRequestPayload(config.data),
         });
       } catch {
         // Never block dashboard work if logging fails.
@@ -68,6 +93,7 @@ export default function StoreActivityLogger() {
           path: requestPath(url),
           status: response.status,
           authorization: readAuthHeader(init.headers || input?.headers),
+          payload: readRequestPayload(init.body),
         });
       } catch {
         // Ignore logging failures.

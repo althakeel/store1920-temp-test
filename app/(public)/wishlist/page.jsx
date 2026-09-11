@@ -18,6 +18,8 @@ import { STORE_CURRENCY } from '@/lib/storeCurrency';
 import { getProductPath } from "@/lib/productUrl";
 import { useStorefrontMarket } from "@/lib/useStorefrontMarket";
 import PageTitle from "@/components/PageTitle";
+import CurrencySymbol, { AedText } from "@/components/CurrencySymbol";
+import NewProductTagBadge from "@/components/NewProductTagBadge";
 
 const PLACEHOLDER_IMAGE = "/placeholder.png";
 
@@ -99,6 +101,7 @@ function WishlistItemRow({
             sizes="(max-width: 640px) 220px, 176px"
             className="object-contain transition-transform duration-300 hover:scale-105"
           />
+          <NewProductTagBadge product={product} size="card" />
         </div>
       </button>
 
@@ -115,12 +118,14 @@ function WishlistItemRow({
           </button>
 
           <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2">
-            <span className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              {market.currency} {Math.round(convertedPrice).toLocaleString()}
+            <span className="inline-flex items-baseline gap-1 text-2xl font-bold text-slate-900 sm:text-3xl">
+              <CurrencySymbol currency={market.currency} />
+              {Math.round(convertedPrice).toLocaleString()}
             </span>
             {product.AED ? (
-              <span className="text-sm text-slate-400 line-through">
-                {market.currency} {Math.round(convertedAED).toLocaleString()}
+              <span className="inline-flex items-baseline gap-1 text-sm text-slate-400 line-through">
+                <CurrencySymbol currency={market.currency} />
+                {Math.round(convertedAED).toLocaleString()}
               </span>
             ) : null}
             {discount > 0 ? (
@@ -182,7 +187,9 @@ function PriceSummaryPanel({
         </div>
         <div className="flex items-center justify-between border-t border-slate-100 pt-3">
           <span className="font-semibold text-slate-900">Total</span>
-          <span className="text-2xl font-bold text-orange-600">{formattedTotal}</span>
+          <span className="text-2xl font-bold text-orange-600">
+            <AedText currency={market.currency}>{formattedTotal}</AedText>
+          </span>
         </div>
       </div>
 
@@ -539,7 +546,10 @@ function WishlistAuthed() {
                 {selected.length} {selected.length === 1 ? 'item' : 'items'} selected
               </p>
               <p className="text-xl font-bold text-slate-900">
-                {market.currency} {Math.round(convertPrice(total)).toLocaleString()}
+                <span className="inline-flex items-baseline gap-1">
+                  <CurrencySymbol currency={market.currency} />
+                  {Math.round(convertPrice(total)).toLocaleString()}
+                </span>
               </p>
             </div>
             <div className="flex items-center gap-2">

@@ -28,6 +28,7 @@ import {
 import { decrementCartItem, incrementCartItem } from "@/lib/bundleCartActions";
 import MobileProductActions from "./MobileProductActions";
 import ProductShareButton from "./ProductShareButton";
+import NewProductTagBadge from "./NewProductTagBadge";
 import ProductWhatsAppWidget from "./ProductWhatsAppWidget";
 import ProductCard from "./ProductCard";
 import ProductCarousel from "./ProductCarousel";
@@ -56,18 +57,20 @@ import { getAdjustedDeliveryDate } from '@/lib/deliveryEstimate';
 import { fetchShippingSettings } from '@/lib/shipping';
 import { getDefaultShippingOption } from '@/lib/shippingOptions';
 import ProductVariantPicker from './ProductVariantPicker';
+import CurrencySymbol, { AedText } from './CurrencySymbol';
 import {
   buildVariantOptionGroups,
   cartVariantOptionsMatch,
   findVariantBySelectedOptions,
   formatVariantOptionsLabel,
+  getVariantStock,
+  limitSelectedOptionsToGroups,
   getInitialSelectedOptions,
   getVariantMediaIndex,
   isBulkBundleVariantOption,
   isVariantOptionValueAvailable,
   sanitizeSelectedOptions,
   sanitizeVariantOptionsForCart,
-  variantOptionKeyInUse,
   isMatrixVariant,
   getProductBundleMode,
   formatBundleTierLabel,
@@ -381,7 +384,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       return (
         <bdi dir="rtl" className={wrapperClass}>
           <span className={`${mainClass} text-slate-900`}>
-            {label}
+            <AedText>{label}</AedText>
           </span>
         </bdi>
       );
@@ -391,7 +394,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
 
     return (
       <bdi dir="ltr" className={wrapperClass}>
-        <span className={`${currencyClass} me-1 self-start mt-1.5`}>{currency}</span>
+        <span className={`${mainClass} me-1 inline-flex items-center`}>
+          <CurrencySymbol currency={currency} />
+        </span>
         <span className={mainClass}>{mainPart}</span>
         <span className={`${decimalClass} self-start mt-1`}>{decimalPart}</span>
       </bdi>
@@ -946,6 +951,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     () => (Array.isArray(product?.variants)
       ? product.variants.map((variant) => ({
           ...variant,
+          stock: getVariantStock(variant),
           options: normalizeSellerVariantOptions(variant?.options),
         }))
       : []),
@@ -990,13 +996,18 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
   const productImagesArray = useMemo(() => normalizeImages(product.images), [product.images]);
   const [selectedOptions, setSelectedOptions] = useState(() => {
     const initial = getInitialSelectedOptions(variantOptionGroups);
-    if (!initial.color && product.colors?.[0] && variantOptionKeyInUse(variants, 'color', { isBulkBundleVariant })) {
+    const colorValues = variantOptionGroups.find((group) => group.key === 'color')?.values || [];
+    const sizeValues = variantOptionGroups.find((group) => group.key === 'size')?.values || [];
+    if (!initial.color && product.colors?.[0] && colorValues.includes(product.colors[0])) {
       initial.color = product.colors[0];
     }
-    if (!initial.size && product.sizes?.[0] && variantOptionKeyInUse(variants, 'size', { isBulkBundleVariant })) {
+    if (!initial.size && product.sizes?.[0] && sizeValues.includes(product.sizes[0])) {
       initial.size = product.sizes[0];
     }
-    return sanitizeSelectedOptions(variants, initial, { isBulkBundleVariant });
+    return limitSelectedOptionsToGroups(
+      sanitizeSelectedOptions(variants, initial, { isBulkBundleVariant }),
+      variantOptionGroups,
+    );
   });
   const [selectedBundleQty, setSelectedBundleQty] = useState(
     isBulkBundleProduct
@@ -1013,8 +1024,11 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     return Number(selectedBundleQty) || bulkBundleTiers[0] || 1;
   }, [isBulkBundleProduct, isMatrixProduct, selectedBundleQty, bulkBundleTiers, matrixBundleTiers]);
   const handleSelectVariantOption = useCallback((key, value) => {
-    setSelectedOptions((prev) => ({ ...prev, [key]: value }));
-  }, []);
+    setSelectedOptions((prev) => limitSelectedOptionsToGroups(
+      sanitizeSelectedOptions(variants, { ...prev, [key]: value }, { isBulkBundleVariant }),
+      variantOptionGroups,
+    ));
+  }, [variants, isBulkBundleVariant, variantOptionGroups]);
   const cartVariantOptions = useMemo(() => sanitizeVariantOptionsForCart({
     ...selectedOptions,
     bundleQty: selectedBundleQty || null,
@@ -1068,7 +1082,8 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
   const selectedVariant = (isBulkBundleProduct
     ? bulkVariants.find((v) => Number(v.options?.bundleQty) === Number(activeBundleTier))
     : (isMatrixProduct
-      ? matchMatrixVariant(variants, selectedOptions, activeBundleTier)
+      ? (matchMatrixVariant(variants, selectedOptions, activeBundleTier)
+        || findVariantBySelectedOptions(variants, selectedOptions, { isBulkBundleVariant }))
       : findVariantBySelectedOptions(variants, selectedOptions, { isBulkBundleVariant }))
   ) || null;
 
@@ -1117,12 +1132,13 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     const productStockFallback = typeof product.stockQuantity === 'number'
       ? Math.max(0, product.stockQuantity)
       : 0;
-    const anyVariantHasStock = variants.some((v) => Number(v?.stock || 0) > 0);
+    const anyVariantHasStock = variants.some((v) => getVariantStock(v) > 0);
 
     if (isMatrixProduct) {
-      const match = matchMatrixVariant(variants, selectedOptions, activeBundleTier);
+      const match = matchMatrixVariant(variants, selectedOptions, activeBundleTier)
+        || findVariantBySelectedOptions(variants, selectedOptions, { isBulkBundleVariant });
       if (match) {
-        const rowStock = Number(match.stock);
+        const rowStock = getVariantStock(match);
         if (Number.isFinite(rowStock) && rowStock > 0) return rowStock;
         // Legacy matrix rows: stock often sits on product Stock Qty only.
         if (!anyVariantHasStock && productStockFallback > 0) return productStockFallback;
@@ -1179,10 +1195,11 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       const tier = matrixBundleTiers.includes(Number(selectedBundleQty))
         ? Number(selectedBundleQty)
         : matrixBundleTiers[0];
-      const variant = matchMatrixVariant(variants, selectedOptions, tier);
-      const anyVariantHasStock = variants.some((v) => Number(v?.stock || 0) > 0);
+      const variant = matchMatrixVariant(variants, selectedOptions, tier)
+        || findVariantBySelectedOptions(variants, selectedOptions, { isBulkBundleVariant });
+      const anyVariantHasStock = variants.some((v) => getVariantStock(v) > 0);
       const productStockFallback = Number(product.stockQuantity) || 0;
-      const rowStock = Number(variant?.stock) || 0;
+      const rowStock = getVariantStock(variant);
       const safeMax = rowStock > 0
         ? rowStock
         : (!anyVariantHasStock && productStockFallback > 0 ? productStockFallback : 0);
@@ -1304,7 +1321,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     setQuantity(Math.max(1, Math.min(maxOrderQty || 1, next)));
   }, [maxOrderQty, isBulkBundleProduct, bulkBundleTiers]);
 
-  const hasAnyVariantStock = variants.some((v) => Number(v?.stock || 0) > 0);
+  const hasAnyVariantStock = variants.some((v) => getVariantStock(v) > 0);
   const hasProductStockQty = Number(product.stockQuantity) > 0;
   const hasBaseStock = typeof product.stockQuantity === 'number' ? product.stockQuantity > 0 : true;
   // Matrix / variant products: treat as in-stock if any row has stock, or Stock Qty is set
@@ -1463,7 +1480,10 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-base font-bold text-gray-900">{currency} {formatDisplay(convertedBundlePrice, language)}</div>
+                  <div className="inline-flex items-baseline gap-1 text-base font-bold text-gray-900">
+                    <CurrencySymbol currency={currency} />
+                    {formatDisplay(convertedBundlePrice, language)}
+                  </div>
                 </div>
               </button>
             );
@@ -1509,15 +1529,45 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
   );
   const mobileShortDescription = localizedShortDescription || localizedShortDescription2;
 
-  const renderSoldByLine = (className = '', mobile = false) => (
-    <p
+  const openBuyboxInfo = () => setDeliveryInfoOpen(true);
+
+  const renderBuyboxInfoTrigger = (className = '') => (
+    <button
+      type="button"
+      onClick={openBuyboxInfo}
       dir={isArabic ? 'rtl' : 'ltr'}
-      className={`w-full text-start leading-snug text-gray-600 ${mobile ? 'text-xs' : 'text-sm'} ${className}`.trim()}
+      className={`flex w-full items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3 text-start transition hover:border-slate-200 hover:bg-white ${className}`.trim()}
     >
-      {t('product.trustLine')}
-      {' '}
-      {t('product.warrantyLine')}
-    </p>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-slate-900">
+          {t('product.deliveryReturnsWarrantyTitle')}
+        </span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-slate-600">
+          {deliverySummary.primary}
+        </span>
+      </span>
+      <ChevronRight
+        size={18}
+        className={`shrink-0 text-slate-400 ${isArabic ? 'rotate-180' : ''}`}
+        aria-hidden="true"
+      />
+    </button>
+  );
+
+  const renderSoldByLine = (className = '', mobile = false) => (
+    <div
+      dir={isArabic ? 'rtl' : 'ltr'}
+      className={`w-full space-y-4 text-start leading-snug text-slate-600 ${mobile ? 'text-xs' : 'text-sm'} ${className}`.trim()}
+    >
+      <div>
+        <p className="font-semibold text-slate-900">{t('product.soldFulfilledTitle')}</p>
+        <p className="mt-1">{t('product.trustLine')}</p>
+      </div>
+      <div>
+        <p className="font-semibold text-slate-900">{t('product.warrantyTitle')}</p>
+        <p className="mt-1">{t('product.warrantyLine')}</p>
+      </div>
+    </div>
   );
 
   const displaySoldCount = Math.max(0, Number(product?.soldCount) || 0);
@@ -1593,10 +1643,12 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       const hasStockQty = typeof product.stockQuantity === 'number' ? product.stockQuantity > 0 : true;
       return product.inStock !== false && hasStockQty;
     }
-    if (!selectedVariant) return false;
-    const variantStock = Number(selectedVariant.stock || 0);
+    if (!selectedVariant) {
+      return !hasAnyVariantStock && hasProductStockQty;
+    }
+    const variantStock = getVariantStock(selectedVariant);
     if (variantStock > 0) return true;
-    // Legacy matrix rows often have stock 0 while product Stock Qty still holds inventory.
+    // Legacy rows often have stock 0 while product Stock Qty still holds inventory.
     return !hasAnyVariantStock && hasProductStockQty;
   })();
 
@@ -1614,10 +1666,12 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
 
   useEffect(() => {
     const initial = getInitialSelectedOptions(variantOptionGroups);
-    if (!initial.color && product.colors?.[0] && variantOptionKeyInUse(variants, 'color', { isBulkBundleVariant })) {
+    const colorValues = variantOptionGroups.find((group) => group.key === 'color')?.values || [];
+    const sizeValues = variantOptionGroups.find((group) => group.key === 'size')?.values || [];
+    if (!initial.color && product.colors?.[0] && colorValues.includes(product.colors[0])) {
       initial.color = product.colors[0];
     }
-    if (!initial.size && product.sizes?.[0] && variantOptionKeyInUse(variants, 'size', { isBulkBundleVariant })) {
+    if (!initial.size && product.sizes?.[0] && sizeValues.includes(product.sizes[0])) {
       initial.size = product.sizes[0];
     }
 
@@ -1627,7 +1681,10 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       variantOptionGroups.forEach((group) => {
         if (variant.options?.[group.key]) initial[group.key] = variant.options[group.key];
       });
-      setSelectedOptions(sanitizeSelectedOptions(variants, initial, { isBulkBundleVariant }));
+      setSelectedOptions(limitSelectedOptionsToGroups(
+        sanitizeSelectedOptions(variants, initial, { isBulkBundleVariant }),
+        variantOptionGroups,
+      ));
       return;
     }
 
@@ -1641,7 +1698,10 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
       ));
       if (availableValues.length === 1) initial[group.key] = availableValues[0];
     });
-    setSelectedOptions(sanitizeSelectedOptions(variants, initial, { isBulkBundleVariant }));
+    setSelectedOptions(limitSelectedOptionsToGroups(
+      sanitizeSelectedOptions(variants, initial, { isBulkBundleVariant }),
+      variantOptionGroups,
+    ));
   }, [product?._id]);
 
   const imageContainerRef = useRef(null);
@@ -1767,9 +1827,11 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                 {isArabic ? 'يُشترى معًا غالبًا' : 'Frequently Bought Together'}
               </h3>
               <p className="mt-0.5 text-[11px] text-gray-500 sm:mt-1 sm:text-sm">
-                {isArabic
-                  ? `${totalBundleItems} عناصر · ${currency} ${formatDisplay(convertPrice(bundleTotal), language)}`
-                  : `${totalBundleItems} items · ${currency} ${formatDisplay(convertPrice(bundleTotal), language)}`}
+                {isArabic ? `${totalBundleItems} عناصر · ` : `${totalBundleItems} items · `}
+                <span className="inline-flex items-baseline gap-1">
+                  <CurrencySymbol currency={currency} />
+                  {formatDisplay(convertPrice(bundleTotal), language)}
+                </span>
               </p>
             </div>
             <button
@@ -1820,8 +1882,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                         {isArabic ? 'هذا المنتج' : 'This item'}
                       </p>
                     ) : null}
-                    <p className="mt-1 text-[13px] font-bold text-gray-900">
-                      {currency} {formatDisplay(convertPrice(card.price), language)}
+                    <p className="mt-1 inline-flex items-baseline gap-1 text-[13px] font-bold text-gray-900">
+                      <CurrencySymbol currency={currency} />
+                      {formatDisplay(convertPrice(card.price), language)}
                     </p>
                   </div>
                 </label>
@@ -1875,8 +1938,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                           {isArabic ? 'هذا المنتج' : 'This item'}
                         </p>
                       ) : null}
-                      <p className="mt-1 text-[15px] font-bold text-gray-900">
-                        {currency} {formatDisplay(convertPrice(card.price), language)}
+                      <p className="mt-1 inline-flex items-baseline gap-1 text-[15px] font-bold text-gray-900">
+                        <CurrencySymbol currency={currency} />
+                        {formatDisplay(convertPrice(card.price), language)}
                       </p>
                     </label>
                     {index < arr.length - 1 ? (
@@ -1894,8 +1958,9 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:text-[11px]">
                   {isArabic ? 'الإجمالي' : 'Total'}
                 </p>
-                <p className="text-[17px] font-bold text-gray-900 sm:text-xl">
-                  {currency} {formatDisplay(convertPrice(bundleTotal), language)}
+                <p className="inline-flex items-baseline gap-1 text-[17px] font-bold text-gray-900 sm:text-xl">
+                  <CurrencySymbol currency={currency} />
+                  {formatDisplay(convertPrice(bundleTotal), language)}
                 </p>
               </div>
               <button
@@ -2720,6 +2785,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     name: product.name,
     image: normalizeImages(product.images)?.[0],
     price: Number(effPrice || 0),
+    createdAt: product.createdAt,
     isMain: true,
     checked: true,
     badge: product.fastDelivery ? 'express' : null,
@@ -2728,6 +2794,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
     name: item.name,
     image: normalizeImages(item.images)?.[0],
     price: Number(item.price || 0),
+    createdAt: item.createdAt,
     isMain: false,
     checked: Boolean(selectedFbtProducts[item._id]),
     badge: item.fastDelivery ? 'express' : (String(item.tags?.[0] || '').toLowerCase() === 'supermall' ? null : (item.tags?.[0] || null)),
@@ -2758,9 +2825,11 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                 {isArabic ? 'يُشترى معًا غالبًا' : 'Frequently Bought Together'}
               </h2>
               <p className={`text-gray-500 ${isMobile ? 'mt-0.5 text-[11px] leading-snug' : 'mt-1 text-sm'}`}>
-                {isArabic
-                  ? `${totalBundleItems} عناصر · ${currency} ${formatDisplay(convertPrice(bundleTotal), language)}`
-                  : `${totalBundleItems} items · ${currency} ${formatDisplay(convertPrice(bundleTotal), language)}`}
+                {isArabic ? `${totalBundleItems} عناصر · ` : `${totalBundleItems} items · `}
+                <span className="inline-flex items-baseline gap-1">
+                  <CurrencySymbol currency={currency} />
+                  {formatDisplay(convertPrice(bundleTotal), language)}
+                </span>
               </p>
             </div>
             <button
@@ -2811,13 +2880,15 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                           className="pointer-events-none object-contain"
                           draggable={false}
                         />
+                        <NewProductTagBadge product={card} size="thumb" />
                       </div>
                     </div>
                     <p className={`line-clamp-2 leading-snug text-gray-600 ${
                       isMobile ? 'mb-0.5 min-h-[26px] text-[10px]' : 'mb-0.5 min-h-[30px] text-[11px]'
                     }`}>{card.name}</p>
-                    <p className={`font-bold text-gray-900 ${isMobile ? 'text-[11px]' : 'text-[13px]'}`}>
-                      {currency} {formatDisplay(convertPrice(card.price), language)}
+                    <p className={`inline-flex items-baseline gap-1 font-bold text-gray-900 ${isMobile ? 'text-[11px]' : 'text-[13px]'}`}>
+                      <CurrencySymbol currency={currency} />
+                      {formatDisplay(convertPrice(card.price), language)}
                     </p>
                   </label>
                   {index < arr.length - 1 ? (
@@ -2836,9 +2907,11 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
               isMobile ? 'mt-2 h-9 text-[12px]' : 'mt-3 h-11 text-[15px]'
             }`}
           >
-            {isArabic
-              ? `اشترِ ${totalBundleItems} معًا · ${currency} ${formatDisplay(convertPrice(bundleTotal), language)}`
-              : `Buy ${totalBundleItems} together · ${currency} ${formatDisplay(convertPrice(bundleTotal), language)}`}
+            {isArabic ? `اشترِ ${totalBundleItems} معًا · ` : `Buy ${totalBundleItems} together · `}
+            <span className="inline-flex items-baseline gap-1">
+              <CurrencySymbol currency={currency} />
+              {formatDisplay(convertPrice(bundleTotal), language)}
+            </span>
           </button>
         </div>
       </div>
@@ -2939,6 +3012,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
 
               <div className="flex-1 min-w-0">
                 <div ref={desktopMainImageRef} className={`relative bg-white rounded overflow-visible w-full ${aspectRatioClass}`}>
+                <NewProductTagBadge product={product} size="page" />
                 {product.attributes?.condition === 'used' && (
                   <div className="absolute top-4 left-16 z-10">
                     <span className="bg-green-500 text-white text-xs font-semibold px-3 py-1 rounded flex items-center gap-1">
@@ -3001,6 +3075,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
             {/* Mobile: Swipeable image slider */}
             <div className="lg:hidden relative -mx-4 sm:mx-0 overflow-x-clip">
               <div className={`relative w-full ${aspectRatioClass} bg-white border border-gray-200 rounded-none sm:rounded-lg overflow-hidden`}>
+                <NewProductTagBadge product={product} size="page" />
                 {product.attributes?.condition === 'used' && (
                   <div className="absolute top-4 left-16 z-10">
                     <span className="bg-green-500 text-white text-xs font-semibold px-3 py-1 rounded flex items-center gap-1">
@@ -3158,7 +3233,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                 </div>
                 {pricingQuantity > 1 ? (
                   <p className="text-[13px] text-gray-500">
-                    {formatMoney(convertedEffPrice, true)} × {formatCount(pricingQuantity)}
+                    <AedText>{formatMoney(convertedEffPrice, true)}</AedText> × {formatCount(pricingQuantity)}
                   </p>
                 ) : null}
                 {(pricingQuantity > 1 ? lineSavingsAmount : savingsAmount) > 0 ? (
@@ -3242,7 +3317,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                   </div>
                 </div>
               </div>
-              {renderSoldByLine('mt-2 text-[11px] text-gray-500', true)}
+              {renderBuyboxInfoTrigger('mt-2')}
 
               {renderFbtSection('mobile')}
 
@@ -3302,36 +3377,39 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                 ) : null}
               </div>
 
+              {reviewCount > 0 ? (
               <div
                 className="relative"
                 ref={ratingBreakdownRef}
-                onMouseEnter={() => reviewCount > 0 && setShowRatingBreakdown(true)}
+                onMouseEnter={() => setShowRatingBreakdown(true)}
                 onMouseLeave={() => setShowRatingBreakdown(false)}
               >
                 <div
-                  className="flex items-center gap-2 text-sm text-gray-700 border-b border-gray-200 pb-3 cursor-pointer hover:bg-gray-50 px-2 -mx-2 rounded transition"
+                  className="flex items-center justify-start text-sm text-gray-700 border-b border-gray-200 pb-3 cursor-pointer hover:bg-gray-50 px-2 -mx-2 rounded transition"
                 >
-                  <span className={`font-semibold ${reviewCount > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
-                    {Number(averageRating).toFixed(1)}
-                  </span>
-                  <div className="flex items-center gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <StarIcon
-                        key={i}
-                        size={16}
-                        fill={reviewCount > 0 && i < Math.round(averageRating) ? '#f59e0b' : 'none'}
-                        className={reviewCount > 0 && i < Math.round(averageRating) ? 'text-amber-500' : 'text-gray-300'}
-                        strokeWidth={1.5}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[#007185] font-medium">
-                    {reviewCount > 0
-                      ? t('product.ratingsCount', {
-                          count: reviewCount,
-                          label: reviewCount === 1 ? t('product.ratingSingular') : t('product.ratingPlural'),
-                        })
-                      : t('product.noRatingsYet')}
+                  <span dir="ltr" className="inline-flex items-center gap-2">
+                    <span className={`font-semibold ${reviewCount > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+                      {Number(averageRating).toFixed(1)}
+                    </span>
+                    <div className="flex items-center gap-0.5">
+                      {[...Array(5)].map((_, i) => (
+                        <StarIcon
+                          key={i}
+                          size={16}
+                          fill={reviewCount > 0 && i < Math.round(averageRating) ? '#f59e0b' : 'none'}
+                          className={reviewCount > 0 && i < Math.round(averageRating) ? 'text-amber-500' : 'text-gray-300'}
+                          strokeWidth={1.5}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[#007185] font-medium">
+                      {reviewCount > 0
+                        ? t('product.ratingsCount', {
+                            count: reviewCount,
+                            label: reviewCount === 1 ? t('product.ratingSingular') : t('product.ratingPlural'),
+                          })
+                        : t('product.noRatingsYet')}
+                    </span>
                   </span>
                 </div>
 
@@ -3392,6 +3470,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                   </div>
                 )}
               </div>
+              ) : null}
 
               {/* Product Badges (middle column) */}
               {product.attributes?.badges && product.attributes.badges.length > 0 && (
@@ -3426,12 +3505,16 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
                 </div>
                 {discountPercent > 0 && (
                   <bdi dir="ltr" className="text-sm text-gray-500 line-through whitespace-nowrap">
-                    {formatMoney(convertedEffAED, true)}
+                    <AedText>{formatMoney(convertedEffAED, true)}</AedText>
                   </bdi>
                 )}
                 {discountPercent > 0 && (
                   <span className="text-sm text-green-600 font-semibold whitespace-nowrap">
-                    {t('common.offPercent', { discount: discountPercent })}
+                    {language === 'ar' ? (
+                      <>خصم <bdi dir="ltr">{discountPercent}%</bdi></>
+                    ) : (
+                      t('common.offPercent', { discount: discountPercent })
+                    )}
                   </span>
                 )}
               </div>
@@ -3558,7 +3641,7 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
 
                 {effAED > effPrice && (
                   <bdi dir="ltr" className="text-sm text-gray-500 line-through whitespace-nowrap pb-1">
-                    {formatMoney(buyBoxRegularPrice, true)}
+                    <AedText>{formatMoney(buyBoxRegularPrice, true)}</AedText>
                   </bdi>
                 )}
 
@@ -3576,43 +3659,12 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
               </div>
               {pricingQuantity > 1 ? (
                 <p className="text-[13px] text-gray-500">
-                  {formatMoney(convertedEffPrice, true)} × {formatCount(pricingQuantity)}
+                  <AedText>{formatMoney(convertedEffPrice, true)}</AedText> × {formatCount(pricingQuantity)}
                 </p>
               ) : null}
             </div>
 
-            {/* Delivery & Returns (buybox info) */}
-            <div
-              className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3 text-[12px] leading-relaxed"
-              dir={isArabic ? 'rtl' : 'ltr'}
-            >
-              {deliveryWindow.isFastDelivery ? (
-                <button
-                  type="button"
-                  onClick={() => setDeliveryInfoOpen(true)}
-                  className="w-full text-start font-semibold text-slate-900 hover:text-[#E52721]"
-                >
-                  {deliverySummary.primary}
-                </button>
-              ) : (
-                <>
-                  <p className="font-semibold text-slate-900">{deliverySummary.primary}</p>
-                  <p className="mt-1 text-slate-700">{deliverySummary.secondary}</p>
-                </>
-              )}
-              <p className="mt-2 text-[11px] text-slate-500">
-                <Link href="/return-policy" className="font-medium text-[#E52721] hover:underline">
-                  {buyboxCopy.returnsText}
-                </Link>
-                <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
-                <Link href="/shipping-policy" className="font-medium text-slate-700 hover:underline">
-                  {isArabic ? 'سياسة الشحن' : 'Shipping Policy'}
-                </Link>
-                <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
-                {buyboxCopy.vatText}
-              </p>
-              {!deliveryWindow.isFastDelivery ? renderSoldByLine('mt-2 text-[11px] text-slate-500') : null}
-            </div>
+            {renderBuyboxInfoTrigger('mt-4')}
 
             {/* Quantity */}
             {isSelectionInStock && !showCartMatchedUi ? (
@@ -3844,15 +3896,27 @@ const ProductDetails = ({ product, reviews = [], loadingReviews = false, onRevie
         open={deliveryInfoOpen}
         onClose={() => setDeliveryInfoOpen(false)}
         isArabic={isArabic}
+        title={t('product.deliveryReturnsWarrantyTitle')}
+        showFastDeliverySection={deliveryWindow.isFastDelivery}
       >
-        {renderSoldByLine('text-[12px] text-slate-600')}
-        <p className="mt-3 text-[11px] text-slate-500">
+        {!deliveryWindow.isFastDelivery ? (
+          <div className="mb-4 border-b border-slate-100 pb-4">
+            <p className="font-semibold text-slate-900">{deliverySummary.primary}</p>
+            <p className="mt-1 text-[13px] text-slate-600">{deliverySummary.secondary}</p>
+          </div>
+        ) : null}
+        {renderSoldByLine('text-[13px] text-slate-600')}
+        <p className="mt-4 text-[12px] text-slate-500">
           <Link href="/return-policy" className="font-medium text-[#E52721] hover:underline">
-            {buyboxCopy.returnsText}
+            {t('product.returnsTitle')}
           </Link>
           <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
           <Link href="/shipping-policy" className="font-medium text-slate-700 hover:underline">
             {isArabic ? 'سياسة الشحن' : 'Shipping Policy'}
+          </Link>
+          <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
+          <Link href="/warranty-policy" className="font-medium text-slate-700 hover:underline">
+            {t('product.warrantyTitle')}
           </Link>
           <span className="mx-1 text-slate-300" aria-hidden="true">·</span>
           {buyboxCopy.vatText}

@@ -61,7 +61,7 @@ export async function GET() {
     const products = allProductIds.length
       ? await attachProductRatings(
           await Product.find({ _id: { $in: allProductIds }, published: { $ne: false } })
-            .select('name nameAr slug price mrp AED images category inStock stockQuantity fastDelivery freeShippingEligible useProductsPath imageAspectRatio legacySourceId')
+            .select('name nameAr slug price mrp AED images category inStock stockQuantity fastDelivery freeShippingEligible useProductsPath imageAspectRatio legacySourceId createdAt')
             .lean()
         )
       : [];

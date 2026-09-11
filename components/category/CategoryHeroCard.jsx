@@ -78,21 +78,17 @@ export default function CategoryHeroCard({
                 })}
               </span>
 
-              <span className={`inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 ${isArabic ? 'flex-row-reverse' : ''}`}>
-                {reviewCount > 0 ? (
-                  <>
-                    <StarRow rating={averageRating} />
-                    <span>
-                      {t('category.reviewsSummary', {
-                        rating: averageRating.toFixed(1),
-                        count: reviewCount.toLocaleString(locale),
-                      })}
-                    </span>
-                  </>
-                ) : (
-                  <span>{t('category.noReviewsYet')}</span>
-                )}
-              </span>
+              {reviewCount > 0 ? (
+                <span dir="ltr" className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
+                  <StarRow rating={averageRating} />
+                  <span>
+                    {t('category.reviewsSummary', {
+                      rating: averageRating.toFixed(1),
+                      count: reviewCount.toLocaleString(locale),
+                    })}
+                  </span>
+                </span>
+              ) : null}
 
               {fastDeliveryPercent > 0 ? (
                 <span className={`inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-sm text-orange-700 ${isArabic ? 'flex-row-reverse' : ''}`}>

@@ -12,12 +12,12 @@ import {
   Line,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import { CreditCard, Package } from 'lucide-react';
+import SafeResponsiveContainer from '@/components/store/SafeResponsiveContainer';
 
 const STATUS_COLORS = {
   processing: '#8B5CF6',
@@ -172,7 +172,7 @@ function StoreDashboardChartPanels({
         <SectionHeading title="Today" description="Hourly paid orders · UAE time" />
         <Panel title="Orders & revenue by hour" subtitle={hasTodayActivity ? 'Bars = orders · line = revenue' : 'Waiting for today\'s first sale'} accent="sky">
           <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <SafeResponsiveContainer>
               <ComposedChart data={hourlyData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="todayOrdersGrad" x1="0" y1="0" x2="0" y2="1">
@@ -189,7 +189,7 @@ function StoreDashboardChartPanels({
                 <Bar yAxisId="orders" isAnimationActive={CHART_ANIMATION} dataKey="orders" name="Orders" fill="url(#todayOrdersGrad)" radius={[6, 6, 0, 0]} maxBarSize={22} />
                 <Line yAxisId="revenue" isAnimationActive={CHART_ANIMATION} type="monotone" dataKey="revenue" name="Revenue" stroke="#10B981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
               </ComposedChart>
-            </ResponsiveContainer>
+            </SafeResponsiveContainer>
           </div>
         </Panel>
       </section>
@@ -200,7 +200,7 @@ function StoreDashboardChartPanels({
           <Panel title="30-day sales" subtitle="Daily orders + revenue" className="lg:col-span-2" accent="violet">
             <div className="h-[280px]">
               {hasSales ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <SafeResponsiveContainer>
                   <ComposedChart data={ordersTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
@@ -221,7 +221,7 @@ function StoreDashboardChartPanels({
                     <Bar yAxisId="orders" isAnimationActive={CHART_ANIMATION} dataKey="orders" name="Orders" fill="url(#ordersBar)" radius={[4, 4, 0, 0]} maxBarSize={26} />
                     <Area yAxisId="revenue" isAnimationActive={CHART_ANIMATION} type="monotone" dataKey="revenue" name="Revenue" stroke="#10B981" fill="url(#revenueFill)" strokeWidth={2} dot={false} />
                   </ComposedChart>
-                </ResponsiveContainer>
+                </SafeResponsiveContainer>
               ) : (
                 <EmptyChart message="Charts light up after your first paid order." />
               )}
@@ -241,7 +241,7 @@ function StoreDashboardChartPanels({
               ) : null}
             </div>
             <div className="h-[230px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <SafeResponsiveContainer>
                 <BarChart data={weekChartData} barGap={8}>
                   <CartesianGrid stroke="#E2E8F0" vertical={false} />
                   <XAxis dataKey="period" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -250,7 +250,7 @@ function StoreDashboardChartPanels({
                   <Bar isAnimationActive={CHART_ANIMATION} dataKey="orders" name="Orders" fill="#8B5CF6" radius={[6, 6, 0, 0]} maxBarSize={44} />
                   <Bar isAnimationActive={CHART_ANIMATION} dataKey="revenue" name="Revenue" fill="#10B981" radius={[6, 6, 0, 0]} maxBarSize={44} />
                 </BarChart>
-              </ResponsiveContainer>
+              </SafeResponsiveContainer>
             </div>
           </Panel>
         </div>
@@ -276,7 +276,7 @@ function StoreDashboardChartPanels({
             {totalOrders > 0 ? (
               <>
                 <div className="h-[180px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <SafeResponsiveContainer>
                     <PieChart>
                       <Pie isAnimationActive={CHART_ANIMATION} data={pieData.length ? pieData : [{ name: 'Processing', value: 1, fill: STATUS_COLORS.processing }]} cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={3} dataKey="value">
                         {(pieData.length ? pieData : [{ fill: STATUS_COLORS.processing }]).map((entry, i) => (
@@ -285,7 +285,7 @@ function StoreDashboardChartPanels({
                       </Pie>
                       <Tooltip formatter={(value, name) => [`${value} orders`, name]} />
                     </PieChart>
-                  </ResponsiveContainer>
+                  </SafeResponsiveContainer>
                 </div>
                 <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   {STATUS_LIST.map((s) => (
@@ -307,7 +307,7 @@ function StoreDashboardChartPanels({
           <Panel title="Payment methods" subtitle="How customers paid" accent="emerald">
             {paymentMethodBreakdown.length > 0 ? (
               <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <SafeResponsiveContainer>
                   <PieChart>
                     <Pie isAnimationActive={CHART_ANIMATION} data={paymentMethodBreakdown} dataKey="count" nameKey="label" cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={3}>
                       {paymentMethodBreakdown.map((entry) => (
@@ -317,7 +317,7 @@ function StoreDashboardChartPanels({
                     <Tooltip formatter={(value, name, props) => [`${value} · ${money(props.payload.revenue, currency)}`, name]} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
                   </PieChart>
-                </ResponsiveContainer>
+                </SafeResponsiveContainer>
               </div>
             ) : (
               <div className="flex h-[200px] flex-col items-center justify-center text-sm text-slate-500">
@@ -332,7 +332,7 @@ function StoreDashboardChartPanels({
           <Panel title="Daily fulfillment (30 days)" subtitle="Stacked by status">
             <div className="h-[280px]">
               {hasStatusData ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <SafeResponsiveContainer>
                   <BarChart data={ordersStatusTrend} barCategoryGap="16%">
                     <CartesianGrid stroke="#E2E8F0" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={12} />
@@ -342,7 +342,7 @@ function StoreDashboardChartPanels({
                       <Bar key={s.key} isAnimationActive={CHART_ANIMATION} dataKey={s.key} name={s.label} stackId="status" fill={STATUS_COLORS[s.key]} maxBarSize={30} radius={i === STATUS_LIST.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
                     ))}
                   </BarChart>
-                </ResponsiveContainer>
+                </SafeResponsiveContainer>
               ) : (
                 <EmptyChart message="No fulfillment data yet." />
               )}
@@ -356,7 +356,7 @@ function StoreDashboardChartPanels({
           <SectionHeading title="Customer reviews" description={`${avgRating}/5 from ${totalReviews} reviews`} />
           <Panel title="Rating distribution" accent="slate">
             <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <SafeResponsiveContainer>
                 <BarChart data={ratingBreakdown} layout="vertical" margin={{ left: 4, right: 12 }}>
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="star" width={28} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -367,7 +367,7 @@ function StoreDashboardChartPanels({
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </SafeResponsiveContainer>
             </div>
           </Panel>
         </section>

@@ -24,6 +24,7 @@ import {
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket'
 import { getProductThumbnailUrl } from '@/lib/productMedia'
 import {
+  getContentDirection,
   readPersistedStorefrontLanguage,
   STOREFRONT_LANGUAGE_EVENT,
 } from '@/lib/storefrontLanguage'
@@ -103,16 +104,24 @@ function resolveShowcaseLinkHref(item = {}, catalog = []) {
   return raw || '/shop'
 }
 
-function mapShowcaseDropdownLinks(links = [], catalog = []) {
+function localizeShowcaseTitle(item = {}, catalog = [], language = 'en') {
+  const match = findCategoryForNavItem(item, catalog, language)
+  if (match) return getLocalizedCategoryName(match, language)
+
+  return getLocalizedCategoryName({
+    name: item?.name || item?.title || item?.label,
+    nameAr: item?.nameAr || item?.titleAr,
+    slug: item?.slug || item?.categorySlug,
+  }, language)
+}
+
+function mapShowcaseDropdownLinks(links = [], catalog = [], language = 'en') {
   return (Array.isArray(links) ? links : [])
     .map((dropdownItem, dropdownIndex) => ({
-      title: cleanDisplayText(
-        String(
-          dropdownItem?.title || dropdownItem?.label || dropdownItem?.name || `Option ${dropdownIndex + 1}`,
-        ).trim(),
-      ),
+      title: localizeShowcaseTitle(dropdownItem, catalog, language)
+        || cleanDisplayText(String(dropdownItem?.title || dropdownItem?.label || dropdownItem?.name || `Option ${dropdownIndex + 1}`).trim()),
       href: resolveShowcaseLinkHref(dropdownItem, catalog),
-      children: mapShowcaseDropdownLinks(dropdownItem?.children, catalog),
+      children: mapShowcaseDropdownLinks(dropdownItem?.children, catalog, language),
     }))
     .filter((dropdownItem) => dropdownItem.title)
 }
@@ -124,10 +133,11 @@ function estimateShowcaseFlyoutHeight(links = []) {
   }, 2)
 }
 
-function toShowcaseMenuItem(item = {}, catalog = []) {
+function toShowcaseMenuItem(item = {}, catalog = [], language = 'en') {
   const href = resolveShowcaseLinkHref(item, catalog)
-  const title = cleanDisplayText(String(item?.name || item?.label || item?.title || '').trim())
-  const dropdownLinks = mapShowcaseDropdownLinks(item?.megaMenu?.links || item?.dropdownLinks, catalog)
+  const title = localizeShowcaseTitle(item, catalog, language)
+    || cleanDisplayText(String(item?.name || item?.label || item?.title || '').trim())
+  const dropdownLinks = mapShowcaseDropdownLinks(item?.megaMenu?.links || item?.dropdownLinks, catalog, language)
 
   return {
     title,
@@ -532,7 +542,7 @@ export default function ShopShowcaseSection({
         hasDropdown: false,
         megaMenu: { linkColumns: 1, links: [], images: [] },
       }, categories, language))
-      .map((item) => toShowcaseMenuItem(item, categories))
+      .map((item) => toShowcaseMenuItem(item, categories, language))
       .filter((item) => item.title)
   }, [data?.categories, language])
 
@@ -552,7 +562,7 @@ export default function ShopShowcaseSection({
 
     const navItems = (resolvedItems.length ? resolvedItems : storeMenuItems)
       .map((item) => enrichNavItemWithCategoryChildren(item, catalog, language))
-      .map((item) => toShowcaseMenuItem(item, catalog))
+      .map((item) => toShowcaseMenuItem(item, catalog, language))
       .filter((item) => item.title)
 
     if (navMenuUseParentCategories) return navItems
@@ -697,14 +707,14 @@ export default function ShopShowcaseSection({
             className="absolute inset-0 flex min-h-0 w-[280px] flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-sm"
           >
             <div
-              className={`flex items-center justify-between px-4 py-3 text-white ${isArabic ? 'flex-row-reverse' : ''}`}
+              className="flex items-center justify-between px-4 py-3 text-white"
               style={{ backgroundColor: navbarBg }}
               onMouseEnter={() => {
                 clearFlyoutCloseTimer()
                 setHoveredMenuIndex(null)
               }}
             >
-              <div className={`flex items-center gap-2 text-[14px] font-semibold ${isArabic ? 'flex-row-reverse' : ''}`}>
+              <div className="flex items-center gap-2 text-[14px] font-semibold">
                 <span className="text-lg leading-none">☰</span>
                 <span>{isArabic ? 'جميع الفئات' : 'All Categories'}</span>
               </div>
@@ -736,11 +746,11 @@ export default function ShopShowcaseSection({
                     <div
                       className={`flex items-center text-[13px] text-slate-800 transition-colors duration-200 ${
                         isActive ? 'bg-slate-100' : 'hover:bg-slate-50'
-                      } ${isArabic ? 'flex-row-reverse text-right' : ''}`}
+                      }`}
                     >
                       <Link
                         href={menuItem.href}
-                        className={`flex min-w-0 flex-1 items-center gap-3 px-4 py-3 ${isArabic ? 'flex-row-reverse' : ''}`}
+                        className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3"
                         onMouseEnter={() => handleMenuItemHover(index)}
                       >
                         {isIconImageUrl(menuItem.iconImage) ? (
@@ -757,8 +767,10 @@ export default function ShopShowcaseSection({
                             <menuItem.icon size={16} />
                           </span>
                         )}
-                        <span className={`min-w-0 flex-1 ${isArabic ? 'pl-2 pr-0' : 'pr-2'}`}>
-                          <span className="block text-[13px] leading-5 font-medium">{menuItem.title}</span>
+                        <span className="min-w-0 flex-1 pe-2">
+                          <bdi dir={getContentDirection(menuItem.title)} className="block text-start text-[13px] leading-5 font-medium">
+                            {menuItem.title}
+                          </bdi>
                         </span>
                       </Link>
                       {hasFlyout ? (
@@ -766,7 +778,7 @@ export default function ShopShowcaseSection({
                           type="button"
                           aria-label={isArabic ? 'عرض الفئات الفرعية' : 'Show subcategories'}
                           aria-expanded={isActive}
-                          className={`flex items-center px-3 py-3 text-slate-700 ${isArabic ? 'flex-row-reverse' : ''}`}
+                          className="flex items-center px-3 py-3 text-slate-700"
                           onMouseEnter={() => handleMenuItemHover(index)}
                           onFocus={() => handleMenuItemHover(index)}
                           onClick={(event) => {
@@ -832,7 +844,7 @@ export default function ShopShowcaseSection({
                       >
                         <Link
                           href={dropdownItem.href}
-                          className={`group flex cursor-pointer items-center px-4 py-3 text-[13px] font-medium leading-5 transition-colors ${isArabic ? 'flex-row-reverse text-right' : ''}`}
+                          className="group flex cursor-pointer items-center px-4 py-3 text-start text-[13px] font-medium leading-5 transition-colors"
                           style={{ color: menuStyle.showcaseFlyoutLinkColor }}
                           onMouseEnter={(event) => {
                             event.currentTarget.style.backgroundColor = menuStyle.showcaseFlyoutHoverColor
@@ -841,15 +853,17 @@ export default function ShopShowcaseSection({
                             event.currentTarget.style.backgroundColor = 'transparent'
                           }}
                         >
-                          <span className="truncate">{dropdownItem.title}</span>
+                          <bdi dir={getContentDirection(dropdownItem.title)} className="truncate">
+                            {dropdownItem.title}
+                          </bdi>
                         </Link>
                         {dropdownItem.children.length ? (
-                          <div className={isArabic ? 'space-y-0.5 pb-2 pl-4 pr-6' : 'space-y-0.5 pb-2 pl-6 pr-4'}>
+                          <div className="space-y-0.5 pb-2 ps-6 pe-4">
                             {dropdownItem.children.map((childItem, childIndex) => (
                               <Link
                                 key={`${childItem.title}-${childItem.href}-${childIndex}`}
                                 href={childItem.href}
-                                className={`block cursor-pointer truncate py-1.5 text-[12px] leading-4 transition-colors ${isArabic ? 'text-right' : ''}`}
+                                className="block cursor-pointer truncate py-1.5 text-start text-[12px] leading-4 transition-colors"
                                 style={{ color: menuStyle.showcaseFlyoutLinkColor }}
                                 onMouseEnter={(event) => {
                                   event.currentTarget.style.backgroundColor = menuStyle.showcaseFlyoutHoverColor
@@ -858,7 +872,7 @@ export default function ShopShowcaseSection({
                                   event.currentTarget.style.backgroundColor = 'transparent'
                                 }}
                               >
-                                {childItem.title}
+                                <bdi dir={getContentDirection(childItem.title)}>{childItem.title}</bdi>
                               </Link>
                             ))}
                           </div>

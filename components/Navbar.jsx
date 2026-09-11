@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { auth } from '../lib/firebase';
+import { auth, waitForAuthReady } from '../lib/firebase';
+import { AUTH_SYNC_KEY } from '@/lib/authClient';
 import { getAuth } from "firebase/auth";
 import Image from 'next/image';
 import SafeNextImage from '@/components/SafeNextImage';
@@ -20,6 +21,7 @@ import { fetchAddress, clearAddresses } from '@/lib/features/address/addressSlic
 import {
   STOREFRONT_LANGUAGE_EVENT,
   STOREFRONT_LANGUAGE_KEY,
+  getContentDirection,
   readPersistedStorefrontLanguage,
 } from '@/lib/storefrontLanguage';
 import { translateStaticText } from '@/lib/useStorefrontI18n';
@@ -40,6 +42,7 @@ import {
 } from '@/lib/categoryNavigation';
 import { getProductThumbnailUrl } from '@/lib/productMedia';
 import { getProductPath } from '@/lib/productUrl';
+import NewProductTagBadge from '@/components/NewProductTagBadge';
 import { secureSignOut } from '@/lib/authClient';
 import { showStorefrontActionToast } from '@/lib/storefrontActionToast';
 
@@ -955,14 +958,40 @@ const Navbar = () => {
       }
     };
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setFirebaseUser(user);
+    let cancelled = false;
+    let unsubscribe = () => {};
+
+    const applyUser = (user) => {
+      if (cancelled) return;
+      setFirebaseUser(user || null);
       if (user) {
         dispatch(fetchCart({ getToken: async () => user.getIdToken() }));
         syncGuestWishlistToDatabase(user);
       }
-    });
-    return () => unsubscribe();
+    };
+
+    (async () => {
+      await waitForAuthReady();
+      if (cancelled) return;
+      applyUser(auth.currentUser);
+      unsubscribe = auth.onAuthStateChanged(applyUser);
+    })();
+
+    const resync = () => applyUser(auth.currentUser);
+    const onStorage = (event) => {
+      if (event.key === AUTH_SYNC_KEY) resync();
+    };
+    document.addEventListener('visibilitychange', resync);
+    window.addEventListener('focus', resync);
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      document.removeEventListener('visibilitychange', resync);
+      window.removeEventListener('focus', resync);
+      window.removeEventListener('storage', onStorage);
+    };
   }, [dispatch]);
 
   // Keep signed-in cart synced to DB so navbar count and refresh remain accurate
@@ -1256,6 +1285,7 @@ const Navbar = () => {
                   className="object-cover"
                 />
               ) : null}
+              <NewProductTagBadge product={product} size="thumb" />
             </div>
             <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{title}</span>
           </Link>
@@ -1490,11 +1520,13 @@ const Navbar = () => {
                   key={getCategoryId(category) || category?.slug || category?.name}
                   type="button"
                   onMouseEnter={() => setHoveredCategory(category)}
-                  className={`flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-[14px] transition ${
+                  className={`flex w-full items-center justify-between gap-2 px-4 py-2.5 text-start text-[14px] transition ${
                     isActive ? 'bg-slate-50 font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <span className="min-w-0 flex-1 truncate">{getLocalizedCategoryDisplayName(category)}</span>
+                  <bdi dir={getContentDirection(getLocalizedCategoryDisplayName(category))} className="min-w-0 flex-1 truncate">
+                    {getLocalizedCategoryDisplayName(category)}
+                  </bdi>
                   <span className="shrink-0 text-slate-400">›</span>
                 </button>
               );
@@ -1504,7 +1536,11 @@ const Navbar = () => {
           <div className="flex max-h-[420px] min-h-0 min-w-0 flex-col bg-white">
             <div className="shrink-0 border-b border-slate-100 px-6 pb-4 pt-6">
               <div className="flex items-center justify-between gap-4">
-                <p className="text-[22px] font-semibold leading-tight text-slate-900">{getLocalizedCategoryDisplayName(activeCategory) || t('navbar.categories')}</p>
+                <p className="text-[22px] font-semibold leading-tight text-slate-900">
+                  <bdi dir={getContentDirection(getLocalizedCategoryDisplayName(activeCategory) || t('navbar.categories'))}>
+                    {getLocalizedCategoryDisplayName(activeCategory) || t('navbar.categories')}
+                  </bdi>
+                </p>
                 <Link
                   href={getCategoryHref(activeCategory)}
                   className="text-xs font-semibold uppercase tracking-wide text-rose-600 hover:text-rose-700"
@@ -1525,7 +1561,9 @@ const Navbar = () => {
                           href={getCategoryHref(subcategory)}
                           className="block text-sm font-semibold text-slate-900 transition hover:text-rose-600"
                         >
-                          {getLocalizedCategoryDisplayName(subcategory)}
+                          <bdi dir={getContentDirection(getLocalizedCategoryDisplayName(subcategory))}>
+                            {getLocalizedCategoryDisplayName(subcategory)}
+                          </bdi>
                         </Link>
                         {childCategories.length > 0 ? (
                           <ul className="mt-2 space-y-1">
@@ -1535,7 +1573,9 @@ const Navbar = () => {
                                   href={getCategoryHref(child)}
                                   className="block text-sm text-slate-600 transition hover:text-rose-600"
                                 >
-                                  {getLocalizedCategoryDisplayName(child)}
+                                  <bdi dir={getContentDirection(getLocalizedCategoryDisplayName(child))}>
+                                    {getLocalizedCategoryDisplayName(child)}
+                                  </bdi>
                                 </Link>
                               </li>
                             ))}
@@ -2040,9 +2080,11 @@ const Navbar = () => {
                               <Link
                                 href={href}
                                 onClick={() => setMobileMenuOpen(false)}
-                                className="min-w-0 flex-1 px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                                className="min-w-0 flex-1 px-4 py-3 text-start text-sm font-semibold text-slate-800 hover:bg-slate-50"
                               >
-                                {getLocalizedCategoryDisplayName(category)}
+                                <bdi dir={getContentDirection(getLocalizedCategoryDisplayName(category))}>
+                                  {getLocalizedCategoryDisplayName(category)}
+                                </bdi>
                               </Link>
                               {children.length > 0 ? (
                                 <button
@@ -2064,7 +2106,9 @@ const Navbar = () => {
                                     onClick={() => setMobileMenuOpen(false)}
                                     className="block rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-white"
                                   >
-                                    {getLocalizedCategoryDisplayName(child)}
+                                    <bdi dir={getContentDirection(getLocalizedCategoryDisplayName(child))}>
+                                      {getLocalizedCategoryDisplayName(child)}
+                                    </bdi>
                                   </Link>
                                 ))}
                               </div>

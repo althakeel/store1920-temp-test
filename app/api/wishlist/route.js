@@ -68,7 +68,7 @@ export async function GET(request) {
         if (validProductIds.length) {
             try {
                 products = await Product.find({ _id: { $in: validProductIds } })
-                    .select('_id name slug price mrp AED images inStock stockQuantity')
+                    .select('_id name nameAr slug price mrp AED images inStock stockQuantity createdAt')
                     .lean();
             } catch (productError) {
                 console.error('Error fetching wishlist products:', productError);

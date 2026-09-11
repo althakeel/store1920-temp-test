@@ -8,7 +8,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/Loading";
-import { auth } from '@/lib/firebase';
+import { auth, waitForAuthReady } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { GUEST_ORDERS_LINKED_EVENT, linkGuestOrdersForCurrentUser } from '@/lib/linkGuestOrdersClient';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
@@ -23,8 +23,18 @@ export default function OrdersClient() {
     const { isArabic } = useStorefrontI18n();
 
     useEffect(() => {
-        const unsub = onAuthStateChanged(auth, (u) => setUser(u ?? null));
-        return () => unsub();
+        let cancelled = false;
+        let unsub = () => {};
+        (async () => {
+            await waitForAuthReady();
+            if (cancelled) return;
+            setUser(auth.currentUser ?? null);
+            unsub = onAuthStateChanged(auth, (u) => setUser(u ?? null));
+        })();
+        return () => {
+            cancelled = true;
+            unsub();
+        };
     }, []);
 
     const fetchOrders = useCallback(async () => {

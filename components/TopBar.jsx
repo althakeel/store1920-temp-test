@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { ChevronDown, Check, Globe2, Phone } from 'lucide-react';
 import { isProductDetailPath } from '@/lib/productUrl';
@@ -10,6 +11,7 @@ import {
   formatCustomerSupportPhoneDisplay,
 } from '@/lib/storeContact';
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
+import CurrencySymbol from '@/components/CurrencySymbol';
 // import tabbyLogo from '@/assets/payments/tabby.webp';
 import tamaraLogo from '@/assets/payments/tamara.webp';
 import {
@@ -44,8 +46,12 @@ export default function TopBar({ initialLanguage = 'en' }) {
   const [activeBnplIndex, setActiveBnplIndex] = useState(0);
   const [bnplLogoError, setBnplLogoError] = useState({ tamara: false, tabby: false });
   const dropdownRef = useRef(null);
+  const menuRef = useRef(null);
+  const triggerRef = useRef(null);
   const suppressToggleRef = useRef(false);
   const dropdownLeaveTimerRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState(null);
+  const [portalReady, setPortalReady] = useState(false);
 
   const clearDropdownLeaveTimer = () => {
     if (dropdownLeaveTimerRef.current) {
@@ -72,7 +78,9 @@ export default function TopBar({ initialLanguage = 'en' }) {
     if (typeof window === 'undefined') return undefined;
 
     const syncLanguage = () => {
-      setStorefrontLanguage(readPersistedStorefrontLanguage(initialLanguage));
+      const language = readPersistedStorefrontLanguage(initialLanguage);
+      setStorefrontLanguage(language);
+      persistStorefrontLanguage(language, { userChosen: false, dispatchEvent: false });
     };
 
     const handleLanguageChange = (event) => {
@@ -89,8 +97,47 @@ export default function TopBar({ initialLanguage = 'en' }) {
   }, [initialLanguage]);
 
   useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!dropdownOpen) {
+      setMenuPosition(null);
+      return undefined;
+    }
+
+    const updateMenuPosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger || typeof window === 'undefined') return;
+
+      const rect = trigger.getBoundingClientRect();
+      const width = Math.min(320, window.innerWidth - 24);
+      const top = rect.bottom + 8;
+      const preferredLeft = document.documentElement.getAttribute('dir') === 'rtl'
+        ? rect.right - width
+        : rect.left;
+      const left = Math.min(
+        Math.max(12, preferredLeft),
+        window.innerWidth - width - 12
+      );
+
+      setMenuPosition({ top, left, width });
+    };
+
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [dropdownOpen, storefrontLanguage]);
+
+  useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      const inTrigger = dropdownRef.current?.contains(event.target);
+      const inMenu = menuRef.current?.contains(event.target);
+      if (!inTrigger && !inMenu) {
         closeDropdown();
       }
     }
@@ -171,9 +218,10 @@ export default function TopBar({ initialLanguage = 'en' }) {
 
   return (
     <div className="relative z-[1000] w-full border-b border-[#e7e7e7] bg-white text-xs">
-      <div className="mx-auto flex max-w-[1400px] flex-nowrap items-center justify-between gap-1.5 px-2 py-1.5 sm:gap-3 sm:px-5 sm:py-1">
+      <div className="mx-auto grid max-w-[1400px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 px-2 py-1.5 sm:gap-3 sm:px-5 sm:py-1">
         <a
           href={STORE1920_CUSTOMER_SUPPORT_TEL}
+          dir="ltr"
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200/90 bg-slate-50/80 px-2 py-1 no-underline transition hover:border-slate-300 hover:bg-white sm:gap-2 sm:px-2.5 sm:py-1"
           aria-label={`${t('topbar.support')} ${STORE1920_CUSTOMER_SUPPORT_PHONE}`}
         >
@@ -181,9 +229,34 @@ export default function TopBar({ initialLanguage = 'en' }) {
             <Phone className="h-2.5 w-2.5 text-amber-600 sm:h-3 sm:w-3" strokeWidth={2.25} aria-hidden="true" />
           </span>
           <span className="whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none tracking-[0.04em] text-slate-800 sm:text-xs">
-            {formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE)}
+            <bdi dir="ltr">{formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE)}</bdi>
           </span>
         </a>
+
+        {!hideBnplBanner ? (
+          <div
+            key={activeBnplPartner.key}
+            className="flex min-w-0 items-center justify-center gap-1 animate-[bnplFlip_560ms_ease-out] sm:gap-2"
+            dir={isArabic ? 'rtl' : 'ltr'}
+          >
+            {!bnplLogoError[activeBnplPartner.key] ? (
+              <img
+                src={activeBnplPartner.logoUrl}
+                alt={activeBnplPartner.name}
+                className="h-auto w-9 shrink-0 sm:w-[74px]"
+                onError={() => setBnplLogoError((current) => ({ ...current, [activeBnplPartner.key]: true }))}
+              />
+            ) : (
+              <span className="shrink-0 text-[9px] font-bold text-gray-900 sm:text-xs">{activeBnplPartner.name}</span>
+            )}
+            <span className="min-w-0 truncate text-[9px] leading-none text-gray-700 sm:text-xs sm:leading-snug">
+              <span className="hidden sm:inline">{bnplBannerDesktop}</span>
+              <span className="sm:hidden">{bnplBannerMobile}</span>
+            </span>
+          </div>
+        ) : (
+          <div aria-hidden="true" />
+        )}
 
         <div className="flex shrink-0 flex-nowrap items-center gap-1 sm:gap-2.5">
           <div
@@ -193,6 +266,7 @@ export default function TopBar({ initialLanguage = 'en' }) {
             onMouseLeave={handleDropdownMouseLeave}
           >
             <button
+              ref={triggerRef}
               type="button"
               onClick={toggleDropdown}
               className="flex flex-nowrap items-center gap-1 rounded-md border border-[#e2e2e2] bg-white px-1.5 py-1 text-[11px] font-medium whitespace-nowrap sm:gap-2 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-xs"
@@ -204,15 +278,26 @@ export default function TopBar({ initialLanguage = 'en' }) {
               <span className="font-semibold sm:hidden">{languageShort}</span>
               <ChevronDown className="h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
               <span className="hidden items-center gap-1 border-l border-[#e2e2e2] pl-2 font-normal text-[#888] sm:inline-flex sm:pl-3">
-                {storefrontMarket?.flag} {storefrontMarket?.currency}
+                {storefrontMarket?.flag} <CurrencySymbol currency={storefrontMarket?.currency} />
               </span>
-              <span className="text-[10px] font-normal text-[#888] sm:hidden">
-                {storefrontMarket?.currency}
+              <span className="inline-flex items-center text-[10px] font-normal text-[#888] sm:hidden">
+                <CurrencySymbol currency={storefrontMarket?.currency} />
               </span>
             </button>
 
-            {dropdownOpen && (
-              <div className="absolute top-full end-0 z-[1001] w-[min(320px,calc(100vw-24px))] pt-2 sm:start-0 sm:end-auto sm:w-[320px]">
+            {dropdownOpen && portalReady && menuPosition && typeof document !== 'undefined'
+              ? createPortal(
+                <div
+                  ref={menuRef}
+                  className="fixed z-[1200]"
+                  style={{
+                    top: menuPosition.top,
+                    left: menuPosition.left,
+                    width: menuPosition.width,
+                  }}
+                  onMouseEnter={handleDropdownMouseEnter}
+                  onMouseLeave={handleDropdownMouseLeave}
+                >
                 <div
                   dir={isArabic ? 'rtl' : 'ltr'}
                   className="max-h-[min(72vh,520px)] overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
@@ -289,7 +374,9 @@ export default function TopBar({ initialLanguage = 'en' }) {
                               <span className="block truncate text-sm font-semibold">{countryName}</span>
                             </span>
                             <span className="flex shrink-0 flex-col items-end gap-1">
-                              <span className="text-sm font-semibold">{market.currency}</span>
+                              <span className="text-sm font-semibold">
+                                <CurrencySymbol currency={market.currency} />
+                              </span>
                               {isActive ? <Check size={16} className="text-orange-600" strokeWidth={2.5} /> : null}
                             </span>
                           </button>
@@ -300,13 +387,16 @@ export default function TopBar({ initialLanguage = 'en' }) {
 
                   <div className="px-4 py-3.5 text-sm text-gray-600">
                     <div className="font-semibold text-gray-800">
-                      {copy.currency}: {storefrontMarket?.currency}
+                      {copy.currency}:{' '}
+                      <CurrencySymbol currency={storefrontMarket?.currency} />
                     </div>
                     <div className="mt-1 leading-snug">{copy.shoppingIn}</div>
                   </div>
                 </div>
-              </div>
-            )}
+                </div>,
+                document.body
+              )
+            : null}
           </div>
 
           <button
@@ -320,31 +410,6 @@ export default function TopBar({ initialLanguage = 'en' }) {
           </button>
         </div>
       </div>
-
-      {!hideBnplBanner ? (
-      <div className="overflow-hidden border-y border-[#ececec] bg-white">
-        <div
-          key={activeBnplPartner.key}
-          className="mx-auto flex w-full max-w-[1400px] animate-[bnplFlip_560ms_ease-out] items-center justify-center gap-2 px-3 py-2 text-center sm:gap-2.5 sm:px-5"
-        >
-          {!bnplLogoError[activeBnplPartner.key] ? (
-            <img
-              src={activeBnplPartner.logoUrl}
-              alt={activeBnplPartner.name}
-              className="h-auto shrink-0"
-              style={{ width: activeBnplPartner.logoWidth }}
-              onError={() => setBnplLogoError((current) => ({ ...current, [activeBnplPartner.key]: true }))}
-            />
-          ) : (
-            <span className="text-xs font-bold text-gray-900">{activeBnplPartner.name}</span>
-          )}
-          <span className="min-w-0 text-[11px] leading-snug text-gray-700 sm:text-xs">
-            <span className="hidden sm:inline">{bnplBannerDesktop}</span>
-            <span className="sm:hidden">{bnplBannerMobile}</span>
-          </span>
-        </div>
-      </div>
-      ) : null}
 
       <style>{`
         @keyframes bnplFlip {

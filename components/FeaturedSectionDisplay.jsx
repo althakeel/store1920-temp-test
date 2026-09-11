@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
 import { getProductPath } from '@/lib/productUrl';
+import CurrencySymbol from '@/components/CurrencySymbol';
 
 export default function FeaturedSectionDisplay({ section }) {
   const scrollRef = useRef(null);
@@ -102,12 +103,14 @@ export default function FeaturedSectionDisplay({ section }) {
 
                 {/* Price */}
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg font-bold text-gray-900">
-                    {market.currency} {convertPrice(Number(product.basePrice || product.price || 0)).toLocaleString()}
+                  <span className="inline-flex items-baseline gap-1 text-lg font-bold text-gray-900">
+                    <CurrencySymbol currency={market.currency} />
+                    {convertPrice(Number(product.basePrice || product.price || 0)).toLocaleString()}
                   </span>
                   {product.originalPrice && (
-                    <span className="text-sm text-gray-500 line-through">
-                      {market.currency} {convertPrice(Number(product.originalPrice || 0)).toLocaleString()}
+                    <span className="inline-flex items-baseline gap-1 text-sm text-gray-500 line-through">
+                      <CurrencySymbol currency={market.currency} />
+                      {convertPrice(Number(product.originalPrice || 0)).toLocaleString()}
                     </span>
                   )}
                 </div>

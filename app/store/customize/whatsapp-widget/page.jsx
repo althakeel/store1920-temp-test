@@ -66,6 +66,7 @@ export default function WhatsAppProductWidgetCustomizePage() {
   const [saving, setSaving] = useState(false)
   const [productsLoading, setProductsLoading] = useState(false)
   const [enabled, setEnabled] = useState(false)
+  const [hideTawkWhenVisible, setHideTawkWhenVisible] = useState(true)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [messageTemplate, setMessageTemplate] = useState(
     DEFAULT_WHATSAPP_PRODUCT_WIDGET.messageTemplate,
@@ -106,6 +107,7 @@ export default function WhatsAppProductWidgetCustomizePage() {
       })
       const widget = normalizeWhatsAppProductWidget(data?.whatsappProductWidget)
       setEnabled(widget.enabled)
+      setHideTawkWhenVisible(widget.hideTawkWhenVisible !== false)
       setPhoneNumber(widget.phoneNumber)
       setMessageTemplate(widget.messageTemplate)
       setButtonImageUrl(widget.buttonImageUrl || '')
@@ -253,6 +255,7 @@ export default function WhatsAppProductWidgetCustomizePage() {
           messageTemplate,
           buttonImageUrl,
           productIds: selectedIds,
+          hideTawkWhenVisible,
         },
       }, {
         headers: { Authorization: `Bearer ${token}` },
@@ -317,6 +320,21 @@ export default function WhatsAppProductWidgetCustomizePage() {
             <span className="block text-sm font-semibold text-slate-900">Enable WhatsApp widget</span>
             <span className="mt-0.5 block text-sm text-slate-500">
               When on, selected product pages show a floating WhatsApp button.
+            </span>
+          </span>
+        </label>
+
+        <label className="mt-4 flex cursor-pointer items-start gap-3 border-t border-slate-100 pt-4">
+          <input
+            type="checkbox"
+            checked={hideTawkWhenVisible}
+            onChange={(event) => setHideTawkWhenVisible(event.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-slate-900">Hide Tawk chat on these product pages</span>
+            <span className="mt-0.5 block text-sm text-slate-500">
+              Keeps Tawk off when the WhatsApp button is visible so the two widgets do not overlap.
             </span>
           </span>
         </label>

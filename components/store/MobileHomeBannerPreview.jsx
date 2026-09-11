@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Loader2, RefreshCw } from 'lucide-react'
+import BusyButtonIcon from '@/components/store/BusyButtonIcon'
 import {
   MOBILE_BANNER_SECTIONS,
   toPublicBannerSection,
@@ -159,7 +160,7 @@ export default function MobileHomeBannerPreview({
             disabled={refreshing}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
           >
-            {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            <BusyButtonIcon busy={refreshing} icon={RefreshCw} size={14} />
             Refresh
           </button>
         ) : null}

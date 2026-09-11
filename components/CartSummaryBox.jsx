@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
+import CurrencySymbol from '@/components/CurrencySymbol';
 
 export function CartSummaryActions({
   checkoutDisabled = false,
@@ -125,21 +126,21 @@ export default function CartSummaryBox({
           <>
             <div className="flex justify-between text-sm text-gray-500 mb-2">
               <span>{t('cart.productValue')}</span>
-              <span className="tabular-nums">{market.currency} {formatAmount(listValue)}</span>
+              <span className="inline-flex items-baseline gap-1 tabular-nums"><CurrencySymbol currency={market.currency} />{formatAmount(listValue)}</span>
             </div>
             <div className="flex justify-between text-sm text-gray-500 mb-2">
               <span>{t('cart.salePrice')}</span>
-              <span className="tabular-nums">{market.currency} {formatAmount(subtotal)}</span>
+              <span className="inline-flex items-baseline gap-1 tabular-nums"><CurrencySymbol currency={market.currency} />{formatAmount(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm text-emerald-600 mb-2 font-medium">
               <span>{t('cart.discount')}</span>
-              <span className="tabular-nums">− {market.currency} {formatAmount(discountAmount)}</span>
+              <span className="inline-flex items-baseline gap-1 tabular-nums">− <CurrencySymbol currency={market.currency} />{formatAmount(discountAmount)}</span>
             </div>
           </>
         ) : (
           <div className="flex justify-between text-sm text-gray-500 mb-2">
             <span>{t('cart.items')}</span>
-            <span>{market.currency} {formatAmount(subtotal)}</span>
+            <span className="inline-flex items-baseline gap-1"><CurrencySymbol currency={market.currency} />{formatAmount(subtotal)}</span>
           </div>
         )}
         {showShipping && (
@@ -148,14 +149,19 @@ export default function CartSummaryBox({
               {t('cart.shippingAndHandling')}
             </span>
             <span className={shipping === 0 ? 'text-green-600 font-semibold' : 'text-gray-400'}>
-              {shipping === 0 ? t('cart.free') : `${market.currency} ${formatAmount(shipping)}`}
+              {shipping === 0 ? t('cart.free') : (
+                <span className="inline-flex items-baseline gap-1">
+                  <CurrencySymbol currency={market.currency} />
+                  {formatAmount(shipping)}
+                </span>
+              )}
             </span>
           </div>
         )}
         <hr className="my-2" />
         <div className="flex justify-between font-bold text-base text-gray-800">
           <span>{t('cart.total')}</span>
-          <span>{market.currency} {formatAmount(total)}</span>
+          <span className="inline-flex items-baseline gap-1"><CurrencySymbol currency={market.currency} />{formatAmount(total)}</span>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
           {t('cart.freeDeliveryNote')}

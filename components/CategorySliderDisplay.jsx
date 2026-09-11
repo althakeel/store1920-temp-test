@@ -10,6 +10,7 @@ import { getProductPath } from '@/lib/productUrl';
 import { useStorefrontI18n } from '@/lib/useStorefrontI18n';
 import { getContentDirection } from '@/lib/storefrontLanguage';
 import { getLocalizedCategorySliderSubtitle, getLocalizedCategorySliderTitle } from '@/lib/categorySliderCopy';
+import CurrencySymbol from '@/components/CurrencySymbol';
 
 export default function CategorySliderDisplay({ slider }) {
   const scrollRef = useRef(null);
@@ -130,12 +131,14 @@ export default function CategorySliderDisplay({ slider }) {
 
                 {/* Price */}
                 <div className="qf-card__price-row">
-                  <span className="qf-card__price">
-                    {market.currency} {convertPrice(Number(product.basePrice || product.price || 0)).toLocaleString()}
+                  <span className="qf-card__price inline-flex items-baseline gap-1">
+                    <CurrencySymbol currency={market.currency} />
+                    {convertPrice(Number(product.basePrice || product.price || 0)).toLocaleString()}
                   </span>
                   {product.originalPrice && (
-                    <span className="qf-card__strike">
-                      {market.currency} {convertPrice(Number(product.originalPrice || 0)).toLocaleString()}
+                    <span className="qf-card__strike inline-flex items-baseline gap-1">
+                      <CurrencySymbol currency={market.currency} />
+                      {convertPrice(Number(product.originalPrice || 0)).toLocaleString()}
                     </span>
                   )}
                 </div>

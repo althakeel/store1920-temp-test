@@ -3,6 +3,7 @@
 import Image from '@/components/SafeNextImage';
 import {
   findVariantForOptionValue,
+  formatVariantOptionValue,
   getVariantOptionImage,
   isVariantOptionValueAvailable,
 } from '@/lib/productVariantOptions';
@@ -11,7 +12,7 @@ const PLACEHOLDER_IMAGE = 'https://store1920-images.s3.ap-south-1.amazonaws.com/
 
 function OptionImageCard({
   imageUrl,
-  value,
+  label,
   selected,
   available,
   onClick,
@@ -29,20 +30,24 @@ function OptionImageCard({
             : 'border-dashed border-gray-200 opacity-45'
       }`}
     >
-      <div className="relative h-20 w-full">
-        <Image
-          src={imageUrl || PLACEHOLDER_IMAGE}
-          alt={value}
-          fill
-          sizes="88px"
-          className="object-contain"
-          onError={(event) => {
-            event.currentTarget.src = PLACEHOLDER_IMAGE;
-          }}
-        />
+      <div className="relative flex h-20 w-full items-center justify-center overflow-hidden bg-gray-50">
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={label}
+            fill
+            sizes="88px"
+            className="object-contain"
+            unoptimized
+          />
+        ) : (
+          <span className="px-1 text-center text-[11px] font-medium capitalize text-gray-600">
+            {label}
+          </span>
+        )}
       </div>
       <span className={`mt-2 text-center text-xs leading-tight ${selected ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
-        {value}
+        {label}
       </span>
     </button>
   );
@@ -67,13 +72,13 @@ export default function ProductVariantPicker({
           selectedOptions,
           group.key,
           value,
-          { isBulkBundleVariant },
+          { isBulkBundleVariant, ignoreOtherSelections: true },
         ));
         const groupHasImages = optionVariants.some((variant) => {
-          const imageUrl = getVariantOptionImage(variant, productImages);
+          const imageUrl = getVariantOptionImage(variant, productImages, { fallbackToProduct: false });
           return Boolean(imageUrl && imageUrl !== PLACEHOLDER_IMAGE);
         });
-        const useImageCards = group.key === 'color' || groupHasImages;
+        const useImageCards = groupHasImages;
 
         return (
           <div key={group.key} className="space-y-2.5">
@@ -85,7 +90,7 @@ export default function ProductVariantPicker({
               <div className="flex flex-wrap gap-3">
                 {group.values.map((value, index) => {
                   const variant = optionVariants[index];
-                  const imageUrl = getVariantOptionImage(variant, productImages);
+                  const imageUrl = getVariantOptionImage(variant, productImages, { fallbackToProduct: false });
                   const selected = String(selectedOptions[group.key] || '') === String(value);
                   const available = isVariantOptionValueAvailable(
                     variants,
@@ -94,12 +99,13 @@ export default function ProductVariantPicker({
                     value,
                     { isBulkBundleVariant },
                   );
+                  const label = formatVariantOptionValue(value);
 
                   return (
                     <OptionImageCard
                       key={value}
                       imageUrl={imageUrl}
-                      value={value}
+                      label={label}
                       selected={selected}
                       available={available}
                       onClick={() => onSelect(group.key, value)}
@@ -118,6 +124,7 @@ export default function ProductVariantPicker({
                     value,
                     { isBulkBundleVariant },
                   );
+                  const label = formatVariantOptionValue(value);
 
                   return (
                     <button
@@ -133,7 +140,7 @@ export default function ProductVariantPicker({
                             : 'border-dashed border-gray-300 bg-white text-gray-400 line-through'
                       }`}
                     >
-                      {value}
+                      {label}
                     </button>
                   );
                 })}

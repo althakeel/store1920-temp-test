@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Brain, Loader2, RefreshCw, Sparkles, Target, TrendingUp } from 'lucide-react';
+import BusyButtonIcon from '@/components/store/BusyButtonIcon';
 
 function InsightBlock({ title, icon: Icon, items, tone = 'slate' }) {
   const tones = {
@@ -102,29 +103,25 @@ export default function StoreDashboardAiInsights({ getToken, stats, currency = '
           disabled={loading}
           className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-50 disabled:opacity-60"
         >
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          <BusyButtonIcon busy={loading} icon={RefreshCw} size={14} />
           Refresh
         </button>
       </div>
 
       <div className="p-5">
-        {loading && !insights ? (
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <Loader2 size={16} className="animate-spin text-violet-600" />
-            Generating insights from your dashboard…
+        <div className={`items-center gap-2 text-sm text-slate-500 ${loading && !insights ? 'flex' : 'hidden'}`}>
+          <Loader2 size={16} className="animate-spin text-violet-600" />
+          Generating insights from your dashboard…
+        </div>
+        <p className={`text-sm text-red-600 ${error && !insights ? '' : 'hidden'}`}>{error || ' '}</p>
+        <div className={`space-y-3 ${insights ? '' : 'hidden'}`}>
+          <p className="text-base font-semibold leading-snug text-slate-900">{insights?.headline}</p>
+          <div className="grid gap-3 md:grid-cols-3">
+            <InsightBlock title="Key signals" icon={Brain} items={insights?.bullets} tone="violet" />
+            <InsightBlock title="Do this next" icon={Target} items={insights?.priorities} tone="amber" />
+            <InsightBlock title="Outlook" icon={TrendingUp} items={insights?.outlook ? [insights.outlook] : []} tone="slate" />
           </div>
-        ) : error && !insights ? (
-          <p className="text-sm text-red-600">{error}</p>
-        ) : insights ? (
-          <div className="space-y-3">
-            <p className="text-base font-semibold leading-snug text-slate-900">{insights.headline}</p>
-            <div className="grid gap-3 md:grid-cols-3">
-              <InsightBlock title="Key signals" icon={Brain} items={insights.bullets} tone="violet" />
-              <InsightBlock title="Do this next" icon={Target} items={insights.priorities} tone="amber" />
-              <InsightBlock title="Outlook" icon={TrendingUp} items={insights.outlook ? [insights.outlook] : []} tone="slate" />
-            </div>
-          </div>
-        ) : null}
+        </div>
       </div>
     </div>
   );

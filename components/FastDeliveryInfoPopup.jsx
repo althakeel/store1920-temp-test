@@ -10,9 +10,12 @@ export default function FastDeliveryInfoPopup({
   open,
   onClose,
   isArabic = false,
+  title,
+  showFastDeliverySection = true,
   children,
 }) {
   const copy = isArabic ? FAST_DELIVERY_COPY.ar : FAST_DELIVERY_COPY.en;
+  const dialogTitle = title || copy.conditionsTitle;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -56,11 +59,16 @@ export default function FastDeliveryInfoPopup({
           <X className="h-5 w-5" />
         </button>
         <h2 id="fast-delivery-dialog-title" className="sr-only">
-          {copy.conditionsTitle}
+          {dialogTitle}
         </h2>
-        <FastDeliveryInfoSection copy={copy} />
+        {showFastDeliverySection ? <FastDeliveryInfoSection copy={copy} /> : null}
         {children ? (
-          <div className="mt-3 rounded-2xl bg-white p-4 shadow-sm">{children}</div>
+          <div className={`rounded-2xl bg-white p-4 shadow-sm sm:p-5 ${showFastDeliverySection ? 'mt-3' : ''}`}>
+            {!showFastDeliverySection ? (
+              <p className="mb-4 text-lg font-semibold text-slate-900">{dialogTitle}</p>
+            ) : null}
+            {children}
+          </div>
         ) : null}
       </div>
     </div>,

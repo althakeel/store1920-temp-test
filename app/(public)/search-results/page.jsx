@@ -10,12 +10,18 @@ import { pushGtmEvent } from '@/lib/pushGtmEcommerceEvent';
 import { GTM_EVENTS, gtmDedupeKey } from '@/lib/gtmEvents';
 import { PRODUCT_CARD_GRID_CLASS_1_2_3_6, PRODUCT_CARD_CELL_CLASS } from '@/lib/storefrontCarousel';
 import { getProductPath } from '@/lib/productUrl';
+import { AedText } from '@/components/CurrencySymbol';
+import NewProductTagBadge from '@/components/NewProductTagBadge';
 
 function SearchResultsInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { market, convertPrice, formatNumber } = useStorefrontMarket();
-  const formatPrice = (amount) => `${market.currency} ${formatNumber(convertPrice(Number(amount) || 0), 'en', { maximumFractionDigits: 0 })}`;
+  const formatPrice = (amount) => (
+    <AedText currency={market.currency}>
+      {`${market.currency} ${formatNumber(convertPrice(Number(amount) || 0), 'en', { maximumFractionDigits: 0 })}`}
+    </AedText>
+  );
   const [keyword, setKeyword] = useState('');
   const [method, setMethod] = useState('image-search');
   const [source, setSource] = useState('');
@@ -221,6 +227,7 @@ function SearchResultsInner() {
                         <PackageIcon size={48} className="text-gray-300" />
                       </div>
                     )}
+                    <NewProductTagBadge product={product} size="card" />
                   </div>
                   <div className="p-4">
                     <h3 className="font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition mb-2">
@@ -279,6 +286,7 @@ function SearchResultsInner() {
                         <PackageIcon size={48} className="text-gray-300" />
                       </div>
                     )}
+                    <NewProductTagBadge product={product} size="card" />
                   </div>
 
                   {/* Product Info */}
@@ -343,6 +351,7 @@ function SearchResultsInner() {
                             <PackageIcon size={48} className="text-gray-300" />
                           </div>
                         )}
+                        <NewProductTagBadge product={product} size="card" />
                       </div>
                       <div className="p-4">
                         <h3 className="font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition mb-2">

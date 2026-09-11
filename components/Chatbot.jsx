@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { useStorefrontMarket } from '@/lib/useStorefrontMarket';
 import { getProductPath } from '@/lib/productUrl';
+import CurrencySymbol from '@/components/CurrencySymbol';
 
 const Chatbot = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -353,7 +354,10 @@ const Chatbot = () => {
                                                                     )}
                                                                     <div className="flex-1 min-w-0">
                                                                         <p className="text-xs font-bold text-blue-900">🛍️ {product.name}</p>
-                                                                        <p className="text-xs text-blue-700">{market.currency} {Math.round(convertPrice(Number(product.price) || 0))}</p>
+                                                                        <p className="inline-flex items-baseline gap-1 text-xs text-blue-700">
+                                                                            <CurrencySymbol currency={market.currency} />
+                                                                            {Math.round(convertPrice(Number(product.price) || 0))}
+                                                                        </p>
                                                                     </div>
                                                                 </div>
                                                             </Link>

@@ -16,6 +16,11 @@
   [style*="Shadows Into Light"] {
     font-family: var(--font-shadows-into-light), cursive !important;
   }
+
+  /* Poppins is Latin-only; Arabic must fall through to a joining Arabic font. */
+  html[dir="rtl"] body {
+    font-family: var(--font-poppins), "Segoe UI", Tahoma, "Noto Naskh Arabic", "Noto Sans Arabic", Arial, sans-serif;
+  }
 }
 
 @layer components {

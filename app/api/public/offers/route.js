@@ -29,7 +29,7 @@ export async function GET(request) {
     return NextResponse.json(payload, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('[public/offers] fetch failed:', error);
-    const fallbackCopy = getOffersPageCopy(DEFAULT_OFFERS_PAGE);
+    const fallbackCopy = getOffersPageCopy(DEFAULT_OFFERS_PAGE, language);
     return NextResponse.json(
       {
         products: [],

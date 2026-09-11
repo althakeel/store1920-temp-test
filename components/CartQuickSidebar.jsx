@@ -17,6 +17,8 @@ import { GTM_EVENTS, gtmDedupeKey } from '@/lib/gtmEvents'
 import { GA4_CURRENCY } from '@/lib/ga4Item'
 import { resolveCartLinePricing } from '@/lib/bulkBundleCart'
 import { decrementCartItem, incrementCartItem } from '@/lib/bundleCartActions'
+import CurrencySymbol from '@/components/CurrencySymbol'
+import NewProductTagBadge from '@/components/NewProductTagBadge'
 
 const getQty = (entry) => {
   if (typeof entry === 'number') return entry
@@ -236,7 +238,10 @@ export default function CartQuickSidebar() {
           </div>
 
           <p className="text-lg font-extrabold text-slate-900">
-            {market.currency} {formatDisplay(convertedSubtotal || 0)}
+            <span className="inline-flex items-baseline gap-1">
+              <CurrencySymbol currency={market.currency} />
+              {formatDisplay(convertedSubtotal || 0)}
+            </span>
           </p>
 
           <div className="mt-2 rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
@@ -269,10 +274,16 @@ export default function CartQuickSidebar() {
               <div key={item.productId} className="rounded-md border border-slate-100 bg-white p-1.5">
                 <div className="relative mx-auto h-20 w-full overflow-hidden rounded-md bg-slate-50">
                   <Image src={item.image} alt={item.name} fill className="object-contain" />
+                  <NewProductTagBadge product={item.product} size="thumb" />
                 </div>
                 <p className="mt-1 line-clamp-2 text-[10px] text-slate-600">{item.name}</p>
                 <p className="mt-0.5 text-[11px] font-semibold text-slate-900">
-                  {item.isFreeGift ? 'FREE' : `${market.currency} ${formatDisplay(item.convertedUnitPrice || 0)}`}
+                  {item.isFreeGift ? 'FREE' : (
+                    <span className="inline-flex items-baseline gap-1">
+                      <CurrencySymbol currency={market.currency} />
+                      {formatDisplay(item.convertedUnitPrice || 0)}
+                    </span>
+                  )}
                 </p>
                 <div className="mt-1 flex items-center justify-between gap-1">
                   {item.isFreeGift ? (

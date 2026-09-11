@@ -76,6 +76,7 @@ import MastercardLogo from '../../../assets/creditcards/mastercard.png';
 import GooglePayLogo from '../../../assets/creditcards/google-pay.png';
 import AmexLogo from '../../../assets/creditcards/11.webp';
 import { STORE_CURRENCY } from '@/lib/storeCurrency';
+import { AedText } from '@/components/CurrencySymbol';
 import { getProductSubtitle } from '@/lib/productDisplay';
 import { getProductPath } from '@/lib/productUrl';
 import { collectCheckoutValidationIssues, scrollToCheckoutField } from '@/lib/checkoutValidation';
@@ -205,14 +206,16 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
   const beginCheckoutTrackedRef = useRef(false);
   const tabbyPublicKey = process.env.NEXT_PUBLIC_TABBY_PUBLIC_KEY || '';
   const tabbyMerchantCode = process.env.NEXT_PUBLIC_TABBY_MERCHANT_CODE || process.env.TABBY_MERCHANT_CODE || 'Store1920';
-  const formatMoney = (amount) => {
+  const formatMoneyPlain = (amount) => {
     const converted = Number(convertPrice(Number(amount || 0)) || 0);
     return `${market.currency} ${converted.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   };
-  const formatMoneyFixed = (amount) => {
+  const formatMoneyFixedPlain = (amount) => {
     const converted = Number(convertPrice(Number(amount || 0)) || 0);
     return `${market.currency} ${converted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+  const formatMoney = (amount) => <AedText currency={market.currency}>{formatMoneyPlain(amount)}</AedText>;
+  const formatMoneyFixed = (amount) => <AedText currency={market.currency}>{formatMoneyFixedPlain(amount)}</AedText>;
 
   const cleanDigits = (value) => (value ? String(value).replace(/\D/g, '') : '');
   const sanitizePincode = (value) => cleanDigits(value).trim();
@@ -1803,7 +1806,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
           ? 'COD is not available for personalized offer products. Please use online payment.'
           : !isPaymentMethodEnabled(shippingSetting, 'cod')
             ? 'Cash on Delivery is not available.'
-            : `COD is not available for orders above ${formatMoney(maxCODAmount)}.`);
+            : `COD is not available for orders above ${formatMoneyPlain(maxCODAmount)}.`);
       setFormError(paymentMessage);
       toast.error(paymentMessage, { id: 'checkout-validation' });
       return;
@@ -2091,7 +2094,7 @@ export default function CheckoutPageUI({ initialCheckoutAlert = null }) {
         }
         
         if (maxCODAmount > 0 && remainingAmount > maxCODAmount) {
-          setFormError(`COD is not available for orders above ${formatMoney(maxCODAmount)}. Your order amount is ${formatMoneyFixed(remainingAmount)}. Please use online payment.`);
+          setFormError(`COD is not available for orders above ${formatMoneyPlain(maxCODAmount)}. Your order amount is ${formatMoneyFixedPlain(remainingAmount)}. Please use online payment.`);
           setPlacingOrder(false);
           return;
         }

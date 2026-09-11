@@ -6,6 +6,8 @@ import { canAccessDashboardArea } from "@/lib/storeDashboardPermissions";
 import { resolveDashboardAccess } from "@/lib/storeAccessControl";
 import { getAuth } from "@/lib/firebase-admin";
 import { uploadProfilePhoto } from "@/lib/profileImageStorage";
+import { normalizeNewTagSettings } from "@/lib/newProductTag";
+import { clearNewTagSettingsCache } from "@/lib/storeNewTagSettings";
 
 export const runtime = "nodejs";
 
@@ -152,6 +154,7 @@ export async function POST(request) {
       twoFactorEnabled,
       currencyPreference,
       smtpSettings,
+      newTagSettings,
     } = body || {};
 
     const normalizedEmail = asTrimmedString(email).toLowerCase();
@@ -198,6 +201,7 @@ export async function POST(request) {
         businessType,
         currencyPreference,
         smtpSettings,
+        newTagSettings,
       ].some((value) => value !== undefined);
 
       if (hasStoreFieldUpdates && !access.isOwner && !canAccessDashboardArea(access.permissions, 'settings', { isOwner: false })) {
@@ -223,8 +227,15 @@ export async function POST(request) {
         updateStoreData.smtpSettings = normalizeSmtpSettings(smtpSettings);
       }
 
+      if (newTagSettings && typeof newTagSettings === 'object') {
+        updateStoreData.newTagSettings = normalizeNewTagSettings(newTagSettings);
+      }
+
       if (Object.keys(updateStoreData).length > 0) {
         await Store.updateOne({ _id: storeId }, { $set: updateStoreData });
+        if (updateStoreData.newTagSettings) {
+          clearNewTagSettingsCache();
+        }
       }
     }
 
@@ -279,6 +290,7 @@ export async function GET(request) {
         storeDescription: store?.description || '',
         businessType: store?.businessType || '',
         currencyPreference: store?.currencyPreference || 'AED',
+        newTagSettings: normalizeNewTagSettings(store?.newTagSettings),
       },
       smtpSettings: {
         transactional: {
