@@ -554,7 +554,7 @@ export default function OffersCustomizePage() {
                     style={{
                       ...navButtonPreview.style,
                       color: navButtonPreview.useShine
-                        ? '#ffffff'
+                        ? undefined
                         : navButtonPreview.textColor,
                     }}
                   >

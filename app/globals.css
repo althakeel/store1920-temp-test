@@ -211,7 +211,7 @@
         background-image: none !important;
         -webkit-background-clip: unset !important;
         background-clip: unset !important;
-        font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol" !important;
+        font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji" !important;
         font-weight: 400 !important;
         font-style: normal !important;
         font-variant-emoji: emoji;
@@ -219,6 +219,19 @@
         text-transform: none !important;
         line-height: 1;
         transform: none;
+    }
+
+    .navbar-deals-emoji-img,
+    .navbar-deals-btn .navbar-deals-emoji-img,
+    .navbar-deals-btn[data-font] .navbar-deals-emoji-img {
+        display: inline-block;
+        flex-shrink: 0;
+        object-fit: contain;
+        vertical-align: -0.15em;
+        margin-inline-end: 0.16em;
+        background: none !important;
+        filter: none !important;
+        mix-blend-mode: normal;
     }
 
     .navbar-deals-text-shine {

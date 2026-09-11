@@ -315,7 +315,9 @@ const Navbar = () => {
           className="flex items-center leading-[1.05]"
           style={{
             fontFamily: 'inherit',
-            ...(appearance.textColor ? { color: appearance.textColor } : {}),
+            ...(appearance.textColor && !appearance.useShine
+              ? { color: appearance.textColor }
+              : {}),
           }}
         >
           <OffersNavLabel

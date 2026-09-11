@@ -2,20 +2,36 @@
 
 import {
   expandOffersNavShortcodes,
+  getOffersNavEmojiImageSrc,
   splitOffersNavTextParts,
 } from '@/lib/offersPageSettings';
 
-function LabelParts({ text = '', shineClass = '' }) {
+function EmojiMark({ value, size = 16 }) {
+  const src = getOffersNavEmojiImageSrc(value);
+  if (!src) {
+    return <span className="navbar-deals-emoji">{value}</span>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      className="navbar-deals-emoji-img"
+      draggable={false}
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+function LabelParts({ text = '', shineClass = '', emojiSize = 16 }) {
   const parts = splitOffersNavTextParts(text);
   return (
     <span className="inline-flex items-center">
       {parts.map((part, index) => {
         if (part.type === 'emoji') {
-          return (
-            <span key={`emoji-${index}`} className="navbar-deals-emoji" aria-hidden="false">
-              {part.value}
-            </span>
-          );
+          return <EmojiMark key={`emoji-${index}`} value={part.value} size={emojiSize} />;
         }
         return (
           <span key={`text-${index}`} className={shineClass || undefined}>
@@ -40,8 +56,8 @@ export default function OffersNavLabel({
   const resolvedTop = expandOffersNavShortcodes(top);
   const resolvedBottom = expandOffersNavShortcodes(bottom);
   const hasGif = Boolean(String(gifUrl || '').trim());
-  // Shine stays on letters only. Emoji is rendered in its own span so it keeps color.
   const textShine = !hasGif && shineClass ? shineClass : '';
+  const emojiSize = Math.max(14, Number(gifSize) || 16);
 
   return (
     <span className={`inline-flex items-center gap-1 ${stacked ? 'flex-col' : ''}`}>
@@ -58,11 +74,11 @@ export default function OffersNavLabel({
       ) : null}
       {stacked ? (
         <span className="inline-flex flex-col items-center leading-[1.05]">
-          <LabelParts text={resolvedTop || resolvedLabel} shineClass={textShine} />
-          {resolvedBottom ? <LabelParts text={resolvedBottom} shineClass={textShine} /> : null}
+          <LabelParts text={resolvedTop || resolvedLabel} shineClass={textShine} emojiSize={emojiSize} />
+          {resolvedBottom ? <LabelParts text={resolvedBottom} shineClass={textShine} emojiSize={emojiSize} /> : null}
         </span>
       ) : (
-        <LabelParts text={resolvedLabel} shineClass={textShine} />
+        <LabelParts text={resolvedLabel} shineClass={textShine} emojiSize={emojiSize} />
       )}
     </span>
   );
