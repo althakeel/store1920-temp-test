@@ -15,10 +15,12 @@ import {
   STORE1920_LEGAL_NAME_AR,
   STORE1920_BUSINESS_HOURS_EN,
   STORE1920_BUSINESS_HOURS_AR,
-  getBusinessAddressSingleLine,
+  getRegisteredOfficeSingleLine,
+  getFulfilmentAddressSingleLine,
 } from '@/lib/businessIdentity';
 
-const RETURNS_ADDRESS = getBusinessAddressSingleLine();
+const RETURNS_ADDRESS = getFulfilmentAddressSingleLine();
+const REGISTERED_OFFICE = getRegisteredOfficeSingleLine();
 const PHONE_DISPLAY = formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE);
 
 const EMAIL_SPLIT_PATTERN = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
@@ -69,7 +71,7 @@ function buildPageCopy() {
     title: 'Return, Refund, Replacement & Cancellation Policy',
     intro:
       `Store1920.com is owned and operated by ${STORE1920_LEGAL_NAME} (“Store1920”, “we”, “us”). Store1920 purchases products from manufacturers and suppliers and sells them directly to customers. We are your seller of record and first point of contact for returns, refunds, replacements and warranty support.`,
-    lastUpdated: 'Last updated: 8 September 2026',
+    lastUpdated: 'Last updated: 11 September 2026',
     sections: [
       {
         title: '1. Return request window',
@@ -158,8 +160,8 @@ function buildPageCopy() {
           `Phone: ${PHONE_DISPLAY}`,
           `Business hours: ${STORE1920_BUSINESS_HOURS_EN}`,
           `Legal entity: ${STORE1920_LEGAL_NAME}`,
-          `Registered office: ${RETURNS_ADDRESS}`,
-          `Fulfilment/returns address: ${RETURNS_ADDRESS}`,
+          `Registered office: ${REGISTERED_OFFICE}`,
+          `Fulfilment and returns: ${RETURNS_ADDRESS}`,
         ],
         paragraphsAfter: [
           'Nothing in this policy excludes or limits rights that cannot lawfully be excluded or limited under applicable UAE law.',
@@ -171,7 +173,7 @@ function buildPageCopy() {
     title: 'سياسة الإرجاع والاسترداد والاستبدال والإلغاء',
     intro:
       `Store1920.com مملوك ويُدار من قبل ${STORE1920_LEGAL_NAME_AR} (${STORE1920_LEGAL_NAME}) («Store1920» أو «نحن»). تشتري Store1920 المنتجات من المصنّعين والمورّدين وتبيعها مباشرة للعملاء. نحن بائع السجل وجهة التواصل الأولى للإرجاع والاسترداد والاستبدال ودعم الضمان.`,
-    lastUpdated: 'آخر تحديث: 8 سبتمبر 2026',
+    lastUpdated: 'آخر تحديث: 11 سبتمبر 2026',
     sections: [
       {
         title: '1. مهلة طلب الإرجاع',
@@ -260,7 +262,7 @@ function buildPageCopy() {
           `الهاتف: ${PHONE_DISPLAY}`,
           `ساعات العمل: ${STORE1920_BUSINESS_HOURS_AR}`,
           `الكيان القانوني: ${STORE1920_LEGAL_NAME_AR} (${STORE1920_LEGAL_NAME})`,
-          `المكتب المسجّل: ${RETURNS_ADDRESS}`,
+          `المكتب المسجّل: ${REGISTERED_OFFICE}`,
           `عنوان التجهيز والإرجاع: ${RETURNS_ADDRESS}`,
         ],
         paragraphsAfter: [

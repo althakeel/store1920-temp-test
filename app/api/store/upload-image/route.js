@@ -27,7 +27,7 @@ async function maybeOptimizeBuffer(buffer, meta) {
 }
 
 function resolveUploadFolder(type = '') {
-  if (type === 'logo' || type === 'navbar-logo') return 'brands';
+  if (type === 'logo' || type === 'navbar-logo' || type === 'offers-nav') return 'brands';
   if (type === 'category') return 'categories';
   if (type === 'blog') return 'blogs';
   return 'products';

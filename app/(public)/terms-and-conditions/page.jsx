@@ -78,6 +78,9 @@ export default function TermsAndConditions() {
               <p>
                 أنت مسؤول عن صحة بياناتك أثناء الطلب. أي معلومات غير دقيقة قد تؤدي إلى تأخير الطلب أو إلغائه.
               </p>
+              <p className="mt-2">
+                يُقدَّم موقع Store1920 وصفحة الدفع عبر HTTPS (TLS). البيانات الشخصية التي ترسلها عبر الموقع — بما في ذلك الحساب والطلب والعنوان ونماذج الدعم — تُنقل عبر اتصالات مشفرة. مدفوعات البطاقات تُعالَج على صفحات مستضافة متوافقة مع PCI يديرها مزودو الدفع؛ ولا تجمع Store1920 أرقام البطاقات أو رمز CVV ولا تخزنها ولا تنقلها على خوادمنا. تحديثات الطلب عبر البريد أو الرسائل أو واتساب تسير عبر شبكات أولئك المزودين، ولا ندّعي أنها مشفرة من طرف إلى طرف. لا توجد وسيلة نقل أو تخزين إلكتروني آمنة بالكامل.
+              </p>
             </section>
 
             <section>
@@ -110,7 +113,7 @@ export default function TermsAndConditions() {
                 <a href="mailto:support@Store1920.com" className="text-orange-600 underline mr-1">support@Store1920.com</a>
               </p>
               <p className="text-xs text-gray-500 mt-4">
-                <strong>آخر تحديث:</strong> 8 سبتمبر 2026
+                <strong>آخر تحديث:</strong> 11 سبتمبر 2026
               </p>
             </section>
           </div>
@@ -167,8 +170,9 @@ export default function TermsAndConditions() {
             <h2 className="text-xl font-semibold mb-2">SECTION 2 – GENERAL CONDITIONS</h2>
             <ul className="list-disc ml-6 space-y-1">
               <li>We reserve the right to refuse service to anyone for any reason at any time.</li>
-              <li>Your content (excluding credit card information) may be transferred unencrypted over various networks and adapted to technical requirements.</li>
-              <li>Credit card information is always encrypted during transfer over networks.</li>
+              <li>The Store1920 website and checkout are served over HTTPS (TLS). Personal data you submit on the site — including account, order, address and support forms — is transmitted over encrypted connections.</li>
+              <li>Card payments are processed on hosted, PCI-compliant pages operated by our payment providers. Store1920 does not collect, store or transmit card numbers or CVV on our servers.</li>
+              <li>Order updates sent by email, SMS or WhatsApp travel over those providers’ networks. We do not claim those third-party channels are encrypted end-to-end. No method of electronic transmission or storage is completely secure.</li>
               <li>You agree not to reproduce, duplicate, copy, sell, resell, or exploit any part of the Service without written permission.</li>
               <li>Headings are for convenience only and do not limit these Terms.</li>
               <li>We may contact customers via WhatsApp or phone for order processing, delivery updates, confirmations, and cancellations.</li>
@@ -376,7 +380,7 @@ export default function TermsAndConditions() {
               Questions about the Terms of Service should be sent to <a href="mailto:support@Store1920.com" className="text-orange-600 underline">support@Store1920.com</a>.
             </p>
             <p className="text-xs text-gray-500 mt-4">
-              <strong>Last Updated:</strong> 8 September 2026
+              <strong>Last Updated:</strong> 11 September 2026
             </p>
           </section>
         </div>

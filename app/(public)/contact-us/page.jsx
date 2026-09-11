@@ -12,7 +12,8 @@ import {
   STORE1920_LEGAL_NAME,
   STORE1920_TRADE_LICENSE_NO,
   STORE1920_BUSINESS_HOURS_EN,
-  getBusinessAddressLines,
+  getRegisteredOfficeSingleLine,
+  getFulfilmentAddressSingleLine,
 } from '@/lib/businessIdentity';
 import Link from 'next/link';
 
@@ -171,8 +172,18 @@ export default function ContactUs() {
                     <path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/>
                   </svg>
                 ),
-                label: 'Business Address',
-                value: getBusinessAddressLines().join(', '),
+                label: 'Registered office',
+                value: getRegisteredOfficeSingleLine(),
+                href: null,
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                ),
+                label: 'Fulfilment and returns',
+                value: getFulfilmentAddressSingleLine(),
                 href: null,
               },
             ].map(({ icon, label, value, href }) => (

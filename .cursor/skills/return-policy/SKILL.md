@@ -47,7 +47,8 @@ Do **not** reintroduce separate refund/cancellation public pages or list those U
 - Store1920-error / statutory cases: Store1920 pays return shipping; not limited by the 7-day commercial window
 - Do **not** invent “7-day free returns” for change of mind
 - Refunds initiated **5–7 business days after approval** (card / Tabby-Tamara / verified UAE bank transfer for COD)
-- Return address is the published fulfilment warehouse in `lib/businessIdentity.js` (`getBusinessAddressSingleLine()`)
+- Return address is the published fulfilment warehouse in `lib/businessIdentity.js` (`getFulfilmentAddressSingleLine()` / `getBusinessAddressSingleLine()`)
+- Registered office is the Dubai licence address (`getRegisteredOfficeSingleLine()`). Never list the Sharjah warehouse as the registered office.
 - Commercial return rules must expressly **not reduce** mandatory UAE rights (Federal Decree-Law No. 14 of 2023; Federal Law No. 15 of 2020 and its executive regulation)
 - Contact: `support@store1920.com` + toll-free support number helpers
 

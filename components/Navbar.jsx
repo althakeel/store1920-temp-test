@@ -29,10 +29,13 @@ import {
   DEFAULT_OFFERS_NAV_LABEL,
   DEFAULT_OFFERS_NAV_LABEL_AR,
   DEFAULT_OFFERS_NAV_STYLE,
+  expandOffersNavShortcodes,
   getOffersNavButtonAppearance,
+  normalizeNavGifUrl,
   normalizeOffersNavStyle,
   splitOffersNavLabel,
 } from '@/lib/offersPageSettings';
+import OffersNavLabel from '@/components/OffersNavLabel';
 import {
   getCategoryDisplayName as getNavCategoryDisplayName,
   getCategoryRecordId,
@@ -169,8 +172,11 @@ const Navbar = () => {
     ar: DEFAULT_OFFERS_NAV_LABEL_AR,
   });
   const [dealsNavStyle, setDealsNavStyle] = useState(DEFAULT_OFFERS_NAV_STYLE);
+  const [dealsNavGifUrl, setDealsNavGifUrl] = useState('');
   const t = (key, replacements = {}) => translateStaticText(key, storefrontLanguage, replacements);
-  const dealsNavLabel = storefrontLanguage === 'ar' ? dealsNavLabels.ar : dealsNavLabels.en;
+  const dealsNavLabel = expandOffersNavShortcodes(
+    storefrontLanguage === 'ar' ? dealsNavLabels.ar : dealsNavLabels.en
+  );
   const dealsNavParts = splitOffersNavLabel(dealsNavLabel);
 
   const getShortName = (value) => {
@@ -295,7 +301,7 @@ const Navbar = () => {
       <Link
         href="/offers"
         aria-label={dealsNavLabel}
-        className={`navbar-deals-btn shrink-0 font-extrabold uppercase tracking-[0.06em] transition hover:opacity-90 ${
+        className={`navbar-deals-btn shrink-0 font-extrabold tracking-[0.04em] transition hover:opacity-90 ${
           isDesktop
             ? 'hidden lg:inline-flex shrink-0 items-center leading-none'
             : `inline-flex flex-col items-center justify-center leading-[1.05] ${
@@ -306,20 +312,21 @@ const Navbar = () => {
         style={appearance.style}
       >
         <span
-          className={`${shineClass} flex flex-col items-center leading-[1.05]`.trim()}
+          className="flex items-center leading-[1.05]"
           style={{
             fontFamily: 'inherit',
             ...(appearance.textColor ? { color: appearance.textColor } : {}),
           }}
         >
-        {isDesktop ? (
-          dealsNavLabel
-        ) : (
-          <>
-            <span>{dealsNavParts.top}</span>
-            {dealsNavParts.bottom ? <span>{dealsNavParts.bottom}</span> : null}
-          </>
-        )}
+          <OffersNavLabel
+            label={dealsNavLabel}
+            gifUrl={dealsNavGifUrl}
+            shineClass={shineClass}
+            gifSize={isDesktop ? 18 : 14}
+            stacked={!isDesktop}
+            top={dealsNavParts.top}
+            bottom={dealsNavParts.bottom}
+          />
         </span>
       </Link>
     );
@@ -530,6 +537,9 @@ const Navbar = () => {
         if (parsed?.style) {
           setDealsNavStyle(normalizeOffersNavStyle(parsed.style));
         }
+        if (parsed?.gif !== undefined || parsed?.navGifUrl !== undefined) {
+          setDealsNavGifUrl(normalizeNavGifUrl(parsed.gif || parsed.navGifUrl));
+        }
       }
     } catch {
       // Ignore storage read failures.
@@ -608,12 +618,15 @@ const Navbar = () => {
           ar: String(data?.offersPage?.navLabelAr || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
         };
         const nextStyle = normalizeOffersNavStyle(data?.offersPage?.navStyle);
+        const nextGif = normalizeNavGifUrl(data?.offersPage?.navGifUrl);
         setDealsNavLabels(nextLabels);
         setDealsNavStyle(nextStyle);
+        setDealsNavGifUrl(nextGif);
         try {
           window.localStorage.setItem('offersNavLabelCache', JSON.stringify({
             ...nextLabels,
             style: nextStyle,
+            gif: nextGif,
           }));
         } catch {
           // Ignore storage write failures.
@@ -648,14 +661,32 @@ const Navbar = () => {
       setNavbarAppearanceLoading(false);
     };
 
+    const handleOffersNavLabelUpdate = (event) => {
+      const detail = event?.detail || {};
+      if (detail.en || detail.ar) {
+        setDealsNavLabels({
+          en: String(detail.en || DEFAULT_OFFERS_NAV_LABEL).trim() || DEFAULT_OFFERS_NAV_LABEL,
+          ar: String(detail.ar || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
+        });
+      }
+      if (detail.style) {
+        setDealsNavStyle(normalizeOffersNavStyle(detail.style));
+      }
+      if (detail.gif !== undefined || detail.navGifUrl !== undefined) {
+        setDealsNavGifUrl(normalizeNavGifUrl(detail.gif || detail.navGifUrl));
+      }
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener('navbarAppearanceUpdated', handleNavbarAppearanceUpdate);
+      window.addEventListener('offersNavLabelUpdated', handleOffersNavLabelUpdate);
     }
 
     return () => {
       controller.abort();
       if (typeof window !== 'undefined') {
         window.removeEventListener('navbarAppearanceUpdated', handleNavbarAppearanceUpdate);
+        window.removeEventListener('offersNavLabelUpdated', handleOffersNavLabelUpdate);
       }
     };
   }, [firebaseUser?.uid]);

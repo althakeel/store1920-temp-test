@@ -41,6 +41,7 @@ export async function GET(request) {
         subtitle: fallbackCopy.subtitle,
         navLabel: fallbackCopy.navLabel,
         navLabelAr: fallbackCopy.navLabelAr,
+        navGifUrl: fallbackCopy.navGifUrl,
         savedAt: 0,
       },
       { status: 500, headers: NO_STORE_HEADERS },

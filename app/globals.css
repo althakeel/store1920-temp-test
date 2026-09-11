@@ -131,6 +131,13 @@
 
     .navbar-deals-btn {
         box-shadow: none;
+        text-transform: none;
+        font-variant-emoji: emoji;
+    }
+
+    .navbar-deals-btn[data-font="inherit"],
+    .navbar-deals-btn[data-font="inherit"] * {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif !important;
     }
 
     .navbar-deals-btn:hover {
@@ -141,57 +148,77 @@
 
     .navbar-deals-btn[data-font="poppins"],
     .navbar-deals-btn[data-font="poppins"] * {
-        font-family: var(--font-poppins), Poppins, system-ui, sans-serif !important;
+        font-family: var(--font-poppins), Poppins, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif !important;
     }
 
     .navbar-deals-btn[data-font="montserrat"],
     .navbar-deals-btn[data-font="montserrat"] * {
-        font-family: var(--font-montserrat), Montserrat, system-ui, sans-serif !important;
+        font-family: var(--font-montserrat), Montserrat, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif !important;
     }
 
     .navbar-deals-btn[data-font="arial"],
     .navbar-deals-btn[data-font="arial"] * {
-        font-family: Arial, Helvetica, sans-serif !important;
+        font-family: Arial, Helvetica, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
     }
 
     .navbar-deals-btn[data-font="helvetica"],
     .navbar-deals-btn[data-font="helvetica"] * {
-        font-family: Helvetica, Arial, sans-serif !important;
+        font-family: Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
     }
 
     .navbar-deals-btn[data-font="georgia"],
     .navbar-deals-btn[data-font="georgia"] * {
-        font-family: Georgia, serif !important;
+        font-family: Georgia, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif !important;
     }
 
     .navbar-deals-btn[data-font="times"],
     .navbar-deals-btn[data-font="times"] * {
-        font-family: "Times New Roman", Times, serif !important;
+        font-family: "Times New Roman", Times, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif !important;
     }
 
     .navbar-deals-btn[data-font="verdana"],
     .navbar-deals-btn[data-font="verdana"] * {
-        font-family: Verdana, Geneva, sans-serif !important;
+        font-family: Verdana, Geneva, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
     }
 
     .navbar-deals-btn[data-font="trebuchet"],
     .navbar-deals-btn[data-font="trebuchet"] * {
-        font-family: "Trebuchet MS", Helvetica, sans-serif !important;
+        font-family: "Trebuchet MS", Helvetica, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
     }
 
     .navbar-deals-btn[data-font="tahoma"],
     .navbar-deals-btn[data-font="tahoma"] * {
-        font-family: Tahoma, Geneva, sans-serif !important;
+        font-family: Tahoma, Geneva, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
     }
 
     .navbar-deals-btn[data-font="garamond"],
     .navbar-deals-btn[data-font="garamond"] * {
-        font-family: Garamond, Baskerville, serif !important;
+        font-family: Garamond, Baskerville, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif !important;
     }
 
     .navbar-deals-btn[data-font="system"],
     .navbar-deals-btn[data-font="system"] * {
-        font-family: system-ui, -apple-system, sans-serif !important;
+        font-family: system-ui, -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
+    }
+
+    .navbar-deals-emoji,
+    .navbar-deals-btn .navbar-deals-emoji,
+    .navbar-deals-btn[data-font] .navbar-deals-emoji {
+        display: inline-block;
+        color: revert !important;
+        -webkit-text-fill-color: initial !important;
+        background: none !important;
+        background-image: none !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+        font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol" !important;
+        font-weight: 400 !important;
+        font-style: normal !important;
+        font-variant-emoji: emoji;
+        letter-spacing: 0;
+        text-transform: none !important;
+        line-height: 1;
+        transform: none;
     }
 
     .navbar-deals-text-shine {

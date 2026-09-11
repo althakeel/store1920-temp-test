@@ -11,6 +11,7 @@ import { useStorefrontI18n } from '@/lib/useStorefrontI18n'
 import {
   DEFAULT_OFFERS_NAV_LABEL,
   DEFAULT_OFFERS_NAV_LABEL_AR,
+  normalizeNavGifUrl,
   splitOffersNavLabel,
 } from '@/lib/offersPageSettings'
 
@@ -115,8 +116,9 @@ function RegularNavItem({ item, pathname, brandColor, hydrated }) {
   )
 }
 
-function CenterTodayDealsItem({ pathname, line1, line2 }) {
+function CenterTodayDealsItem({ pathname, line1, line2, gifUrl = '' }) {
   const isActive = pathname === OFFERS_HREF
+  const hasGif = Boolean(String(gifUrl || '').trim())
 
   return (
     <Link
@@ -126,12 +128,16 @@ function CenterTodayDealsItem({ pathname, line1, line2 }) {
       aria-current={isActive ? 'page' : undefined}
     >
       <span
-        className="relative flex h-[46px] w-[46px] items-center justify-center rounded-full shadow-[0_4px_14px_rgba(234,88,12,0.35)] ring-[3px] ring-white transition-transform duration-200 active:scale-95"
+        className="relative flex h-[46px] w-[46px] items-center justify-center overflow-hidden rounded-full shadow-[0_4px_14px_rgba(234,88,12,0.35)] ring-[3px] ring-white transition-transform duration-200 active:scale-95"
         style={{
           background: `linear-gradient(145deg, ${DEALS_ACCENT} 0%, ${DEALS_ACCENT_DARK} 100%)`,
         }}
       >
-        <Percent size={21} color="#ffffff" strokeWidth={2.5} />
+        {hasGif ? (
+          <img src={gifUrl} alt="" className="h-7 w-7 object-contain" />
+        ) : (
+          <Percent size={21} color="#ffffff" strokeWidth={2.5} />
+        )}
       </span>
       <span className="mt-1 flex flex-col items-center leading-none">
         <span
@@ -168,6 +174,7 @@ export default function MobileBottomNav() {
     en: DEFAULT_OFFERS_NAV_LABEL,
     ar: DEFAULT_OFFERS_NAV_LABEL_AR,
   })
+  const [dealsNavGifUrl, setDealsNavGifUrl] = useState('')
   const isSignedIn = !!user
   const isArabic = language === 'ar'
   const dealsNavLabel = isArabic ? dealsNavLabels.ar : dealsNavLabels.en
@@ -184,9 +191,30 @@ export default function MobileBottomNav() {
             ar: String(parsed.ar || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
           })
         }
+        if (parsed?.gif !== undefined || parsed?.navGifUrl !== undefined) {
+          setDealsNavGifUrl(normalizeNavGifUrl(parsed.gif || parsed.navGifUrl))
+        }
       }
     } catch {
       // Ignore storage read failures.
+    }
+
+    const applyOffersNav = (offersPage = {}) => {
+      const nextLabels = {
+        en: String(offersPage.navLabel || DEFAULT_OFFERS_NAV_LABEL).trim() || DEFAULT_OFFERS_NAV_LABEL,
+        ar: String(offersPage.navLabelAr || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
+      }
+      const nextGif = normalizeNavGifUrl(offersPage.navGifUrl || offersPage.gif)
+      setDealsNavLabels(nextLabels)
+      setDealsNavGifUrl(nextGif)
+      try {
+        window.localStorage.setItem('offersNavLabelCache', JSON.stringify({
+          ...nextLabels,
+          gif: nextGif,
+        }))
+      } catch {
+        // Ignore storage write failures.
+      }
     }
 
     const controller = new AbortController()
@@ -197,20 +225,28 @@ export default function MobileBottomNav() {
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!data?.offersPage) return
-        const nextLabels = {
-          en: String(data.offersPage.navLabel || DEFAULT_OFFERS_NAV_LABEL).trim() || DEFAULT_OFFERS_NAV_LABEL,
-          ar: String(data.offersPage.navLabelAr || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
-        }
-        setDealsNavLabels(nextLabels)
-        try {
-          window.localStorage.setItem('offersNavLabelCache', JSON.stringify(nextLabels))
-        } catch {
-          // Ignore storage write failures.
-        }
+        applyOffersNav(data.offersPage)
       })
       .catch(() => {})
 
-    return () => controller.abort()
+    const handleOffersNavLabelUpdate = (event) => {
+      const detail = event?.detail || {}
+      if (detail.en || detail.ar) {
+        setDealsNavLabels({
+          en: String(detail.en || DEFAULT_OFFERS_NAV_LABEL).trim() || DEFAULT_OFFERS_NAV_LABEL,
+          ar: String(detail.ar || DEFAULT_OFFERS_NAV_LABEL_AR).trim() || DEFAULT_OFFERS_NAV_LABEL_AR,
+        })
+      }
+      if (detail.gif !== undefined || detail.navGifUrl !== undefined) {
+        setDealsNavGifUrl(normalizeNavGifUrl(detail.gif || detail.navGifUrl))
+      }
+    }
+    window.addEventListener('offersNavLabelUpdated', handleOffersNavLabelUpdate)
+
+    return () => {
+      controller.abort()
+      window.removeEventListener('offersNavLabelUpdated', handleOffersNavLabelUpdate)
+    }
   }, [])
 
   if (isProductDetailPath(pathname)) {
@@ -264,6 +300,7 @@ export default function MobileBottomNav() {
           pathname={pathname}
           line1={dealsNavParts.top}
           line2={dealsNavParts.bottom || dealsNavLabel}
+          gifUrl={dealsNavGifUrl}
         />
 
         {rightItems.map((item) => (

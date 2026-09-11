@@ -14,10 +14,11 @@ export default function CurrencySymbol({
     <span
       role="img"
       aria-label="AED"
-      className={`inline-block shrink-0 bg-current align-[-0.08em] ${className}`.trim()}
+      className={`inline-block shrink-0 bg-current align-[-0.18em] ${className}`.trim()}
       style={{
-        width: '1em',
-        height: '1em',
+        width: '0.68em',
+        height: '0.68em',
+        marginInlineEnd: '0.12em',
         WebkitMaskImage: `url(${AED_DIRHAM_SRC})`,
         WebkitMaskRepeat: 'no-repeat',
         WebkitMaskPosition: 'center',
@@ -49,9 +50,9 @@ export function AedText({
   }
 
   return (
-    <span className={`inline ${className}`.trim()}>
+    <span className={`inline-flex items-baseline ${className}`.trim()}>
       {parts.map((part, index) => (
-        <span key={`${part}-${index}`}>
+        <span key={`${part}-${index}`} className="inline-flex items-baseline">
           {index > 0 ? <CurrencySymbol currency="AED" /> : null}
           {part}
         </span>

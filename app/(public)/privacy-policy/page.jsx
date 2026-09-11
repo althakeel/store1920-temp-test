@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
     return (
       <PolicyPageLayout dir="rtl">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">سياسة الخصوصية</h1>
-          <p className="text-xs text-gray-500 mb-4">آخر تحديث: 8 سبتمبر 2026</p>
+          <p className="text-xs text-gray-500 mb-4">آخر تحديث: 11 سبتمبر 2026</p>
           <p className="text-gray-600 mb-8">
             توضح سياسة الخصوصية هذه كيف يقوم Store1920.com، المملوك ويُدار من قبل <strong>{STORE1920_LEGAL_NAME}</strong>، بجمع واستخدام وحفظ وحماية معلوماتك الشخصية عند استخدام الموقع والخدمات.
           </p>
@@ -66,8 +66,7 @@ export default function PrivacyPolicyPage() {
             <section>
               <h2 className="font-semibold text-gray-900 mb-2">5. أمان البيانات</h2>
               <p className="text-gray-700">
-                نطبق إجراءات أمنية مناسبة مثل الاتصالات المشفرة وضوابط الوصول لحماية بياناتك. ورغم ذلك، لا توجد وسيلة نقل عبر الإنترنت
-                مضمونة بنسبة 100%.
+                نحمي البيانات الشخصية عبر HTTPS (TLS) للموقع وصفحة الدفع، وضوابط الوصول، والاستضافة الآمنة. تُدخل بيانات البطاقة فقط على صفحات دفع مستضافة متوافقة مع PCI؛ ولا نخزن أرقام البطاقات أو رمز CVV. رسائل البريد والرسائل النصية وواتساب تستخدم قنوات أولئك المزودين وقد لا تكون مشفرة من طرف إلى طرف من قِبل Store1920. لا توجد وسيلة نقل أو تخزين آمنة بالكامل.
               </p>
             </section>
 
@@ -96,7 +95,7 @@ export default function PrivacyPolicyPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Privacy Policy
         </h1>
-        <p className="text-xs text-gray-500 mb-4">Last updated: 8 September 2026</p>
+        <p className="text-xs text-gray-500 mb-4">Last updated: 11 September 2026</p>
         <p className="text-gray-600 mb-8">
           This Privacy Policy explains how <strong>Store1920.com</strong>, owned
           and operated by <strong>{STORE1920_LEGAL_NAME}</strong>, collects, uses, stores, and
@@ -189,10 +188,12 @@ export default function PrivacyPolicyPage() {
               5. Data Security
             </h2>
             <p className="text-gray-700">
-              We use industry-standard security measures including encrypted
-              connections, secure servers, and access controls to protect your
-              data. However, no method of transmission over the internet is
-              completely secure.
+              We protect personal data with HTTPS (TLS) on the website and checkout,
+              access controls, and secure hosting. Card details are entered only on
+              hosted PCI-compliant payment pages; Store1920 does not store card
+              numbers or CVV. Email, SMS and WhatsApp messages use those providers’
+              channels and may not be end-to-end encrypted by Store1920. No method
+              of transmission or storage is completely secure.
             </p>
           </section>
 

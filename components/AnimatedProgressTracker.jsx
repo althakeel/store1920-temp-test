@@ -81,11 +81,11 @@ export default function AnimatedProgressTracker({ steps }) {
                     )}
                   </div>
                   <p
-                    className={`mt-3 max-w-[96px] text-center text-xs font-semibold leading-snug transition-all duration-300 ${
+                    className={`mt-3 max-w-[7.5rem] text-center text-xs font-semibold leading-snug transition-all duration-300 ${
                       isCompleted ? 'text-slate-800' : 'text-slate-400'
                     }`}
                   >
-                    {step.name.replace(/_/g, ' ')}
+                    {step.label || step.name.replace(/_/g, ' ')}
                   </p>
                 </div>
               )
@@ -122,7 +122,7 @@ export default function AnimatedProgressTracker({ steps }) {
                 <p className={`font-semibold text-sm ${
                   isCompleted || isAnimated ? 'text-slate-800' : 'text-slate-400'
                 }`}>
-                  {step.name.replace(/_/g, ' ')}
+                  {step.label || step.name.replace(/_/g, ' ')}
                 </p>
               </div>
             </div>

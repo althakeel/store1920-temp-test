@@ -7,7 +7,8 @@ import {
 import {
   STORE1920_LEGAL_NAME,
   STORE1920_BRAND_DISPLAY,
-  getBusinessAddressSingleLine,
+  getRegisteredOfficeSingleLine,
+  getFulfilmentAddressSingleLine,
   STORE1920_BUSINESS_HOURS_EN,
   STORE1920_BUSINESS_HOURS_AR,
 } from '@/lib/businessIdentity';
@@ -17,6 +18,8 @@ const STORE1920_WEBSITE = 'https://www.store1920.com';
 export default function PolicyContactBlock({ isArabic = false }) {
   const hours = isArabic ? STORE1920_BUSINESS_HOURS_AR : STORE1920_BUSINESS_HOURS_EN;
   const phoneDisplay = formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE);
+  const registeredOffice = getRegisteredOfficeSingleLine();
+  const fulfilmentAddress = getFulfilmentAddressSingleLine();
 
   if (isArabic) {
     return (
@@ -29,7 +32,10 @@ export default function PolicyContactBlock({ isArabic = false }) {
           <strong>الاسم التجاري:</strong> {STORE1920_BRAND_DISPLAY}
         </p>
         <p className="text-gray-700 mb-1">
-          <strong>العنوان:</strong> {getBusinessAddressSingleLine()}
+          <strong>المكتب المسجّل:</strong> {registeredOffice}
+        </p>
+        <p className="text-gray-700 mb-1">
+          <strong>التجهيز والإرجاع:</strong> {fulfilmentAddress}
         </p>
         <p className="text-gray-700 mb-1">
           <strong>الموقع:</strong>{' '}
@@ -66,7 +72,10 @@ export default function PolicyContactBlock({ isArabic = false }) {
         <strong>Trading as:</strong> {STORE1920_BRAND_DISPLAY}
       </p>
       <p className="text-gray-700 mb-1">
-        <strong>Address:</strong> {getBusinessAddressSingleLine()}
+        <strong>Registered office:</strong> {registeredOffice}
+      </p>
+      <p className="text-gray-700 mb-1">
+        <strong>Fulfilment and returns:</strong> {fulfilmentAddress}
       </p>
       <p className="text-gray-700 mb-1">
         <strong>Website:</strong>{' '}

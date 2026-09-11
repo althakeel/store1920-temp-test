@@ -25,6 +25,7 @@ description: Maintains the Store1920 public About Us page at /about-us — bilin
 
 - Keep English and Arabic updated together
 - Legal owner is ALTHAKEEL LLC from `STORE1920_LEGAL_NAME` / `STORE1920_LEGAL_NAME_AR` + trade license number
+- Mention both the Dubai registered office and the Sharjah fulfilment/returns warehouse; do not combine them into one address
 - Fast delivery only on **eligible** items; do not invent “7-day free returns”
 - Eligible returns copy must match the master `/return-policy` (7-day unused; free return shipping only for wrong/damaged/defective/not-as-described)
 - Contact comes from `STORE1920_SUPPORT_EMAIL` and `STORE1920_CUSTOMER_SUPPORT_PHONE`

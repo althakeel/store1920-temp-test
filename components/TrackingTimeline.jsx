@@ -13,7 +13,13 @@ function formatTrackingEventTime(value) {
   return formatted === '—' ? '' : formatted
 }
 
-export default function TrackingTimeline({ events, type = 'delhivery' }) {
+export default function TrackingTimeline({
+  events,
+  type = 'delhivery',
+  emptyLabel = 'No tracking events yet',
+  updateLabel = 'Update',
+  receivedByLabel = 'Received by',
+}) {
   const [animatedEvents, setAnimatedEvents] = useState([])
 
   useEffect(() => {
@@ -49,7 +55,7 @@ export default function TrackingTimeline({ events, type = 'delhivery' }) {
   if (!events || events.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-slate-500">No tracking events yet</p>
+        <p className="text-slate-500">{emptyLabel}</p>
       </div>
     )
   }
@@ -95,7 +101,7 @@ export default function TrackingTimeline({ events, type = 'delhivery' }) {
                     {String(event.status || '').replace(/_/g, ' ')}
                   </h4>
                   <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                    {timestamp || 'Update'}
+                    {timestamp || updateLabel}
                   </span>
                 </div>
 
@@ -113,7 +119,7 @@ export default function TrackingTimeline({ events, type = 'delhivery' }) {
                 {deliveredTo && (
                   <div className="mt-3 rounded border-l-2 border-green-500 bg-green-50 p-2">
                     <p className="text-xs font-medium text-slate-700">
-                      ✓ Received by: <span className="text-green-700 font-bold">{deliveredTo}</span>
+                      ✓ {receivedByLabel}: <span className="text-green-700 font-bold">{deliveredTo}</span>
                     </p>
                   </div>
                 )}

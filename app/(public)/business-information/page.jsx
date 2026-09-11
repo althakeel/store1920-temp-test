@@ -17,11 +17,13 @@ import {
   STORE1920_DCCI_MEMBERSHIP_NO,
   STORE1920_BUSINESS_HOURS_EN,
   STORE1920_BUSINESS_HOURS_AR,
-  getBusinessAddressSingleLine,
+  getRegisteredOfficeSingleLine,
+  getFulfilmentAddressSingleLine,
 } from '@/lib/businessIdentity';
 
 const phoneDisplay = formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE);
-const addressLine = getBusinessAddressSingleLine();
+const registeredOfficeLine = getRegisteredOfficeSingleLine();
+const fulfilmentLine = getFulfilmentAddressSingleLine();
 
 const PAGE_COPY = {
   en: {
@@ -44,7 +46,8 @@ const PAGE_COPY = {
       { label: 'License Category / Issuing Authority', value: 'Department of Economic Development (Dep. of Economic Development)' },
       { label: 'Issue Date', value: '21/06/2010' },
       { label: 'Expiry Date', value: '20/06/2027' },
-      { label: 'Registered / Fulfilment Address', value: addressLine },
+      { label: 'Registered office', value: registeredOfficeLine },
+      { label: 'Fulfilment and returns', value: fulfilmentLine },
       { label: 'Customer Support Phone', value: phoneDisplay },
       { label: 'Customer Support Email', value: STORE1920_SUPPORT_EMAIL },
       { label: 'Business Hours', value: STORE1920_BUSINESS_HOURS_EN },
@@ -86,7 +89,8 @@ const PAGE_COPY = {
       { label: 'فئة الرخصة / جهة الإصدار', value: 'دائرة التنمية الاقتصادية' },
       { label: 'تاريخ الإصدار', value: '21/06/2010' },
       { label: 'تاريخ الانتهاء', value: '20/06/2027' },
-      { label: 'العنوان المسجل / مركز التنفيذ', value: addressLine },
+      { label: 'المكتب المسجّل', value: registeredOfficeLine },
+      { label: 'التجهيز والإرجاع', value: fulfilmentLine },
       { label: 'هاتف دعم العملاء', value: phoneDisplay },
       { label: 'البريد الإلكتروني', value: STORE1920_SUPPORT_EMAIL },
       { label: 'ساعات العمل', value: STORE1920_BUSINESS_HOURS_AR },
@@ -181,7 +185,10 @@ export default function BusinessInformationPage() {
               </a>
             </li>
             <li>
-              <strong>{isArabic ? 'العنوان:' : 'Address:'}</strong> {addressLine}
+              <strong>{isArabic ? 'المكتب المسجّل:' : 'Registered office:'}</strong> {registeredOfficeLine}
+            </li>
+            <li>
+              <strong>{isArabic ? 'التجهيز والإرجاع:' : 'Fulfilment and returns:'}</strong> {fulfilmentLine}
             </li>
           </ul>
         </section>

@@ -13,7 +13,8 @@ import {
 } from '@/lib/storeContact';
 import {
     STORE1920_LEGAL_NAME,
-    getBusinessAddressLines,
+    getRegisteredOfficeLines,
+    getFulfilmentAddressLines,
     STORE1920_SOCIAL_LINKS,
 } from '@/lib/businessIdentity';
 
@@ -181,6 +182,7 @@ const Footer = () => {
                 { text: t('footer.shippingPolicy'), path: '/shipping-policy' },
                 { text: t('footer.privacyPolicy'), path: '/privacy-policy' },
                 { text: t('footer.returnRefund'), path: '/return-policy' },
+                { text: t('footer.warrantyPolicy'), path: '/warranty-policy' },
                 { text: t('footer.sitemap'), path: '/sitemap' },
             ],
         },
@@ -203,7 +205,8 @@ const Footer = () => {
         { icon: SnapchatIcon, link: STORE1920_SOCIAL_LINKS.snapchat, label: 'Snapchat' },
     ];
     const phoneDisplay = formatCustomerSupportPhoneDisplay(STORE1920_CUSTOMER_SUPPORT_PHONE);
-    const addressLines = getBusinessAddressLines();
+    const registeredOfficeLines = getRegisteredOfficeLines();
+    const fulfilmentAddressLines = getFulfilmentAddressLines();
 
     const appDownloadLinks = [
         {
@@ -302,8 +305,17 @@ const Footer = () => {
                             <div className="flex items-start gap-2 text-sm">
                                 <MapPinIcon />
                                 <span className="text-slate-400 leading-relaxed">
-                                    {addressLines.map((line) => (
-                                        <span key={line} className="block">{line}</span>
+                                    <span className="block text-[11px] uppercase tracking-wide text-slate-500">
+                                        {t('footer.registeredOffice')}
+                                    </span>
+                                    {registeredOfficeLines.map((line) => (
+                                        <span key={`office-${line}`} className="block">{line}</span>
+                                    ))}
+                                    <span className="mt-2 block text-[11px] uppercase tracking-wide text-slate-500">
+                                        {t('footer.fulfilmentReturns')}
+                                    </span>
+                                    {fulfilmentAddressLines.map((line) => (
+                                        <span key={`fulfilment-${line}`} className="block">{line}</span>
                                     ))}
                                 </span>
                             </div>

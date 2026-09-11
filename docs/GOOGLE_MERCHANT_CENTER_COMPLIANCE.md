@@ -3,7 +3,7 @@
 **Status context:** UAE products blocked for Misrepresentation (review requested Jul 10, 2026).  
 **Store:** https://store1920.com  
 **Legal entity:** ALTHAKEEL GENERAL TRADING L.L.C (License 641210)  
-**Last updated:** 2026-07-20
+**Last updated:** 2026-09-11
 
 Use this checklist before you request another Merchant Center review. Website changes alone are not enough — **Merchant Center Business information must match the website exactly**.
 
@@ -53,7 +53,8 @@ Keep these **identical** in GMC → Business information, Google Business Profil
 | Commercial register | 1994147 |
 | Phone | 8007861920 |
 | Email | support@store1920.com |
-| Address | Warehouse No. 1, 18 Maleha St, Industrial Area, Sharjah, United Arab Emirates |
+| Registered office | Dubai office exactly as printed on the DED trade licence (see `STORE1920_REGISTERED_OFFICE_*` in `lib/businessIdentity.js`) |
+| Fulfilment and returns | Warehouse No. 1, 18 Maleha St, Industrial Area, Sharjah, United Arab Emirates |
 | Country | United Arab Emirates (AE) |
 | Hours | Sunday – Thursday, 9:00 AM – 6:00 PM (UAE time) |
 | Website | https://store1920.com |
@@ -73,8 +74,8 @@ Keep these **identical** in GMC → Business information, Google Business Profil
 
 ### Website (code — implemented)
 
-- [x] `/business-information` with license + address + phone + hours
-- [x] Footer contact: phone, email, full address (text)
+- [x] `/business-information` with license + registered office + fulfilment/returns + phone + hours
+- [x] Footer contact: phone, email, registered office and fulfilment/returns (text)
 - [x] Contact page: phone, email, address, hours, legal name
 - [x] Checkout links: terms, sale, privacy, **shipping**, **returns**
 - [x] Product buybox links to shipping + return policies

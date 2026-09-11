@@ -6,13 +6,17 @@ import Image from 'next/image'
 import Link from 'next/link'
 import {
   Check,
+  ChevronsUp,
   FolderTree,
+  GripVertical,
+  ImagePlus,
   Languages,
   Loader2,
   Package,
   Percent,
   Save,
   Search,
+  X,
 } from 'lucide-react'
 import BusyButtonIcon from '@/components/store/BusyButtonIcon'
 import toast from 'react-hot-toast'
@@ -24,11 +28,15 @@ import {
   DEFAULT_OFFERS_NAV_STYLE,
   DEFAULT_OFFERS_PAGE,
   OFFERS_DISCOUNT_PRESETS,
+  OFFERS_NAV_EMOJI_PRESETS,
   OFFERS_NAV_FONT_OPTIONS,
+  OFFERS_NAV_LABEL_MAX,
+  expandOffersNavShortcodes,
   getOffersNavButtonAppearance,
   getOffersPageSubtitle,
   normalizeOffersPage,
 } from '@/lib/offersPageSettings'
+import OffersNavLabel from '@/components/OffersNavLabel'
 
 const PRODUCTS_PER_PAGE = 24
 const SAVE_TOAST_ID = 'offers-page-saved'
@@ -106,10 +114,17 @@ export default function OffersCustomizePage() {
   const [selectedProducts, setSelectedProducts] = useState([])
   const [translatingNav, setTranslatingNav] = useState(false)
   const [translatingCopy, setTranslatingCopy] = useState(false)
+  const [dragProductId, setDragProductId] = useState('')
+  const [overProductId, setOverProductId] = useState('')
+  const [uploadingNavGif, setUploadingNavGif] = useState(false)
   const searchDebounceRef = useRef(null)
   const productsAbortRef = useRef(null)
 
   const selectedSet = useMemo(() => new Set(form.productIds.map(normalizeProductId)), [form.productIds])
+  const selectedIdsKey = useMemo(
+    () => [...form.productIds].map(normalizeProductId).filter(Boolean).sort().join(','),
+    [form.productIds]
+  )
   const selectedCategorySet = useMemo(
     () => new Set(form.categoryIds.map((id) => String(id))),
     [form.categoryIds]
@@ -128,6 +143,56 @@ export default function OffersCustomizePage() {
       ...prev,
       navStyle: { ...(prev.navStyle || DEFAULT_OFFERS_NAV_STYLE), ...patch },
     }))
+  }
+
+  const updateNavLabel = (field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: expandOffersNavShortcodes(value).slice(0, OFFERS_NAV_LABEL_MAX),
+    }))
+  }
+
+  const insertNavEmoji = (field, emoji) => {
+    setForm((prev) => {
+      const current = String(prev[field] || '')
+      if (current.includes(emoji)) return prev
+      const next = `${emoji} ${current}`.trim().slice(0, OFFERS_NAV_LABEL_MAX)
+      return { ...prev, [field]: next }
+    })
+  }
+
+  const uploadNavGif = async (file) => {
+    if (!file) return
+    const isGif = String(file.type || '').toLowerCase() === 'image/gif'
+      || /\.gif$/i.test(String(file.name || ''))
+    const isImage = String(file.type || '').startsWith('image/')
+    if (!isImage && !isGif) {
+      toast.error('Choose a GIF or image file')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('GIF must be 2MB or smaller')
+      return
+    }
+
+    try {
+      setUploadingNavGif(true)
+      const token = await getToken()
+      const formData = new FormData()
+      formData.append('image', file)
+      formData.append('type', 'offers-nav')
+      const { data } = await axios.post('/api/store/upload-image', formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const url = String(data?.url || '').trim()
+      if (!url) throw new Error('Upload returned no URL')
+      setForm((prev) => ({ ...prev, navGifUrl: url }))
+      toast.success('Navbar GIF uploaded. Save to publish.')
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error?.message || 'GIF upload failed')
+    } finally {
+      setUploadingNavGif(false)
+    }
   }
 
   const fetchProductsPage = useCallback(async ({ page = 1, search = debouncedSearch } = {}) => {
@@ -206,7 +271,7 @@ export default function OffersCustomizePage() {
 
   useEffect(() => {
     if (form.mode !== 'manual' || loading) return
-    const ids = form.productIds.map(normalizeProductId).filter(Boolean)
+    const ids = selectedIdsKey ? selectedIdsKey.split(',') : []
     if (!ids.length) {
       setSelectedProducts([])
       return undefined
@@ -229,7 +294,7 @@ export default function OffersCustomizePage() {
     return () => {
       cancelled = true
     }
-  }, [form.mode, form.productIds, loading, getToken])
+  }, [form.mode, selectedIdsKey, loading, getToken])
 
   const toggleProduct = (productId) => {
     const id = normalizeProductId(productId)
@@ -242,6 +307,30 @@ export default function OffersCustomizePage() {
           ? prev.productIds.filter((item) => item !== id)
           : [...prev.productIds, id],
       }
+    })
+  }
+
+  const moveSelectedProduct = (fromId, toId) => {
+    const from = normalizeProductId(fromId)
+    const to = normalizeProductId(toId)
+    if (!from || !to || from === to) return
+    setForm((prev) => {
+      const ids = [...prev.productIds]
+      const fromIndex = ids.indexOf(from)
+      const toIndex = ids.indexOf(to)
+      if (fromIndex < 0 || toIndex < 0) return prev
+      const [moved] = ids.splice(fromIndex, 1)
+      ids.splice(toIndex, 0, moved)
+      return { ...prev, productIds: ids }
+    })
+  }
+
+  const moveSelectedToTop = (productId) => {
+    const id = normalizeProductId(productId)
+    if (!id) return
+    setForm((prev) => {
+      if (!prev.productIds.includes(id) || prev.productIds[0] === id) return prev
+      return { ...prev, productIds: [id, ...prev.productIds.filter((item) => item !== id)] }
     })
   }
 
@@ -333,7 +422,7 @@ export default function OffersCustomizePage() {
         { text: english },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      const translated = String(data?.descriptionAr || '').trim().slice(0, 40)
+      const translated = expandOffersNavShortcodes(String(data?.descriptionAr || '')).trim().slice(0, OFFERS_NAV_LABEL_MAX)
       if (!translated) {
         toast.error('Could not translate to Arabic')
         return
@@ -369,6 +458,24 @@ export default function OffersCustomizePage() {
         { offersPage: payload },
         { headers: { Authorization: `Bearer ${token}` } }
       )
+      try {
+        window.localStorage.setItem('offersNavLabelCache', JSON.stringify({
+          en: payload.navLabel,
+          ar: payload.navLabelAr,
+          style: payload.navStyle,
+          gif: payload.navGifUrl,
+        }))
+        window.dispatchEvent(new CustomEvent('offersNavLabelUpdated', {
+          detail: {
+            en: payload.navLabel,
+            ar: payload.navLabelAr,
+            style: payload.navStyle,
+            gif: payload.navGifUrl,
+          },
+        }))
+      } catch {
+        // Ignore cache/event failures.
+      }
       toast.success('Offers page saved. /offers will show this list now.', { id: SAVE_TOAST_ID })
     } catch (error) {
       console.error(error)
@@ -442,7 +549,7 @@ export default function OffersCustomizePage() {
                 </p>
                 <div className="mt-3 flex items-center">
                   <span
-                    className="navbar-deals-btn inline-flex items-center font-extrabold uppercase tracking-[0.06em]"
+                    className="navbar-deals-btn inline-flex items-center font-extrabold tracking-[0.04em]"
                     data-font={navButtonPreview.fontId || 'inherit'}
                     style={{
                       ...navButtonPreview.style,
@@ -451,7 +558,12 @@ export default function OffersCustomizePage() {
                         : navButtonPreview.textColor,
                     }}
                   >
-                    {form.navLabel || "Today's Deals"}
+                    <OffersNavLabel
+                      label={form.navLabel || "Today's Deals"}
+                      gifUrl={form.navGifUrl}
+                      shineClass={navButtonPreview.useShine ? 'navbar-deals-text-shine' : ''}
+                      gifSize={18}
+                    />
                   </span>
                 </div>
               </div>
@@ -542,13 +654,26 @@ export default function OffersCustomizePage() {
                 <input
                   type="text"
                   value={form.navLabel}
-                  onChange={(e) => setForm((prev) => ({ ...prev, navLabel: e.target.value }))}
-                  placeholder="Today's Deals"
-                  maxLength={40}
+                  onChange={(e) => updateNavLabel('navLabel', e.target.value)}
+                  placeholder="🔥 LAST CHANCE"
+                  maxLength={OFFERS_NAV_LABEL_MAX}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
                 />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {OFFERS_NAV_EMOJI_PRESETS.map((emoji) => (
+                    <button
+                      key={`en-${emoji}`}
+                      type="button"
+                      onClick={() => insertNavEmoji('navLabel', emoji)}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-base leading-none hover:border-rose-300 hover:bg-rose-50"
+                      title={`Add ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  Display text only. The button always opens /offers — the URL never changes.
+                  Emoji and GIF are supported. Type 🔥 or :fire: LAST CHANCE. The button always opens /offers.
                 </p>
               </div>
               <div>
@@ -568,11 +693,69 @@ export default function OffersCustomizePage() {
                   type="text"
                   dir="rtl"
                   value={form.navLabelAr}
-                  onChange={(e) => setForm((prev) => ({ ...prev, navLabelAr: e.target.value }))}
-                  placeholder="عروض اليوم"
-                  maxLength={40}
+                  onChange={(e) => updateNavLabel('navLabelAr', e.target.value)}
+                  placeholder="🔥 آخر فرصة"
+                  maxLength={OFFERS_NAV_LABEL_MAX}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
                 />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {OFFERS_NAV_EMOJI_PRESETS.map((emoji) => (
+                    <button
+                      key={`ar-${emoji}`}
+                      type="button"
+                      onClick={() => insertNavEmoji('navLabelAr', emoji)}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-base leading-none hover:border-rose-300 hover:bg-rose-50"
+                      title={`Add ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">Navbar GIF (optional)</label>
+                <div className="flex items-center gap-3">
+                  {form.navGifUrl ? (
+                    <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      <img src={form.navGifUrl} alt="" className="h-10 w-10 object-contain" />
+                    </span>
+                  ) : (
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400">
+                      <ImagePlus size={18} />
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">
+                      <BusyButtonIcon busy={uploadingNavGif} icon={ImagePlus} size={12} />
+                      {uploadingNavGif ? 'Uploading...' : form.navGifUrl ? 'Replace GIF' : 'Upload GIF'}
+                      <input
+                        type="file"
+                        accept="image/gif,image/png,image/webp,image/jpeg,.gif"
+                        className="hidden"
+                        disabled={uploadingNavGif}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          e.target.value = ''
+                          uploadNavGif(file)
+                        }}
+                      />
+                    </label>
+                    {form.navGifUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, navGifUrl: '' }))}
+                        className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-rose-600"
+                      >
+                        <X size={12} />
+                        Remove
+                      </button>
+                    ) : null}
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Animated GIF stays animated on the storefront. Max 2MB.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -600,7 +783,11 @@ export default function OffersCustomizePage() {
                       data-font={navStyle.fontFamily || 'inherit'}
                       style={{ fontFamily: navButtonPreview.style.fontFamily }}
                     >
-                      {(form.navLabel || "Today's Deals")} · {OFFERS_NAV_FONT_OPTIONS.find((font) => font.id === (navStyle.fontFamily || 'inherit'))?.label || 'Default'}
+                      <OffersNavLabel
+                        label={`${form.navLabel || "Today's Deals"} · ${OFFERS_NAV_FONT_OPTIONS.find((font) => font.id === (navStyle.fontFamily || 'inherit'))?.label || 'Default'}`}
+                        gifUrl={form.navGifUrl}
+                        gifSize={16}
+                      />
                     </p>
                   </label>
 
@@ -826,7 +1013,7 @@ export default function OffersCustomizePage() {
                   <div>
                     <h2 className="text-base font-semibold text-slate-900">Select products</h2>
                     <p className="text-xs text-slate-500">
-                      {form.productIds.length} selected · search by name or SKU · click Save to show them on /offers
+                      {form.productIds.length} selected · drag chips to set /offers order · first item shows first
                     </p>
                   </div>
                   <div className="relative w-full sm:max-w-xs">
@@ -847,21 +1034,69 @@ export default function OffersCustomizePage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">
                     Selected for /offers ({form.productIds.length})
                   </p>
+                  <p className="mt-1 text-[11px] text-rose-600/80">
+                    Drag a chip to move it. Use the up arrow to send it to the top. Save to apply on /offers.
+                  </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {form.productIds.map((id) => {
                       const product = selectedProducts.find((item) => normalizeProductId(item) === id)
                         || products.find((item) => normalizeProductId(item) === id)
+                      const isDragging = dragProductId === id
+                      const isOver = overProductId === id && dragProductId && dragProductId !== id
                       return (
-                        <button
+                        <div
                           key={id}
-                          type="button"
-                          onClick={() => toggleProduct(id)}
-                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-rose-200 bg-white px-2.5 py-1 text-xs text-slate-700 hover:border-rose-400"
-                          title="Click to remove"
+                          draggable
+                          onDragStart={(event) => {
+                            setDragProductId(id)
+                            event.dataTransfer.effectAllowed = 'move'
+                            event.dataTransfer.setData('text/plain', id)
+                          }}
+                          onDragEnd={() => {
+                            setDragProductId('')
+                            setOverProductId('')
+                          }}
+                          onDragOver={(event) => {
+                            event.preventDefault()
+                            event.dataTransfer.dropEffect = 'move'
+                            if (overProductId !== id) setOverProductId(id)
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault()
+                            const fromId = event.dataTransfer.getData('text/plain') || dragProductId
+                            moveSelectedProduct(fromId, id)
+                            setDragProductId('')
+                            setOverProductId('')
+                          }}
+                          className={`inline-flex max-w-full items-center gap-1.5 rounded-full border bg-white px-2 py-1 text-xs text-slate-700 ${
+                            isDragging ? 'opacity-50' : ''
+                          } ${
+                            isOver
+                              ? 'border-rose-500 ring-2 ring-rose-200'
+                              : 'border-rose-200'
+                          } cursor-grab active:cursor-grabbing`}
                         >
+                          <GripVertical size={13} className="shrink-0 text-rose-400" aria-hidden />
                           <span className="truncate">{product?.name || id.slice(-6)}</span>
-                          <span className="text-rose-500">×</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => moveSelectedToTop(id)}
+                            className="rounded-full p-0.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                            title="Move to top"
+                            aria-label={`Move ${product?.name || 'product'} to top`}
+                          >
+                            <ChevronsUp size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleProduct(id)}
+                            className="rounded-full px-0.5 text-rose-500 hover:bg-rose-50"
+                            title="Remove"
+                            aria-label={`Remove ${product?.name || 'product'}`}
+                          >
+                            ×
+                          </button>
+                        </div>
                       )
                     })}
                   </div>
